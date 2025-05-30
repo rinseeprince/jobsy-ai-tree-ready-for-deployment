@@ -17,12 +17,117 @@ import {
   Copy,
   RefreshCw,
   Sparkles,
-  Zap,
   Target,
+  AlertCircle,
+  Info,
+  Type,
+  FileX,
+  Star,
+  ArrowRight,
 } from "lucide-react"
 import { generateCoverLetter, improveCv } from "@/lib/ai-service"
 
 type Step = 1 | 2 | 3 | 4
+
+// Component to format CV recommendations with better styling
+function FormattedCVRecommendations({ text }: { text: string }) {
+  const formatText = (text: string) => {
+    // Split text into lines
+    const lines = text.split("\n").filter((line) => line.trim())
+
+    return lines
+      .map((line, index) => {
+        const trimmedLine = line.trim()
+
+        // Check for section headers (lines that end with colon or are all caps)
+        if (trimmedLine.endsWith(":") || (trimmedLine === trimmedLine.toUpperCase() && trimmedLine.length > 3)) {
+          return (
+            <h3 key={index} className="text-lg font-bold text-purple-800 mt-6 mb-3 flex items-center">
+              <Star className="w-5 h-5 mr-2 text-purple-600" />
+              {trimmedLine}
+            </h3>
+          )
+        }
+
+        // Check for numbered recommendations (1., 2., etc.)
+        if (/^\d+\./.test(trimmedLine)) {
+          const [number, ...rest] = trimmedLine.split(".")
+          const content = rest.join(".").trim()
+          return (
+            <div key={index} className="mb-4 p-4 bg-white/60 rounded-lg border-l-4 border-purple-400">
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                  {number}
+                </div>
+                <p className="text-gray-800 font-medium leading-relaxed">{content}</p>
+              </div>
+            </div>
+          )
+        }
+
+        // Check for bullet points (-, •, *, etc.)
+        if (/^[-•*]/.test(trimmedLine)) {
+          const content = trimmedLine.substring(1).trim()
+          return (
+            <div key={index} className="mb-3 flex items-start space-x-3">
+              <ArrowRight className="w-4 h-4 text-purple-600 mt-1 flex-shrink-0" />
+              <p className="text-gray-700 leading-relaxed">{content}</p>
+            </div>
+          )
+        }
+
+        // Check for keywords to emphasize (common CV recommendation terms)
+        const keywords = [
+          "Keywords",
+          "Skills",
+          "Experience",
+          "Achievements",
+          "Quantify",
+          "Results",
+          "Action verbs",
+          "Metrics",
+          "Accomplishments",
+          "Certifications",
+          "Education",
+          "Summary",
+          "Objective",
+          "Professional",
+          "Leadership",
+          "Management",
+          "Technical",
+          "Add",
+          "Include",
+          "Highlight",
+          "Emphasize",
+          "Improve",
+          "Update",
+          "Remove",
+        ]
+
+        let formattedLine = trimmedLine
+        keywords.forEach((keyword) => {
+          const regex = new RegExp(`\\b${keyword}\\b`, "gi")
+          formattedLine = formattedLine.replace(regex, `<strong class="text-purple-700 font-semibold">$&</strong>`)
+        })
+
+        // Regular paragraphs
+        if (trimmedLine.length > 0) {
+          return (
+            <p
+              key={index}
+              className="text-gray-700 leading-relaxed mb-3"
+              dangerouslySetInnerHTML={{ __html: formattedLine }}
+            />
+          )
+        }
+
+        return null
+      })
+      .filter(Boolean)
+  }
+
+  return <div className="space-y-2">{formatText(text)}</div>
+}
 
 export function CoverLetterGenerator() {
   const [currentStep, setCurrentStep] = useState<Step>(1)
@@ -33,23 +138,27 @@ export function CoverLetterGenerator() {
   const [cvRecommendations, setCvRecommendations] = useState("")
   const [progress, setProgress] = useState(0)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null)
 
   // Simple notification system
-  const showNotification = (message: string, type: "success" | "error" = "success") => {
+  const showNotification = (message: string, type: "success" | "error" | "info" = "success") => {
     setNotification({ message, type })
-    setTimeout(() => setNotification(null), 3000)
+    setTimeout(() => setNotification(null), 8000)
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
       setCvFile(file)
+      setIsUploading(true)
 
       try {
         // Create form data to send the file
         const formData = new FormData()
         formData.append("file", file)
+
+        showNotification("Processing your file... This may take a moment.", "info")
 
         // Send to our API route for parsing
         const response = await fetch("/api/cv-parser", {
@@ -61,22 +170,39 @@ export function CoverLetterGenerator() {
 
         if (response.ok) {
           setCvText(data.text)
-          showNotification("CV uploaded successfully! Your CV has been parsed and is ready for processing.")
+          showNotification(
+            `${file.type === "application/pdf" ? "PDF" : "Document"} uploaded and parsed successfully! Your CV text is ready for processing.`,
+          )
         } else {
-          throw new Error(data.error || "Failed to parse CV")
+          // Handle different error types
+          if (data.error === "PDF_PARSING_UNAVAILABLE") {
+            showNotification(
+              "PDF parsing is temporarily unavailable. Please convert your PDF to Word format or paste your CV text manually below.",
+              "error",
+            )
+          } else if (data.alternatives) {
+            showNotification(`${data.message} Please try: ${data.alternatives.join(", ")}`, "error")
+          } else {
+            showNotification(
+              data.message || data.error || "Could not process your file. Please try pasting your CV text manually.",
+              "error",
+            )
+          }
         }
       } catch (error) {
         console.error("Error parsing CV:", error)
-        showNotification(
-          "Error parsing CV. We couldn't extract text from your CV. Please try pasting it manually.",
-          "error",
-        )
+        showNotification("File upload failed. Please try pasting your CV text manually below.", "error")
+      } finally {
+        setIsUploading(false)
       }
     }
   }
 
   const handleGenerate = async () => {
-    if (!jobPosting || (!cvFile && !cvText)) return
+    if (!jobPosting || !cvText.trim()) {
+      showNotification("Please provide both a job posting and your CV content.", "error")
+      return
+    }
 
     setIsGenerating(true)
     setCurrentStep(3)
@@ -113,6 +239,7 @@ export function CoverLetterGenerator() {
     } catch (error) {
       console.error("Error generating content:", error)
       setIsGenerating(false)
+      setCurrentStep(2) // Go back to step 2
       showNotification("Generation failed. There was an error generating your application. Please try again.", "error")
     }
   }
@@ -149,15 +276,23 @@ export function CoverLetterGenerator() {
         {/* Notification */}
         {notification && (
           <div
-            className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-2xl backdrop-blur-sm border ${
+            className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-2xl backdrop-blur-sm border max-w-md ${
               notification.type === "success"
                 ? "bg-green-500/90 text-white border-green-400"
-                : "bg-red-500/90 text-white border-red-400"
+                : notification.type === "error"
+                  ? "bg-red-500/90 text-white border-red-400"
+                  : "bg-blue-500/90 text-white border-blue-400"
             } animate-in slide-in-from-right duration-300`}
           >
-            <div className="flex items-center space-x-2">
-              {notification.type === "success" ? <CheckCircle className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
-              <span className="font-medium">{notification.message}</span>
+            <div className="flex items-start space-x-2">
+              {notification.type === "success" ? (
+                <CheckCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              ) : notification.type === "error" ? (
+                <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              ) : (
+                <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              )}
+              <span className="font-medium text-sm leading-relaxed">{notification.message}</span>
             </div>
           </div>
         )}
@@ -273,29 +408,51 @@ export function CoverLetterGenerator() {
                 Step 2: Upload Your CV
               </CardTitle>
               <p className="text-blue-100 mt-2">
-                Upload your CV or paste the text - we will analyze it against the job requirements
+                Upload your CV (Word document recommended) or paste the text - wen will analyze it against the job
+                requirements
               </p>
             </CardHeader>
             <CardContent className="p-8 space-y-8">
+              {/* PDF Notice */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <FileX className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-amber-800">
+                    <p className="font-medium mb-1">📄 PDF Support Temporarily Unavailable</p>
+                    <p className="text-amber-700">
+                      Due to a technical issue, PDF parsing is currently disabled. Please use Word documents (.docx) or
+                      paste your CV text manually for the best experience.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* File Upload */}
               <div>
                 <Label htmlFor="cv-upload" className="text-lg font-semibold text-gray-900">
-                  Upload CV File
+                  Upload CV File (Word Documents Only)
                 </Label>
                 <div className="mt-4 border-3 border-dashed border-blue-300 rounded-xl p-12 text-center hover:border-blue-500 transition-all duration-300 bg-gradient-to-br from-blue-50 to-teal-50 hover:from-blue-100 hover:to-teal-100">
                   <input
                     id="cv-upload"
                     type="file"
-                    accept=".pdf,.doc,.docx"
+                    accept=".doc,.docx"
                     onChange={handleFileUpload}
                     className="hidden"
+                    disabled={isUploading}
                   />
                   <label htmlFor="cv-upload" className="cursor-pointer">
                     <div className="p-4 rounded-full bg-gradient-to-r from-blue-600 to-teal-600 w-20 h-20 mx-auto mb-6 flex items-center justify-center">
-                      <Upload className="w-10 h-10 text-white" />
+                      {isUploading ? (
+                        <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <Upload className="w-10 h-10 text-white" />
+                      )}
                     </div>
                     <p className="text-gray-700 text-xl font-semibold">
-                      {cvFile ? (
+                      {isUploading ? (
+                        <span className="text-blue-600">Processing your file...</span>
+                      ) : cvFile ? (
                         <span className="text-green-600 flex items-center justify-center">
                           <CheckCircle className="w-5 h-5 mr-2" />
                           {cvFile.name}
@@ -304,23 +461,28 @@ export function CoverLetterGenerator() {
                         "Click to upload your CV or drag and drop"
                       )}
                     </p>
-                    <p className="text-gray-500 mt-3">Supports PDF, DOC, DOCX up to 10MB</p>
+                    <p className="text-gray-500 mt-3">
+                      {isUploading
+                        ? "Please wait while we extract your CV text..."
+                        : "Supports Word documents (.docx, .doc) up to 10MB"}
+                    </p>
                   </label>
                 </div>
               </div>
 
               <div className="text-center">
                 <div className="inline-flex items-center px-6 py-2 rounded-full bg-gray-100 text-gray-600 font-medium">
-                  <span>OR</span>
+                  <span>OR (Recommended)</span>
                 </div>
               </div>
 
-              {/* Text Input */}
+              {/* Text Input - Always show */}
               <div>
-                <Label htmlFor="cv-text" className="text-lg font-semibold text-gray-900">
+                <Label htmlFor="cv-text" className="text-lg font-semibold text-gray-900 flex items-center">
+                  <Type className="w-5 h-5 mr-2" />
                   Paste Your CV Text
                 </Label>
-                <p className="text-gray-600 mb-4">Alternative to file upload - paste your CV content directly</p>
+                <p className="text-gray-600 mb-4">For the best results, paste your CV content directly here</p>
                 <Textarea
                   id="cv-text"
                   placeholder="Paste your CV content here..."
@@ -337,13 +499,14 @@ export function CoverLetterGenerator() {
                   onClick={() => setCurrentStep(1)}
                   className="flex-1 border-2 border-gray-300 hover:border-gray-400"
                   size="lg"
+                  disabled={isUploading}
                 >
                   <ArrowLeft className="w-5 h-5 mr-2" />
                   Back
                 </Button>
                 <Button
                   onClick={handleGenerate}
-                  disabled={(!cvFile && !cvText.trim()) || isGenerating}
+                  disabled={!cvText.trim() || isGenerating || isUploading}
                   className="flex-1 bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-lg py-6 shadow-lg"
                   size="lg"
                 >
@@ -438,7 +601,7 @@ export function CoverLetterGenerator() {
               </CardContent>
             </Card>
 
-            {/* CV Recommendations */}
+            {/* CV Recommendations - Now with enhanced formatting */}
             <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-purple-600 to-pink-600 text-white -m-6 mx-0 mb-0 p-6 rounded-t-lg">
                 <CardTitle className="flex items-center justify-between text-2xl">
@@ -471,9 +634,7 @@ export function CoverLetterGenerator() {
               </CardHeader>
               <CardContent className="p-8">
                 <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-8 rounded-xl border-2 border-purple-200">
-                  <pre className="whitespace-pre-wrap text-gray-700 font-sans leading-relaxed text-lg">
-                    {cvRecommendations}
-                  </pre>
+                  <FormattedCVRecommendations text={cvRecommendations} />
                 </div>
               </CardContent>
             </Card>
