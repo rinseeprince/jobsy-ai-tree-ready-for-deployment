@@ -16,9 +16,6 @@ export default function HomePage() {
       <Testimonials />
       <CTA />
       <Footer />
-      <div style={{ padding: "2rem" }}>
-        <h1>Homepage Test with all components</h1>
-      </div>
     </div>
   )
 }

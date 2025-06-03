@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -21,13 +21,227 @@ import {
   AlertCircle,
   Info,
   Type,
-  FileX,
   Star,
   ArrowRight,
+  FileDown,
 } from "lucide-react"
 import { generateCoverLetter, improveCv } from "@/lib/ai-service"
 
 type Step = 1 | 2 | 3 | 4
+
+// Inline PDF generation functions to avoid import issues
+const openPrintableVersion = (content: string, title: string): void => {
+  try {
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) {
+      throw new Error("Could not open print window. Please check your popup blocker settings.")
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${title}</title>
+          <meta charset="utf-8">
+          <style>
+            @page { margin: 1in; size: A4; }
+            body { 
+              font-family: 'Times New Roman', serif; 
+              font-size: 12pt; 
+              line-height: 1.6; 
+              color: #000; 
+              max-width: 8.5in; 
+              margin: 0 auto; 
+              padding: 0; 
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px; 
+              border-bottom: 2px solid #000; 
+              padding-bottom: 10px; 
+            }
+            .title { 
+              font-size: 18pt; 
+              font-weight: bold; 
+              margin: 0; 
+              text-transform: uppercase; 
+              letter-spacing: 1px; 
+            }
+            .content { white-space: pre-wrap; text-align: justify; }
+            .footer { 
+              margin-top: 40px; 
+              padding-top: 20px; 
+              border-top: 1px solid #ccc; 
+              text-align: center; 
+              font-size: 10pt; 
+              color: #666; 
+            }
+            @media print { 
+              body { margin: 0; padding: 0; } 
+              .no-print { display: none; } 
+            }
+            .print-instructions { 
+              background: #f0f8ff; 
+              border: 1px solid #0066cc; 
+              padding: 15px; 
+              margin-bottom: 20px; 
+              border-radius: 5px; 
+              font-size: 11pt; 
+            }
+            .print-button { 
+              background: #0066cc; 
+              color: white; 
+              border: none; 
+              padding: 10px 20px; 
+              border-radius: 5px; 
+              cursor: pointer; 
+              font-size: 12pt; 
+              margin-right: 10px; 
+            }
+            .print-button:hover { background: #0052a3; }
+          </style>
+        </head>
+        <body>
+          <div class="print-instructions no-print">
+            <strong>📄 Save as PDF Instructions:</strong><br>
+            1. Click "Print" below or press Ctrl+P (Cmd+P on Mac)<br>
+            2. Choose "Save as PDF" or "Microsoft Print to PDF" as your printer<br>
+            3. Click "Save" to download your PDF<br><br>
+            <button class="print-button" onclick="window.print()">🖨️ Print / Save as PDF</button>
+            <button class="print-button" onclick="window.close()">❌ Close</button>
+          </div>
+          <div class="header">
+            <h1 class="title">${title}</h1>
+          </div>
+          <div class="content">${content}</div>
+          <div class="footer">
+            Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+          </div>
+        </body>
+      </html>
+    `
+
+    printWindow.document.write(htmlContent)
+    printWindow.document.close()
+    printWindow.focus()
+  } catch (error) {
+    console.error("Error opening printable version:", error)
+    throw error
+  }
+}
+
+const openApplicationPackagePrint = (coverLetter: string, cvRecommendations: string): void => {
+  try {
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) {
+      throw new Error("Could not open print window. Please check your popup blocker settings.")
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Complete Application Package</title>
+          <meta charset="utf-8">
+          <style>
+            @page { margin: 1in; size: A4; }
+            body { 
+              font-family: 'Times New Roman', serif; 
+              font-size: 12pt; 
+              line-height: 1.6; 
+              color: #000; 
+              max-width: 8.5in; 
+              margin: 0 auto; 
+              padding: 0; 
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px; 
+              border-bottom: 2px solid #000; 
+              padding-bottom: 10px; 
+            }
+            .title { 
+              font-size: 18pt; 
+              font-weight: bold; 
+              margin: 0; 
+              text-transform: uppercase; 
+              letter-spacing: 1px; 
+            }
+            .section-title { 
+              font-size: 16pt; 
+              font-weight: bold; 
+              margin: 40px 0 20px 0; 
+              text-transform: uppercase; 
+              border-bottom: 1px solid #000; 
+              padding-bottom: 5px; 
+            }
+            .content { white-space: pre-wrap; text-align: justify; margin-bottom: 30px; }
+            .page-break { page-break-before: always; }
+            .footer { 
+              margin-top: 40px; 
+              padding-top: 20px; 
+              border-top: 1px solid #ccc; 
+              text-align: center; 
+              font-size: 10pt; 
+              color: #666; 
+            }
+            @media print { 
+              body { margin: 0; padding: 0; } 
+              .no-print { display: none; } 
+            }
+            .print-instructions { 
+              background: #f0f8ff; 
+              border: 1px solid #0066cc; 
+              padding: 15px; 
+              margin-bottom: 20px; 
+              border-radius: 5px; 
+              font-size: 11pt; 
+            }
+            .print-button { 
+              background: #0066cc; 
+              color: white; 
+              border: none; 
+              padding: 10px 20px; 
+              border-radius: 5px; 
+              cursor: pointer; 
+              font-size: 12pt; 
+              margin-right: 10px; 
+            }
+            .print-button:hover { background: #0052a3; }
+          </style>
+        </head>
+        <body>
+          <div class="print-instructions no-print">
+            <strong>📄 Save Complete Package as PDF:</strong><br>
+            1. Click "Print" below or press Ctrl+P (Cmd+P on Mac)<br>
+            2. Choose "Save as PDF" or "Microsoft Print to PDF" as your printer<br>
+            3. Click "Save" to download your complete application package<br><br>
+            <button class="print-button" onclick="window.print()">🖨️ Print / Save as PDF</button>
+            <button class="print-button" onclick="window.close()">❌ Close</button>
+          </div>
+          <div class="header">
+            <h1 class="title">Complete Application Package</h1>
+          </div>
+          <h2 class="section-title">Cover Letter</h2>
+          <div class="content">${coverLetter}</div>
+          <div class="page-break"></div>
+          <h2 class="section-title">CV Optimization Recommendations</h2>
+          <div class="content">${cvRecommendations}</div>
+          <div class="footer">
+            Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+          </div>
+        </body>
+      </html>
+    `
+
+    printWindow.document.write(htmlContent)
+    printWindow.document.close()
+    printWindow.focus()
+  } catch (error) {
+    console.error("Error opening application package:", error)
+    throw error
+  }
+}
 
 // Component to format CV recommendations with better styling
 function FormattedCVRecommendations({ text }: { text: string }) {
@@ -139,7 +353,12 @@ export function CoverLetterGenerator() {
   const [progress, setProgress] = useState(0)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false)
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null)
+
+  // Refs for PDF generation
+  const coverLetterRef = useRef<HTMLDivElement>(null)
+  const cvRecommendationsRef = useRef<HTMLDivElement>(null)
 
   // Simple notification system
   const showNotification = (message: string, type: "success" | "error" | "info" = "success") => {
@@ -174,19 +393,46 @@ export function CoverLetterGenerator() {
             `${file.type === "application/pdf" ? "PDF" : "Document"} uploaded and parsed successfully! Your CV text is ready for processing.`,
           )
         } else {
-          // Handle different error types
-          if (data.error === "PDF_PARSING_UNAVAILABLE") {
-            showNotification(
-              "PDF parsing is temporarily unavailable. Please convert your PDF to Word format or paste your CV text manually below.",
-              "error",
-            )
-          } else if (data.alternatives) {
-            showNotification(`${data.message} Please try: ${data.alternatives.join(", ")}`, "error")
-          } else {
-            showNotification(
-              data.message || data.error || "Could not process your file. Please try pasting your CV text manually.",
-              "error",
-            )
+          // Handle different error types with specific messages
+          const errorMessage = data.message || "Could not process your file."
+          let suggestions = ""
+
+          if (data.alternatives && Array.isArray(data.alternatives)) {
+            suggestions = ` Try: ${data.alternatives.slice(0, 2).join(", ")}`
+          }
+
+          // Show specific error messages based on error type
+          switch (data.error) {
+            case "PDF_TOO_LARGE":
+              showNotification(`${errorMessage} The file is too large (over 10MB).${suggestions}`, "error")
+              break
+            case "PDF_NO_TEXT_CONTENT":
+              showNotification(
+                `${errorMessage} This appears to be a scanned PDF with images rather than text.${suggestions}`,
+                "error",
+              )
+              break
+            case "PDF_PROTECTED_OR_ENCRYPTED":
+            case "PDF_PASSWORD_PROTECTED":
+              showNotification(
+                `${errorMessage} Password-protected PDFs cannot be processed automatically.${suggestions}`,
+                "error",
+              )
+              break
+            case "PDF_INVALID_FORMAT":
+              showNotification(`${errorMessage} The PDF file may be corrupted.${suggestions}`, "error")
+              break
+            case "PDF_TOO_COMPLEX":
+              showNotification(`${errorMessage} Complex PDFs with many images can cause issues.${suggestions}`, "error")
+              break
+            case "PDF_PARSING_FAILED":
+              showNotification(`${errorMessage} This PDF format isn't supported.${suggestions}`, "error")
+              break
+            case "UNSUPPORTED_FILE_TYPE":
+              showNotification(`${errorMessage} Please use PDF or Word documents.${suggestions}`, "error")
+              break
+            default:
+              showNotification(`${errorMessage}${suggestions}`, "error")
           }
         }
       } catch (error) {
@@ -257,6 +503,52 @@ export function CoverLetterGenerator() {
     document.body.appendChild(element)
     element.click()
     document.body.removeChild(element)
+  }
+
+  const downloadAsPdf = (content: string, filename: string, title: string) => {
+    try {
+      setIsPdfGenerating(true)
+      showNotification("Opening printable version...", "info")
+
+      setTimeout(() => {
+        try {
+          openPrintableVersion(content, title)
+          showNotification("Printable version opened! Use your browser's print function to save as PDF.")
+        } catch (error) {
+          console.error("Error opening printable version:", error)
+          showNotification("Failed to open printable version. Please try text download instead.", "error")
+        } finally {
+          setIsPdfGenerating(false)
+        }
+      }, 100)
+    } catch (error) {
+      console.error("Error initiating printable version:", error)
+      showNotification("Failed to open printable version. Please try again.", "error")
+      setIsPdfGenerating(false)
+    }
+  }
+
+  const downloadCompletePackageAsPdf = () => {
+    try {
+      setIsPdfGenerating(true)
+      showNotification("Opening complete application package...", "info")
+
+      setTimeout(() => {
+        try {
+          openApplicationPackagePrint(coverLetter, cvRecommendations)
+          showNotification("Complete application package opened! Use your browser's print function to save as PDF.")
+        } catch (error) {
+          console.error("Error opening application package:", error)
+          showNotification("Failed to open application package. Please try downloading individual files.", "error")
+        } finally {
+          setIsPdfGenerating(false)
+        }
+      }, 100)
+    } catch (error) {
+      console.error("Error initiating application package:", error)
+      showNotification("Failed to open application package. Please try again.", "error")
+      setIsPdfGenerating(false)
+    }
   }
 
   const resetGenerator = () => {
@@ -408,20 +700,20 @@ export function CoverLetterGenerator() {
                 Step 2: Upload Your CV
               </CardTitle>
               <p className="text-blue-100 mt-2">
-                Upload your CV (Word document recommended) or paste the text - wen will analyze it against the job
+                Upload your CV (Word document recommended) or paste the text - we will analyze it against the job
                 requirements
               </p>
             </CardHeader>
             <CardContent className="p-8 space-y-8">
-              {/* PDF Notice */}
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              {/* Remove the PDF Notice section and replace with a more positive message */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start space-x-3">
-                  <FileX className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-amber-800">
-                    <p className="font-medium mb-1">📄 PDF Support Temporarily Unavailable</p>
-                    <p className="text-amber-700">
-                      Due to a technical issue, PDF parsing is currently disabled. Please use Word documents (.docx) or
-                      paste your CV text manually for the best experience.
+                  <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-blue-800">
+                    <p className="font-medium mb-1">📄 File Upload Tips</p>
+                    <p className="text-blue-700">
+                      We support both PDF and Word documents. If your PDF cannot be processed (due to password
+                      protection, scanning, or complex formatting), we will let you know and suggest alternatives.
                     </p>
                   </div>
                 </div>
@@ -430,13 +722,13 @@ export function CoverLetterGenerator() {
               {/* File Upload */}
               <div>
                 <Label htmlFor="cv-upload" className="text-lg font-semibold text-gray-900">
-                  Upload CV File (Word Documents Only)
+                  Upload CV File (PDF or Word Documents)
                 </Label>
                 <div className="mt-4 border-3 border-dashed border-blue-300 rounded-xl p-12 text-center hover:border-blue-500 transition-all duration-300 bg-gradient-to-br from-blue-50 to-teal-50 hover:from-blue-100 hover:to-teal-100">
                   <input
                     id="cv-upload"
                     type="file"
-                    accept=".doc,.docx"
+                    accept=".pdf,.doc,.docx"
                     onChange={handleFileUpload}
                     className="hidden"
                     disabled={isUploading}
@@ -464,7 +756,7 @@ export function CoverLetterGenerator() {
                     <p className="text-gray-500 mt-3">
                       {isUploading
                         ? "Please wait while we extract your CV text..."
-                        : "Supports Word documents (.docx, .doc) up to 10MB"}
+                        : "Supports PDF and Word documents (.pdf, .docx, .doc) up to 10MB"}
                     </p>
                   </label>
                 </div>
@@ -575,6 +867,7 @@ export function CoverLetterGenerator() {
                       variant="secondary"
                       onClick={() => copyToClipboard(coverLetter)}
                       className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                      disabled={isPdfGenerating}
                     >
                       <Copy className="w-4 h-4 mr-2" />
                       Copy
@@ -584,16 +877,30 @@ export function CoverLetterGenerator() {
                       variant="secondary"
                       onClick={() => downloadAsText(coverLetter, "cover-letter.txt")}
                       className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                      disabled={isPdfGenerating}
                     >
                       <Download className="w-4 h-4 mr-2" />
-                      Download
+                      Text
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => downloadAsPdf(coverLetter, "cover-letter.pdf", "COVER LETTER")}
+                      className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                      disabled={isPdfGenerating}
+                    >
+                      <FileDown className="w-4 h-4 mr-2" />
+                      {isPdfGenerating ? "Generating..." : "PDF"}
                     </Button>
                   </div>
                 </CardTitle>
                 <p className="text-green-100 mt-2">Perfectly tailored to match the job requirements</p>
               </CardHeader>
               <CardContent className="p-8">
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-8 rounded-xl border-2 border-green-200">
+                <div
+                  ref={coverLetterRef}
+                  className="bg-gradient-to-br from-green-50 to-emerald-50 p-8 rounded-xl border-2 border-green-200"
+                >
                   <pre className="whitespace-pre-wrap text-gray-700 font-sans leading-relaxed text-lg">
                     {coverLetter}
                   </pre>
@@ -615,6 +922,7 @@ export function CoverLetterGenerator() {
                       variant="secondary"
                       onClick={() => copyToClipboard(cvRecommendations)}
                       className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                      disabled={isPdfGenerating}
                     >
                       <Copy className="w-4 h-4 mr-2" />
                       Copy
@@ -624,16 +932,32 @@ export function CoverLetterGenerator() {
                       variant="secondary"
                       onClick={() => downloadAsText(cvRecommendations, "cv-recommendations.txt")}
                       className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                      disabled={isPdfGenerating}
                     >
                       <Download className="w-4 h-4 mr-2" />
-                      Download
+                      Text
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() =>
+                        downloadAsPdf(cvRecommendations, "cv-recommendations.pdf", "CV OPTIMIZATION RECOMMENDATIONS")
+                      }
+                      className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                      disabled={isPdfGenerating}
+                    >
+                      <FileDown className="w-4 h-4 mr-2" />
+                      {isPdfGenerating ? "Generating..." : "PDF"}
                     </Button>
                   </div>
                 </CardTitle>
                 <p className="text-purple-100 mt-2">Specific improvements to maximize your chances</p>
               </CardHeader>
               <CardContent className="p-8">
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-8 rounded-xl border-2 border-purple-200">
+                <div
+                  ref={cvRecommendationsRef}
+                  className="bg-gradient-to-br from-purple-50 to-pink-50 p-8 rounded-xl border-2 border-purple-200"
+                >
                   <FormattedCVRecommendations text={cvRecommendations} />
                 </div>
               </CardContent>
@@ -646,22 +970,19 @@ export function CoverLetterGenerator() {
                 onClick={resetGenerator}
                 size="lg"
                 className="border-2 border-gray-300 hover:border-gray-400 px-8 py-4"
+                disabled={isPdfGenerating}
               >
                 <RefreshCw className="w-5 h-5 mr-2" />
                 Create Another Application
               </Button>
               <Button
-                onClick={() =>
-                  downloadAsText(
-                    `COVER LETTER:\n\n${coverLetter}\n\n\nCV RECOMMENDATIONS:\n\n${cvRecommendations}`,
-                    "complete-application-package.txt",
-                  )
-                }
+                onClick={downloadCompletePackageAsPdf}
                 size="lg"
                 className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 px-8 py-4 shadow-lg"
+                disabled={isPdfGenerating}
               >
-                <Download className="w-5 h-5 mr-2" />
-                Download Complete Package
+                <FileDown className="w-5 h-5 mr-2" />
+                {isPdfGenerating ? "Generating PDF..." : "Download Complete PDF Package"}
               </Button>
             </div>
           </div>

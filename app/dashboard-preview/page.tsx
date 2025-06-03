@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,10 +24,9 @@ import {
   XCircle,
   BarChart3,
   Zap,
-  ArrowLeft,
 } from "lucide-react"
 
-export default function DashboardPreviewPage() {
+export default function DashboardPage() {
   const [selectedTab, setSelectedTab] = useState("overview")
 
   // Mock user data - in real app this would come from your database
@@ -121,23 +122,7 @@ export default function DashboardPreviewPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Simple Header for Preview */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" onClick={() => window.history.back()}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
-                Dashboard Preview
-              </h1>
-            </div>
-            <div className="text-sm text-gray-500">Preview Mode - No Authentication Required</div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Header */}
@@ -483,6 +468,8 @@ export default function DashboardPreviewPage() {
           </div>
         )}
       </div>
+
+      <Footer />
     </div>
   )
 }

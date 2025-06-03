@@ -16,63 +16,30 @@ export async function POST(request: NextRequest) {
 
     try {
       if (file.type === "application/pdf") {
-        console.log("🔍 Starting PDF parsing with pdf-parse...")
+        console.log("🔍 PDF file detected...")
 
-        try {
-          // Try to import and use pdf-parse
-          const pdfParse = (await import("pdf-parse")).default
-          const buffer = Buffer.from(await file.arrayBuffer())
-
-          console.log("📊 Buffer created, size:", buffer.length, "bytes")
-
-          // Try parsing with different options
-          const pdfData = await pdfParse(buffer, {
-            max: 0, // Parse all pages
-            version: "v1.10.100", // Specify version for compatibility
-          })
-
-          extractedText = pdfData.text
-          console.log("✅ PDF parsed successfully")
-          console.log("📝 Extracted text length:", extractedText.length, "characters")
-          console.log("📄 Number of pages:", pdfData.numpages)
-
-          // Check if we got meaningful text
-          if (extractedText && extractedText.trim().length > 10) {
-            console.log("🔤 First 200 chars:", extractedText.substring(0, 200))
-          } else {
-            throw new Error("PDF appears to be image-based or contains no extractable text")
-          }
-        } catch (pdfError) {
-          console.error("❌ PDF parsing error:", pdfError)
-
-          // Return a more helpful error message
-          return NextResponse.json(
-            {
-              error: "PDF_PARSING_FAILED",
-              message: "This PDF cannot be processed automatically. This usually happens with:",
-              details: [
-                "• Scanned documents (image-based PDFs)",
-                "• Password-protected PDFs",
-                "• PDFs with complex formatting",
-                "• Older PDF formats",
-              ],
-              suggestion: "Please try one of these alternatives:",
-              alternatives: [
-                "• Convert your PDF to a Word document (.docx)",
-                "• Copy and paste your CV text directly into the text area",
-                "• Use a different PDF if you have one",
-              ],
-            },
-            { status: 400 },
-          )
-        }
+        // PDF processing is not available in this environment
+        return NextResponse.json(
+          {
+            error: "PDF_PROCESSING_UNAVAILABLE",
+            message: "PDF processing is temporarily unavailable in this environment.",
+            suggestion: "Please convert your PDF to a Word document or copy and paste your CV text directly.",
+            alternatives: [
+              "Convert your PDF to a Word document (.docx)",
+              "Copy and paste your CV text directly into the text area below",
+              "Use an online PDF to text converter and paste the result",
+            ],
+          },
+          { status: 400 },
+        )
       } else if (
         file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
         file.type === "application/msword"
       ) {
-        console.log("📝 Starting Word document parsing with mammoth...")
+        console.log("📝 Starting Word document parsing...")
 
         try {
+          // Dynamic import to avoid build issues
           const mammoth = await import("mammoth")
           const buffer = Buffer.from(await file.arrayBuffer())
           const result = await mammoth.extractRawText({ buffer })
@@ -80,13 +47,35 @@ export async function POST(request: NextRequest) {
 
           console.log("✅ Word document parsed successfully")
           console.log("📝 Extracted text length:", extractedText.length, "characters")
-        } catch (wordError) {
+
+          if (!extractedText.trim()) {
+            return NextResponse.json(
+              {
+                error: "NO_TEXT_EXTRACTED",
+                message: "No text could be extracted from the Word document.",
+                suggestion: "The document might be empty or contain only images.",
+                alternatives: [
+                  "Check that your Word document contains text content",
+                  "Try saving your document in a different format",
+                  "Copy and paste your CV content directly into the text area",
+                ],
+              },
+              { status: 400 },
+            )
+          }
+        } catch (wordError: unknown) {
           console.error("❌ Word parsing error:", wordError)
+          const errorMessage = wordError instanceof Error ? wordError.message : "Unknown Word parsing error"
           return NextResponse.json(
             {
               error: "WORD_PARSING_FAILED",
-              message: `Word document parsing failed: ${wordError instanceof Error ? wordError.message : "Unknown error"}`,
-              suggestion: "Please try pasting your CV content directly into the text area.",
+              message: `Word document parsing failed: ${errorMessage}`,
+              suggestion: "There was an issue processing your Word document.",
+              alternatives: [
+                "Try saving your document as a newer .docx format",
+                "Check that the document is not corrupted",
+                "Copy and paste your CV content directly into the text area",
+              ],
             },
             { status: 400 },
           )
@@ -97,20 +86,12 @@ export async function POST(request: NextRequest) {
           {
             error: "UNSUPPORTED_FILE_TYPE",
             message: `File type not supported: ${file.type}`,
-            supportedTypes: ["PDF (.pdf)", "Word Document (.docx, .doc)"],
-            suggestion: "Please upload a supported file type or paste your CV text directly.",
-          },
-          { status: 400 },
-        )
-      }
-
-      // Final check for extracted text
-      if (!extractedText || extractedText.trim().length < 10) {
-        return NextResponse.json(
-          {
-            error: "NO_TEXT_EXTRACTED",
-            message: "No meaningful text could be extracted from this file.",
-            suggestion: "Please copy and paste your CV content directly into the text area below.",
+            supportedTypes: ["Word Document (.docx, .doc)"],
+            suggestion: "Please upload a Word document, or paste your CV text directly.",
+            alternatives: [
+              "Convert your file to Word format (.docx)",
+              "Copy and paste your CV text directly into the text area below",
+            ],
           },
           { status: 400 },
         )
@@ -126,24 +107,37 @@ export async function POST(request: NextRequest) {
       console.log("📊 Final text length:", extractedText.length, "characters")
 
       return NextResponse.json({ text: extractedText })
-    } catch (parseError) {
+    } catch (parseError: unknown) {
       console.error("❌ General parsing error:", parseError)
+      const errorMessage = parseError instanceof Error ? parseError.message : "Unknown parsing error"
       return NextResponse.json(
         {
           error: "GENERAL_PARSING_ERROR",
-          message: `Could not parse the file: ${parseError instanceof Error ? parseError.message : "Unknown error"}`,
-          suggestion: "Please try pasting your CV content manually in the text area below.",
+          message: `Could not parse the file: ${errorMessage}`,
+          suggestion: "There was an unexpected error processing your file.",
+          alternatives: [
+            "Try uploading a different version of your CV",
+            "Convert your file to Word format (.docx)",
+            "Copy and paste your CV content manually in the text area",
+          ],
         },
         { status: 400 },
       )
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ API Route error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown server error"
     return NextResponse.json(
       {
         error: "SERVER_ERROR",
-        message: `Server error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        suggestion: "Please try again or contact support if the problem persists.",
+        message: `Server error: ${errorMessage}`,
+        suggestion: "There was a server error processing your request.",
+        alternatives: [
+          "Please try again in a moment",
+          "Try uploading a Word document instead",
+          "Copy and paste your CV text manually",
+          "Contact support if the problem persists",
+        ],
       },
       { status: 500 },
     )
