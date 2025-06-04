@@ -1,11 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import {
   Upload,
@@ -24,8 +25,15 @@ import {
   Star,
   ArrowRight,
   FileDown,
+  Save,
+  Database,
+  User,
+  LogIn,
 } from "lucide-react"
 import { generateCoverLetter, improveCv } from "@/lib/ai-service"
+import { ApplicationsService } from "@/lib/supabase"
+import { isSupabaseReady, supabase } from "@/lib/supabase"
+import { AuthModalReal } from "./auth-modal-real"
 
 type Step = 1 | 2 | 3 | 4
 
@@ -354,11 +362,101 @@ export function CoverLetterGenerator() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [isPdfGenerating, setIsPdfGenerating] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [savedApplicationId, setSavedApplicationId] = useState<string | null>(null)
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null)
+
+  // Authentication state
+  const [user, setUser] = useState<{ email?: string; id?: string } | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+
+  // Additional fields for saving
+  const [jobTitle, setJobTitle] = useState("")
+  const [companyName, setCompanyName] = useState("")
+  const [location, setLocation] = useState("")
+  const [salaryRange, setSalaryRange] = useState("")
+  const [jobUrl, setJobUrl] = useState("")
 
   // Refs for PDF generation
   const coverLetterRef = useRef<HTMLDivElement>(null)
   const cvRecommendationsRef = useRef<HTMLDivElement>(null)
+
+  // Check authentication status
+  useEffect(() => {
+    let mounted = true
+
+    const checkAuth = async () => {
+      console.log("🔐 CoverLetterGenerator: Checking auth status...")
+
+      if (!isSupabaseReady) {
+        console.log("🔐 Supabase not ready")
+        setAuthLoading(false)
+        return
+      }
+
+      try {
+        const { data } = await supabase.auth.getSession()
+        if (mounted) {
+          const currentUser = data.session?.user ?? null
+          setUser(currentUser)
+          setAuthLoading(false)
+          console.log("🔐 CoverLetterGenerator auth result:", {
+            hasUser: !!currentUser,
+            userEmail: currentUser?.email,
+            isSupabaseReady,
+            currentStep,
+          })
+        }
+      } catch (error) {
+        console.warn("Auth session check failed:", error)
+        if (mounted) {
+          setAuthLoading(false)
+        }
+      }
+    }
+
+    // Check immediately
+    checkAuth()
+
+    // Set up auth listener
+    if (isSupabaseReady) {
+      try {
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((event, session) => {
+          if (mounted) {
+            const currentUser = session?.user ?? null
+            setUser(currentUser)
+            setAuthLoading(false)
+            console.log("🔐 CoverLetterGenerator auth state changed:", {
+              event,
+              hasUser: !!currentUser,
+              userEmail: currentUser?.email,
+            })
+
+            // Close auth modal if user signed in
+            if (currentUser && showAuthModal) {
+              setShowAuthModal(false)
+            }
+          }
+        })
+
+        return () => {
+          mounted = false
+          subscription.unsubscribe()
+        }
+      } catch (error) {
+        console.warn("Auth state change listener failed:", error)
+      }
+    } else {
+      setAuthLoading(false)
+    }
+
+    return () => {
+      mounted = false
+    }
+  }, [showAuthModal])
 
   // Simple notification system
   const showNotification = (message: string, type: "success" | "error" | "info" = "success") => {
@@ -478,6 +576,14 @@ export function CoverLetterGenerator() {
       setTimeout(() => {
         setCoverLetter(coverLetterResult)
         setCvRecommendations(cvImprovements)
+
+        // Auto-extract job details from posting
+        const extractedDetails = ApplicationsService.extractJobDetails(jobPosting)
+        setJobTitle(extractedDetails.job_title)
+        setCompanyName(extractedDetails.company_name)
+        setLocation(extractedDetails.location)
+        setSalaryRange(extractedDetails.salary_range)
+
         setCurrentStep(4)
         setIsGenerating(false)
         showNotification("Application package ready! Your cover letter and CV recommendations have been generated.")
@@ -487,6 +593,63 @@ export function CoverLetterGenerator() {
       setIsGenerating(false)
       setCurrentStep(2) // Go back to step 2
       showNotification("Generation failed. There was an error generating your application. Please try again.", "error")
+    }
+  }
+
+  const handleSaveApplication = async () => {
+    console.log("💾 Save Application button clicked")
+
+    if (!isSupabaseReady) {
+      console.error("❌ Cannot save: Supabase not configured")
+      showNotification("Database not configured. Cannot save application.", "error")
+      return
+    }
+
+    if (!user) {
+      console.error("❌ Cannot save: User not authenticated")
+      showNotification("Please sign in to save your application.", "error")
+      setShowAuthModal(true)
+      return
+    }
+
+    if (!jobTitle.trim() || !companyName.trim()) {
+      console.error("❌ Cannot save: Missing required fields")
+      showNotification("Please provide at least a job title and company name.", "error")
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      console.log("📝 Preparing application data for save")
+      const applicationData = {
+        job_title: jobTitle.trim(),
+        company_name: companyName.trim(),
+        job_posting: jobPosting,
+        cv_content: cvText,
+        cover_letter: coverLetter,
+        cv_recommendations: cvRecommendations,
+        location: location.trim() || undefined,
+        salary_range: salaryRange.trim() || undefined,
+        job_url: jobUrl.trim() || undefined,
+      }
+
+      console.log("🔄 Calling ApplicationsService.saveApplication")
+      const savedApplication = await ApplicationsService.saveApplication(applicationData)
+      console.log("✅ Application saved successfully:", savedApplication)
+
+      setSavedApplicationId(savedApplication.id)
+      showNotification("Application saved successfully! You can view it in your dashboard.")
+    } catch (error) {
+      console.error("❌ Error saving application:", error)
+      if (error instanceof Error && error.message.includes("not authenticated")) {
+        showNotification("Your session has expired. Please sign in again.", "error")
+        setShowAuthModal(true)
+      } else {
+        showNotification("Failed to save application. Please try again.", "error")
+      }
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -560,6 +723,12 @@ export function CoverLetterGenerator() {
     setCvRecommendations("")
     setProgress(0)
     setIsGenerating(false)
+    setSavedApplicationId(null)
+    setJobTitle("")
+    setCompanyName("")
+    setLocation("")
+    setSalaryRange("")
+    setJobUrl("")
   }
 
   return (
@@ -789,8 +958,8 @@ export function CoverLetterGenerator() {
                 <Button
                   variant="outline"
                   onClick={() => setCurrentStep(1)}
-                  className="flex-1 border-2 border-gray-300 hover:border-gray-400"
                   size="lg"
+                  className="flex-1 border-2 border-gray-300 hover:border-gray-400"
                   disabled={isUploading}
                 >
                   <ArrowLeft className="w-5 h-5 mr-2" />
@@ -853,6 +1022,154 @@ export function CoverLetterGenerator() {
         {/* Step 4: Results */}
         {currentStep === 4 && (
           <div className="space-y-8">
+            {/* Authentication Required Message - Show prominently if not authenticated */}
+            {!user && !authLoading && (
+              <Card className="shadow-2xl border-0 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                <CardContent className="p-8">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="p-3 bg-blue-100 rounded-full">
+                        <User className="w-8 h-8 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-blue-900">Save Your Application</h3>
+                        <p className="text-blue-700 mt-1">
+                          Sign in to save this application to your dashboard and track your job search progress.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => setShowAuthModal(true)}
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-8"
+                    >
+                      <LogIn className="w-4 h-4 mr-2" />
+                      Sign In to Save
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Save Application Form - Only show if Supabase is ready, user is authenticated, and not already saved */}
+            {isSupabaseReady && user && !savedApplicationId && (
+              <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white -m-6 mx-0 mb-0 p-6 rounded-t-lg">
+                  <CardTitle className="flex items-center justify-between text-2xl">
+                    <span className="flex items-center">
+                      <Database className="w-6 h-6 mr-3" />
+                      Save to Dashboard
+                    </span>
+                    <span className="text-sm bg-white/20 px-3 py-1 rounded-full">Signed in as {user.email}</span>
+                  </CardTitle>
+                  <p className="text-indigo-100 mt-2">Save this application to track your job search progress</p>
+                </CardHeader>
+                <CardContent className="p-8">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <Label htmlFor="job-title" className="text-sm font-semibold text-gray-900">
+                        Job Title *
+                      </Label>
+                      <Input
+                        id="job-title"
+                        value={jobTitle}
+                        onChange={(e) => setJobTitle(e.target.value)}
+                        placeholder="e.g. Senior Software Engineer"
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="company-name" className="text-sm font-semibold text-gray-900">
+                        Company Name *
+                      </Label>
+                      <Input
+                        id="company-name"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        placeholder="e.g. TechCorp Inc."
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="location" className="text-sm font-semibold text-gray-900">
+                        Location
+                      </Label>
+                      <Input
+                        id="location"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder="e.g. San Francisco, CA"
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="salary-range" className="text-sm font-semibold text-gray-900">
+                        Salary Range
+                      </Label>
+                      <Input
+                        id="salary-range"
+                        value={salaryRange}
+                        onChange={(e) => setSalaryRange(e.target.value)}
+                        placeholder="e.g. $120k - $150k"
+                        className="mt-2"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="job-url" className="text-sm font-semibold text-gray-900">
+                        Job URL
+                      </Label>
+                      <Input
+                        id="job-url"
+                        value={jobUrl}
+                        onChange={(e) => setJobUrl(e.target.value)}
+                        placeholder="https://company.com/jobs/123"
+                        className="mt-2"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-6">
+                    <Button
+                      onClick={handleSaveApplication}
+                      disabled={isSaving || !jobTitle.trim() || !companyName.trim()}
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                    >
+                      {isSaving ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Application
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Success message if saved */}
+            {savedApplicationId && (
+              <Card className="shadow-2xl border-0 bg-green-50 border-green-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-3">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                    <div>
+                      <h3 className="font-semibold text-green-800">Application Saved Successfully!</h3>
+                      <p className="text-green-700">
+                        You can view and manage this application in your{" "}
+                        <a href="/dashboard" className="underline font-medium">
+                          dashboard
+                        </a>
+                        .
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Cover Letter */}
             <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white -m-6 mx-0 mb-0 p-6 rounded-t-lg">
@@ -984,10 +1301,25 @@ export function CoverLetterGenerator() {
                 <FileDown className="w-5 h-5 mr-2" />
                 {isPdfGenerating ? "Generating PDF..." : "Download Complete PDF Package"}
               </Button>
+              {savedApplicationId && (
+                <Button
+                  onClick={() => (window.location.href = "/dashboard")}
+                  size="lg"
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 px-8 py-4 shadow-lg"
+                >
+                  <Database className="w-5 h-5 mr-2" />
+                  View Dashboard
+                </Button>
+              )}
             </div>
           </div>
         )}
       </div>
+
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <AuthModalReal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} initialMode="signin" />
+      )}
     </div>
   )
 }

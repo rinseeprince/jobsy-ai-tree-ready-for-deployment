@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { AuthButton } from "./auth-button"
-import { supabase } from "@/lib/supabase-client"
+import { supabase, isSupabaseReady } from "@/lib/supabase"
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -19,28 +19,44 @@ export function Header() {
 
     // Check auth status immediately and on mount
     const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession()
-      if (mounted) {
-        setIsAuthenticated(!!data.session)
-        console.log("Auth check:", !!data.session) // Debug log
+      if (!isSupabaseReady) {
+        return
+      }
+
+      try {
+        const { data } = await supabase.auth.getSession()
+        if (mounted) {
+          setIsAuthenticated(!!data.session)
+        }
+      } catch (error) {
+        console.warn("Auth session check failed:", error)
       }
     }
 
     checkAuth()
 
-    // Set up auth listener
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (mounted) {
-        console.log("Auth state changed:", event, !!session) // Debug log
-        setIsAuthenticated(!!session)
+    // Set up auth listener only if Supabase is configured
+    if (isSupabaseReady) {
+      try {
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((event, session) => {
+          if (mounted) {
+            setIsAuthenticated(!!session)
+          }
+        })
+
+        return () => {
+          mounted = false
+          subscription.unsubscribe()
+        }
+      } catch (error) {
+        console.warn("Auth state change listener failed:", error)
       }
-    })
+    }
 
     return () => {
       mounted = false
-      subscription.unsubscribe()
     }
   }, [])
 
@@ -77,7 +93,7 @@ export function Header() {
               Cover Letter Generator
             </Link>
 
-            {isAuthenticated && (
+            {isAuthenticated && isSupabaseReady && (
               <Link href="/dashboard" className="text-blue-600 hover:text-blue-800 font-medium">
                 Dashboard
               </Link>
@@ -116,7 +132,7 @@ export function Header() {
               Cover Letter Generator
             </Link>
 
-            {isAuthenticated && (
+            {isAuthenticated && isSupabaseReady && (
               <Link
                 href="/dashboard"
                 className="block py-2 text-blue-600 font-medium"

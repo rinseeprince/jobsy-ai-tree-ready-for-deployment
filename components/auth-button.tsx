@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { LogOut, UserPlus } from "lucide-react"
-import { supabase } from "@/lib/supabase-client"
+import { supabase, isSupabaseReady } from "@/lib/supabase"
 import { AuthModalReal } from "./auth-modal-real"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
@@ -16,36 +16,70 @@ export function AuthButton() {
   const router = useRouter()
 
   useEffect(() => {
-    // Get initial user
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
+    let mounted = true
+
+    // Check auth status immediately and on mount
+    const checkAuth = async () => {
+      if (!isSupabaseReady) {
+        return
+      }
+
+      try {
+        const { data } = await supabase.auth.getSession()
+        if (mounted) {
+          setUser(data.session?.user ?? null)
+          setLoading(false)
+        }
+      } catch (error) {
+        console.warn("Auth session check failed:", error)
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    checkAuth()
+
+    // Set up auth listener only if Supabase is configured
+    if (isSupabaseReady) {
+      try {
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((event, session) => {
+          if (mounted) {
+            setUser(session?.user ?? null)
+            setLoading(false)
+
+            if (event === "SIGNED_IN" && session?.user) {
+              setShowAuthModal(false)
+              router.push("/dashboard")
+            }
+          }
+        })
+
+        return () => {
+          mounted = false
+          subscription.unsubscribe()
+        }
+      } catch (error) {
+        console.warn("Auth state change listener failed:", error)
+      }
+    } else {
       setLoading(false)
     }
 
-    getUser()
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-
-      if (event === "SIGNED_IN" && session?.user) {
-        setShowAuthModal(false)
-        router.push("/dashboard")
-      }
-    })
-
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+    }
   }, [router])
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push("/")
+    try {
+      await supabase.auth.signOut()
+      router.push("/")
+    } catch (error) {
+      console.warn("Sign out failed:", error)
+    }
   }
 
   if (loading) {
@@ -53,6 +87,21 @@ export function AuthButton() {
       <Button variant="outline" disabled>
         Loading...
       </Button>
+    )
+  }
+
+  // If Supabase is not configured, show demo mode
+  if (!isSupabaseReady) {
+    return (
+      <div className="flex items-center space-x-3">
+        <Button variant="outline" disabled>
+          Sign In (Demo Mode)
+        </Button>
+        <Button disabled className="bg-gradient-to-r from-blue-600 to-teal-600 opacity-50">
+          <UserPlus className="w-4 h-4 mr-2" />
+          Sign Up (Demo Mode)
+        </Button>
+      </div>
     )
   }
 

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { X, Mail, Lock, User, Eye, EyeOff, Loader2 } from "lucide-react"
-import { supabase } from "@/lib/supabase-client"
+import { supabase } from "@/lib/supabase"
 import type { AuthError } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 
