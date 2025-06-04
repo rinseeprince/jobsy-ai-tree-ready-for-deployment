@@ -5,7 +5,6 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { supabase } from "@/lib/supabase"
-import { ApplicationsService } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -228,11 +227,38 @@ function InlineApplicationEditModal({
     setLoading(true)
 
     try {
-      await ApplicationsService.updateApplication(application.id, formData)
+      console.log("Attempting to update application:", application.id)
+      console.log("Update data:", formData)
+
+      // Use direct Supabase query instead of ApplicationsService
+      const { data, error } = await supabase
+        .from("applications")
+        .update({
+          ...formData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", application.id)
+        .select()
+
+      console.log("Update response:", { data, error })
+
+      if (error) {
+        console.error("Detailed error updating application:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+        alert(`Error updating application: ${error.message}`)
+        return
+      }
+
+      console.log("Application updated successfully:", data)
       onUpdate()
       onClose()
     } catch (error) {
-      console.error("Error updating application:", error)
+      console.error("Unexpected error updating application:", error)
+      alert(`Unexpected error: ${error}`)
     } finally {
       setLoading(false)
     }
@@ -382,11 +408,45 @@ function InlineApplicationStatusModal({
     setLoading(true)
 
     try {
-      await ApplicationsService.updateApplicationStatus(application.id, status, interviewDate || null, notes || null)
+      console.log("Attempting to update application status:", application.id)
+
+      const updateData: Record<string, unknown> = {
+        status,
+        updated_at: new Date().toISOString(),
+      }
+
+      if (interviewDate) {
+        updateData.interview_date = interviewDate
+      }
+
+      if (notes) {
+        updateData.notes = notes
+      }
+
+      console.log("Status update data:", updateData)
+
+      // Use direct Supabase query instead of ApplicationsService
+      const { data, error } = await supabase.from("applications").update(updateData).eq("id", application.id).select()
+
+      console.log("Status update response:", { data, error })
+
+      if (error) {
+        console.error("Detailed error updating application status:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+        alert(`Error updating status: ${error.message}`)
+        return
+      }
+
+      console.log("Application status updated successfully:", data)
       onUpdate()
       onClose()
     } catch (error) {
-      console.error("Error updating application status:", error)
+      console.error("Unexpected error updating application status:", error)
+      alert(`Unexpected error: ${error}`)
     } finally {
       setLoading(false)
     }
@@ -678,17 +738,29 @@ export default function DashboardPage() {
     }
   }
 
+  // Replace the handleDeleteApplication function with this implementation
   const handleDeleteApplication = async () => {
     if (!selectedApplication) return
 
     try {
-      await ApplicationsService.deleteApplication(selectedApplication.id)
+      console.log("Attempting to delete application:", selectedApplication.id)
+
+      // Use direct Supabase query instead of ApplicationsService
+      const { error } = await supabase.from("applications").delete().eq("id", selectedApplication.id)
+
+      if (error) {
+        console.error("Error deleting application:", error)
+        return
+      }
+
+      console.log("Application deleted successfully")
+
       // Refresh applications after deletion
       if (user) {
         await fetchApplications(user.id)
       }
     } catch (error) {
-      console.error("Error deleting application:", error)
+      console.error("Error in delete operation:", error)
     }
   }
 
@@ -795,10 +867,6 @@ export default function DashboardPage() {
             Welcome back, {userName || user.email?.split("@")[0] || "there"}!
           </h1>
           <p className="text-gray-600 mt-2">Track your job applications and career progress</p>
-          <div className="mt-2 text-sm">
-            <span className="text-blue-600">Debug: {applications.length} applications loaded</span>
-            {applications.length > 0 && <span className="text-green-600 ml-4">✅ Data successfully fetched</span>}
-          </div>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
