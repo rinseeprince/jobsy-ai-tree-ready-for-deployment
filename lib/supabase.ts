@@ -1,5 +1,37 @@
 import { createClient } from "@supabase/supabase-js"
 
+export type Application = {
+  id: string
+  user_id: string
+  job_title: string
+  company_name: string
+  job_posting: string
+  cv_content: string
+  cover_letter: string
+  cv_recommendations: string
+  status:
+    | "applied"
+    | "phone_screen"
+    | "first_interview"
+    | "second_interview"
+    | "third_interview"
+    | "final_interview"
+    | "offer"
+    | "accepted"
+    | "rejected"
+    | "withdrawn"
+    | "ghosted"
+  applied_date: string | null
+  interview_date?: string | null
+  notes?: string | null
+  job_url?: string | null
+  salary_range?: string | null
+  location?: string | null
+  remote?: boolean | null
+  created_at: string
+  updated_at: string
+}
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -141,26 +173,6 @@ console.log("🔧 Supabase Configuration Status:", {
   hasKey: !!supabaseAnonKey,
   urlValid: supabaseUrl?.startsWith("http"),
 })
-
-export type Application = {
-  id: string
-  user_id: string
-  job_title: string
-  company_name: string
-  job_posting: string
-  cv_content: string
-  cover_letter: string
-  cv_recommendations: string
-  status: "applied" | "interview" | "rejected" | "offer" | "withdrawn"
-  applied_date: string
-  interview_date?: string | null
-  notes?: string | null
-  job_url?: string | null
-  salary_range?: string | null
-  location?: string | null
-  created_at: string
-  updated_at: string
-}
 
 // Type for application stats data
 type ApplicationStatsData = {
@@ -422,6 +434,136 @@ export class ApplicationsService {
       company_name: company_name || "Unknown Company",
       location: location || "",
       salary_range: salary_range || "",
+    }
+  }
+
+  static async updateApplication(
+    applicationId: string,
+    data: {
+      job_title?: string
+      company_name?: string
+      location?: string | null
+      salary_range?: string | null
+      job_url?: string | null
+      notes?: string | null
+      interview_date?: string | null
+    },
+  ): Promise<void> {
+    console.log("📝 Updating application:", applicationId, data)
+
+    if (!isSupabaseReady) {
+      console.error("❌ Cannot update application: Supabase not configured")
+      throw new Error("Supabase not configured")
+    }
+
+    try {
+      const { error } = await supabase
+        .from("applications")
+        .update({
+          ...data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", applicationId)
+
+      if (error) {
+        console.error("❌ Supabase update error:", error)
+        throw new Error(`Database error: ${error.message}`)
+      }
+
+      console.log("✅ Application updated successfully")
+    } catch (error) {
+      console.error("❌ Error in updateApplication:", error)
+      throw error
+    }
+  }
+
+  static async updateApplicationStatus(
+    applicationId: string,
+    status: Application["status"],
+    interviewDate?: string | null,
+    notes?: string | null,
+  ): Promise<void> {
+    console.log("🔄 Updating application status:", { applicationId, status, interviewDate })
+
+    if (!isSupabaseReady) {
+      console.error("❌ Cannot update application status: Supabase not configured")
+      throw new Error("Supabase not configured")
+    }
+
+    try {
+      const updateData: Record<string, unknown> = {
+        status,
+        updated_at: new Date().toISOString(),
+      }
+
+      if (interviewDate !== undefined) {
+        updateData.interview_date = interviewDate
+      }
+
+      if (notes !== undefined) {
+        updateData.notes = notes
+      }
+
+      const { error } = await supabase.from("applications").update(updateData).eq("id", applicationId)
+
+      if (error) {
+        console.error("❌ Supabase status update error:", error)
+        throw new Error(`Database error: ${error.message}`)
+      }
+
+      console.log("✅ Application status updated successfully")
+    } catch (error) {
+      console.error("❌ Error in updateApplicationStatus:", error)
+      throw error
+    }
+  }
+
+  static async deleteApplication(applicationId: string): Promise<void> {
+    console.log("🗑️ Deleting application:", applicationId)
+
+    if (!isSupabaseReady) {
+      console.error("❌ Cannot delete application: Supabase not configured")
+      throw new Error("Supabase not configured")
+    }
+
+    try {
+      const { error } = await supabase.from("applications").delete().eq("id", applicationId)
+
+      if (error) {
+        console.error("❌ Supabase delete error:", error)
+        throw new Error(`Database error: ${error.message}`)
+      }
+
+      console.log("✅ Application deleted successfully")
+    } catch (error) {
+      console.error("❌ Error in deleteApplication:", error)
+      throw error
+    }
+  }
+
+  static async getUserProfile(): Promise<{ full_name?: string } | null> {
+    if (!isSupabaseReady) {
+      return null
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        return null
+      }
+
+      // Get user metadata which might contain the full name
+      const metadata = user.user_metadata
+
+      return {
+        full_name: metadata?.full_name || metadata?.name || null,
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error)
+      return null
     }
   }
 }

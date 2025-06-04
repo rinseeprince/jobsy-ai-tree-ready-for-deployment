@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { X, Calendar } from "lucide-react"
+import { X } from "lucide-react"
 import { ApplicationsService } from "@/lib/supabase"
 import type { Application } from "@/lib/supabase"
 
@@ -20,26 +20,12 @@ interface ApplicationStatusModalProps {
   onUpdate: () => void
 }
 
-const statusOptions: { value: Application["status"]; label: string; description: string }[] = [
-  { value: "applied", label: "Applied", description: "Application submitted" },
-  { value: "phone_screen", label: "Phone Screen", description: "Initial phone screening" },
-  { value: "first_interview", label: "First Interview", description: "First round interview" },
-  { value: "second_interview", label: "Second Interview", description: "Second round interview" },
-  { value: "third_interview", label: "Third Interview", description: "Third round interview" },
-  { value: "final_interview", label: "Final Interview", description: "Final interview round" },
-  { value: "offer", label: "Offer", description: "Job offer received" },
-  { value: "accepted", label: "Accepted", description: "Offer accepted" },
-  { value: "rejected", label: "Rejected", description: "Application rejected" },
-  { value: "withdrawn", label: "Withdrawn", description: "Application withdrawn" },
-  { value: "ghosted", label: "Ghosted", description: "No response from company" },
-]
-
 export function ApplicationStatusModal({ isOpen, onClose, application, onUpdate }: ApplicationStatusModalProps) {
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [selectedStatus, setSelectedStatus] = useState<Application["status"]>(application.status)
-  const [interviewDate, setInterviewDate] = useState(application.interview_date || "")
-  const [notes, setNotes] = useState(application.notes || "")
+  const [status, setStatus] = useState<Application["status"]>("applied")
+  const [interviewDate, setInterviewDate] = useState("")
+  const [notes, setNotes] = useState("")
 
   useEffect(() => {
     setMounted(true)
@@ -47,12 +33,12 @@ export function ApplicationStatusModal({ isOpen, onClose, application, onUpdate 
   }, [])
 
   useEffect(() => {
-    if (isOpen) {
-      setSelectedStatus(application.status)
+    if (application) {
+      setStatus(application.status)
       setInterviewDate(application.interview_date || "")
       setNotes(application.notes || "")
     }
-  }, [isOpen, application])
+  }, [application])
 
   if (!isOpen || !mounted) return null
 
@@ -61,30 +47,36 @@ export function ApplicationStatusModal({ isOpen, onClose, application, onUpdate 
     setLoading(true)
 
     try {
-      await ApplicationsService.updateApplicationStatus(
-        application.id,
-        selectedStatus,
-        interviewDate || null,
-        notes || null,
-      )
-
+      await ApplicationsService.updateApplicationStatus(application.id, status, interviewDate || null, notes || null)
       onUpdate()
       onClose()
     } catch (error) {
       console.error("Error updating application status:", error)
-      // You could add a toast notification here
     } finally {
       setLoading(false)
     }
   }
 
-  const requiresInterviewDate = [
+  const statusOptions: Application["status"][] = [
+    "applied",
     "phone_screen",
     "first_interview",
     "second_interview",
     "third_interview",
     "final_interview",
-  ].includes(selectedStatus)
+    "offer",
+    "accepted",
+    "rejected",
+    "withdrawn",
+    "ghosted",
+  ]
+
+  const formatStatusLabel = (status: string): string => {
+    return status
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  }
 
   const modalContent = (
     <div
@@ -95,82 +87,56 @@ export function ApplicationStatusModal({ isOpen, onClose, application, onUpdate 
         }
       }}
     >
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
+      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto relative">
         <button onClick={onClose} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10">
           <X className="w-5 h-5" />
         </button>
 
         <CardHeader className="pb-4">
-          <CardTitle className="text-2xl flex items-center">
-            <Calendar className="w-6 h-6 mr-2" />
-            Update Application Status
-          </CardTitle>
-          <p className="text-gray-600">
-            {application.job_title} at {application.company_name}
-          </p>
+          <CardTitle className="text-2xl">Update Status</CardTitle>
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <Label className="text-base font-medium">Application Status</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="status">Application Status</Label>
+              <select
+                id="status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as Application["status"])}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
                 {statusOptions.map((option) => (
-                  <div
-                    key={option.value}
-                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                      selectedStatus === option.value
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                    onClick={() => setSelectedStatus(option.value)}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        name="status"
-                        value={option.value}
-                        checked={selectedStatus === option.value}
-                        onChange={() => setSelectedStatus(option.value)}
-                        className="text-blue-600"
-                      />
-                      <div>
-                        <p className="font-medium">{option.label}</p>
-                        <p className="text-sm text-gray-500">{option.description}</p>
-                      </div>
-                    </div>
-                  </div>
+                  <option key={option} value={option}>
+                    {formatStatusLabel(option)}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
 
-            {requiresInterviewDate && (
-              <div>
-                <Label htmlFor="interview_date">Interview Date</Label>
-                <Input
-                  id="interview_date"
-                  type="date"
-                  value={interviewDate}
-                  onChange={(e) => setInterviewDate(e.target.value)}
-                  className="mt-1"
-                />
-                <p className="text-sm text-gray-500 mt-1">Set the date for your {selectedStatus.replace("_", " ")}</p>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="interviewDate">Interview Date</Label>
+              <Input
+                id="interviewDate"
+                type="date"
+                value={interviewDate}
+                onChange={(e) => setInterviewDate(e.target.value)}
+              />
+              <p className="text-xs text-gray-500">Optional. Set if you have an interview scheduled.</p>
+            </div>
 
-            <div>
-              <Label htmlFor="notes">Notes (Optional)</Label>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
               <Textarea
                 id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add any notes about this status update..."
                 rows={4}
-                className="mt-1"
+                placeholder="Add any notes about this status change..."
               />
             </div>
 
-            <div className="flex justify-end space-x-2 pt-4">
+            <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 Cancel
               </Button>
@@ -184,5 +150,5 @@ export function ApplicationStatusModal({ isOpen, onClose, application, onUpdate 
     </div>
   )
 
-  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : null
+  return createPortal(modalContent, document.body)
 }
