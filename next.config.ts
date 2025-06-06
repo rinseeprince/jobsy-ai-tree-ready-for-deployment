@@ -10,9 +10,8 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    serverComponentsExternalPackages: ["@ai-sdk/openai", "ai", "mammoth"],
-  },
+  // Updated: moved from experimental.serverComponentsExternalPackages to serverExternalPackages
+  serverExternalPackages: ["@ai-sdk/openai", "ai", "mammoth"],
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Prevent Node.js modules from being bundled in the browser

@@ -29,7 +29,7 @@ const bottomNavigation = [
   { name: "Support", href: "/support", icon: MessageCircle },
 ]
 
-export function Sidebar() {
+export default function Sidebar() {
   const pathname = usePathname()
 
   return (

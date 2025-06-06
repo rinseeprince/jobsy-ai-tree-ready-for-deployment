@@ -8,7 +8,7 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar - hardcoded for now to test */}
       <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
         <div className="flex min-h-0 flex-1 flex-col bg-white border-r border-gray-200">
           <div className="flex flex-1 flex-col pt-5 pb-4 overflow-y-auto">
@@ -65,6 +65,27 @@ export default function DashboardLayout({
                       <polyline points="10 9 9 9 8 9"></polyline>
                     </svg>
                     Cover Letter Generator
+                  </Link>
+
+                  {/* CV Builder Button - Let's add it directly here */}
+                  <Link
+                    href="/cv-builder"
+                    className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                  >
+                    <svg
+                      className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    CV Builder
                   </Link>
                 </div>
               </div>
