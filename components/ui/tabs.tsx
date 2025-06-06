@@ -44,8 +44,14 @@ const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(
 )
 Tabs.displayName = "Tabs"
 
-const TabsList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+interface TabsListProps extends React.HTMLAttributes<HTMLDivElement> {
+  value?: string
+  onValueChange?: (value: string) => void
+}
+
+const TabsList = React.forwardRef<HTMLDivElement, TabsListProps>(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  ({ className, value: _value, onValueChange: _onValueChange, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
@@ -64,7 +70,7 @@ interface TabsTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement>
 }
 
 const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
-  ({ className, value, onValueChange, children, ...props }, ref) => (
+  ({ className, value, onValueChange, children, disabled, ...restProps }, ref) => (
     <button
       ref={ref}
       className={cn(
@@ -72,7 +78,8 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
         className,
       )}
       onClick={() => onValueChange?.(value)}
-      {...props}
+      disabled={disabled}
+      {...restProps}
     >
       {children}
     </button>
