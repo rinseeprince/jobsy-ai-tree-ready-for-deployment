@@ -25,8 +25,6 @@ import {
   X,
   ClipboardList,
 } from "lucide-react"
-import { Header } from "@/components/header"
-import { Footer } from "@/components/footer"
 import type { User } from "@supabase/supabase-js"
 import type { Application } from "@/lib/supabase"
 
@@ -830,17 +828,21 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data } = await supabase.auth.getUser()
-      console.log("👤 Current user:", data.user?.email || "No user")
-      setUser(data.user)
+      try {
+        const { data } = await supabase.auth.getUser()
+        console.log("👤 Current user:", data.user?.email || "No user")
+        setUser(data.user)
 
-      // If user exists, fetch their applications and profile
-      if (data.user) {
-        await fetchApplications(data.user.id)
-        await fetchUserProfile()
+        // If user exists, fetch their applications and profile
+        if (data.user) {
+          await fetchApplications(data.user.id)
+          await fetchUserProfile()
+        }
+      } catch (error) {
+        console.error("Error getting user:", error)
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
 
     getUser()
@@ -1019,7 +1021,6 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -1033,7 +1034,6 @@ export default function DashboardPage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center">
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Access Denied</h1>
@@ -1046,9 +1046,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="p-8">
+      <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
             Welcome back, {userName || user.email?.split("@")[0] || "there"}!
@@ -1284,8 +1283,6 @@ export default function DashboardPage() {
           )}
         </>
       )}
-
-      <Footer />
     </div>
   )
 }
