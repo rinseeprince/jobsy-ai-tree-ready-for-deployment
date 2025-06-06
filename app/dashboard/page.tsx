@@ -30,7 +30,7 @@ import { Footer } from "@/components/footer"
 import type { User } from "@supabase/supabase-js"
 import type { Application } from "@/lib/supabase"
 
-// Inline ApplicationDetailModal component
+// Update the InlineApplicationDetailModal component with animations and styling
 function InlineApplicationDetailModal({
   isOpen,
   onClose,
@@ -41,11 +41,21 @@ function InlineApplicationDetailModal({
   application: Application
 }) {
   const [mounted, setMounted] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
     setMounted(true)
+    if (isOpen) {
+      // Small delay for the animation to work properly
+      setTimeout(() => setIsVisible(true), 10)
+    }
     return () => setMounted(false)
-  }, [])
+  }, [isOpen])
+
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(() => onClose(), 300) // Match this with the transition duration
+  }
 
   if (!isOpen || !mounted) return null
 
@@ -60,61 +70,73 @@ function InlineApplicationDetailModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto z-50"
+      className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto z-50 transition-opacity duration-300 ${
+        isVisible ? "opacity-100" : "opacity-0"
+      }`}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          onClose()
+          handleClose()
         }
       }}
     >
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto relative">
-        <button onClick={onClose} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10">
+      <Card
+        className={`w-full max-w-4xl max-h-[85vh] overflow-y-auto relative shadow-xl border-0 transition-all duration-300 ${
+          isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
+        }`}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-white to-gray-50 rounded-lg -z-10"></div>
+        <button
+          onClick={handleClose}
+          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10 p-1 rounded-full hover:bg-gray-100 transition-colors"
+        >
           <X className="w-5 h-5" />
         </button>
 
-        <CardHeader className="pb-4">
-          <CardTitle className="text-2xl">{application.job_title}</CardTitle>
+        <CardHeader className="pb-4 border-b">
+          <CardTitle className="text-2xl bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
+            {application.job_title}
+          </CardTitle>
           <div className="flex items-center text-gray-600 mt-1">
             <Building className="w-4 h-4 mr-1" />
             <span>{application.company_name}</span>
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 p-6">
           <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-semibold mb-2 flex items-center">
-                <Calendar className="w-4 h-4 mr-2" /> Application Details
+            <div className="space-y-4">
+              <h3 className="font-semibold flex items-center text-gray-700">
+                <Calendar className="w-4 h-4 mr-2 text-blue-500" /> Application Details
               </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between border-b pb-1">
+              <div className="space-y-2 text-sm rounded-lg bg-white p-4 shadow-sm">
+                <div className="flex justify-between border-b pb-2">
                   <span className="text-gray-600">Status:</span>
                   <span className="font-medium capitalize">{application.status.replace(/_/g, " ")}</span>
                 </div>
-                <div className="flex justify-between border-b pb-1">
+                <div className="flex justify-between border-b pb-2">
                   <span className="text-gray-600">Applied Date:</span>
                   <span className="font-medium">{formatDate(application.applied_date)}</span>
                 </div>
                 {application.interview_date && (
-                  <div className="flex justify-between border-b pb-1">
+                  <div className="flex justify-between border-b pb-2">
                     <span className="text-gray-600">Interview Date:</span>
                     <span className="font-medium">{formatDate(application.interview_date)}</span>
                   </div>
                 )}
                 {application.location && (
-                  <div className="flex justify-between border-b pb-1">
+                  <div className="flex justify-between border-b pb-2">
                     <span className="text-gray-600">Location:</span>
                     <span className="font-medium">{application.location}</span>
                   </div>
                 )}
                 {application.salary_range && (
-                  <div className="flex justify-between border-b pb-1">
+                  <div className="flex justify-between border-b pb-2">
                     <span className="text-gray-600">Salary Range:</span>
                     <span className="font-medium">{application.salary_range}</span>
                   </div>
                 )}
                 {application.job_url && (
-                  <div className="flex justify-between border-b pb-1">
+                  <div className="flex justify-between pb-2">
                     <span className="text-gray-600">Job URL:</span>
                     <a
                       href={application.job_url}
@@ -129,11 +151,11 @@ function InlineApplicationDetailModal({
               </div>
             </div>
 
-            <div>
-              <h3 className="font-semibold mb-2 flex items-center">
-                <ClipboardList className="w-4 h-4 mr-2" /> Notes
+            <div className="space-y-4">
+              <h3 className="font-semibold flex items-center text-gray-700">
+                <ClipboardList className="w-4 h-4 mr-2 text-blue-500" /> Notes
               </h3>
-              <div className="bg-gray-50 p-3 rounded-md min-h-[100px] text-sm">
+              <div className="bg-white p-4 rounded-lg shadow-sm min-h-[100px] text-sm">
                 {application.notes || "No notes added yet."}
               </div>
             </div>
@@ -141,26 +163,26 @@ function InlineApplicationDetailModal({
 
           <div className="space-y-4">
             <div>
-              <h3 className="font-semibold mb-2 flex items-center">
-                <FileText className="w-4 h-4 mr-2" /> Cover Letter
+              <h3 className="font-semibold mb-2 flex items-center text-gray-700">
+                <FileText className="w-4 h-4 mr-2 text-blue-500" /> Cover Letter
               </h3>
-              <div className="bg-gray-50 p-4 rounded-md max-h-64 overflow-y-auto">
+              <div className="bg-white p-4 rounded-lg shadow-sm max-h-64 overflow-y-auto">
                 <pre className="whitespace-pre-wrap text-sm">{application.cover_letter}</pre>
               </div>
             </div>
 
             <div>
-              <h3 className="font-semibold mb-2 flex items-center">
-                <FileText className="w-4 h-4 mr-2" /> CV Recommendations
+              <h3 className="font-semibold mb-2 flex items-center text-gray-700">
+                <FileText className="w-4 h-4 mr-2 text-blue-500" /> CV Recommendations
               </h3>
-              <div className="bg-blue-50 p-4 rounded-md max-h-64 overflow-y-auto">
+              <div className="bg-blue-50 p-4 rounded-lg shadow-sm max-h-64 overflow-y-auto">
                 <pre className="whitespace-pre-wrap text-sm">{application.cv_recommendations}</pre>
               </div>
             </div>
           </div>
 
           <div className="flex justify-end pt-4">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={handleClose} className="hover:bg-gray-100 transition-colors">
               Close
             </Button>
           </div>
@@ -172,7 +194,7 @@ function InlineApplicationDetailModal({
   return createPortal(modalContent, document.body)
 }
 
-// Inline ApplicationEditModal component
+// Update the InlineApplicationEditModal component with animations and styling
 function InlineApplicationEditModal({
   isOpen,
   onClose,
@@ -185,6 +207,7 @@ function InlineApplicationEditModal({
   onUpdate: () => void
 }) {
   const [mounted, setMounted] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     job_title: "",
@@ -198,8 +221,11 @@ function InlineApplicationEditModal({
 
   useEffect(() => {
     setMounted(true)
+    if (isOpen) {
+      setTimeout(() => setIsVisible(true), 10)
+    }
     return () => setMounted(false)
-  }, [])
+  }, [isOpen])
 
   useEffect(() => {
     if (application) {
@@ -214,6 +240,11 @@ function InlineApplicationEditModal({
       })
     }
   }, [application])
+
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(() => onClose(), 300)
+  }
 
   if (!isOpen || !mounted) return null
 
@@ -230,13 +261,20 @@ function InlineApplicationEditModal({
       console.log("Attempting to update application:", application.id)
       console.log("Update data:", formData)
 
+      // Process the form data to handle empty dates properly
+      const processedData = {
+        ...formData,
+        // Convert empty date strings to null for database compatibility
+        interview_date: formData.interview_date?.trim() || null,
+        updated_at: new Date().toISOString(),
+      }
+
+      console.log("Processed data with null dates:", processedData)
+
       // Use direct Supabase query instead of ApplicationsService
       const { data, error } = await supabase
         .from("applications")
-        .update({
-          ...formData,
-          updated_at: new Date().toISOString(),
-        })
+        .update(processedData)
         .eq("id", application.id)
         .select()
 
@@ -255,7 +293,7 @@ function InlineApplicationEditModal({
 
       console.log("Application updated successfully:", data)
       onUpdate()
-      onClose()
+      handleClose()
     } catch (error) {
       console.error("Unexpected error updating application:", error)
       alert(`Unexpected error: ${error}`)
@@ -266,59 +304,96 @@ function InlineApplicationEditModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto z-50"
+      className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto z-50 transition-opacity duration-300 ${
+        isVisible ? "opacity-100" : "opacity-0"
+      }`}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          onClose()
+          handleClose()
         }
       }}
     >
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
-        <button onClick={onClose} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10">
+      <Card
+        className={`w-full max-w-2xl max-h-[85vh] overflow-y-auto relative shadow-xl border-0 transition-all duration-300 ${
+          isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
+        }`}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-white to-gray-50 rounded-lg -z-10"></div>
+        <button
+          onClick={handleClose}
+          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10 p-1 rounded-full hover:bg-gray-100 transition-colors"
+        >
           <X className="w-5 h-5" />
         </button>
 
-        <CardHeader className="pb-4">
-          <CardTitle className="text-2xl">Edit Application</CardTitle>
+        <CardHeader className="pb-4 border-b">
+          <CardTitle className="text-2xl bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
+            Edit Application
+          </CardTitle>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="job_title">Job Title</Label>
-                <Input id="job_title" name="job_title" value={formData.job_title} onChange={handleChange} required />
+                <Label htmlFor="job_title" className="text-gray-700">
+                  Job Title
+                </Label>
+                <Input
+                  id="job_title"
+                  name="job_title"
+                  value={formData.job_title}
+                  onChange={handleChange}
+                  required
+                  className="border-gray-200 focus:border-blue-300 transition-colors"
+                />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="company_name">Company Name</Label>
+                <Label htmlFor="company_name" className="text-gray-700">
+                  Company Name
+                </Label>
                 <Input
                   id="company_name"
                   name="company_name"
                   value={formData.company_name}
                   onChange={handleChange}
                   required
+                  className="border-gray-200 focus:border-blue-300 transition-colors"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input id="location" name="location" value={formData.location} onChange={handleChange} />
+                <Label htmlFor="location" className="text-gray-700">
+                  Location
+                </Label>
+                <Input
+                  id="location"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  className="border-gray-200 focus:border-blue-300 transition-colors"
+                />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="salary_range">Salary Range</Label>
+                <Label htmlFor="salary_range" className="text-gray-700">
+                  Salary Range
+                </Label>
                 <Input
                   id="salary_range"
                   name="salary_range"
                   value={formData.salary_range}
                   onChange={handleChange}
                   placeholder="e.g. $50,000 - $70,000"
+                  className="border-gray-200 focus:border-blue-300 transition-colors"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="job_url">Job URL</Label>
+                <Label htmlFor="job_url" className="text-gray-700">
+                  Job URL
+                </Label>
                 <Input
                   id="job_url"
                   name="job_url"
@@ -326,23 +401,29 @@ function InlineApplicationEditModal({
                   value={formData.job_url}
                   onChange={handleChange}
                   placeholder="https://..."
+                  className="border-gray-200 focus:border-blue-300 transition-colors"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="interview_date">Interview Date</Label>
+                <Label htmlFor="interview_date" className="text-gray-700">
+                  Interview Date
+                </Label>
                 <Input
                   id="interview_date"
                   name="interview_date"
                   type="date"
                   value={formData.interview_date}
                   onChange={handleChange}
+                  className="border-gray-200 focus:border-blue-300 transition-colors"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes" className="text-gray-700">
+                Notes
+              </Label>
               <Textarea
                 id="notes"
                 name="notes"
@@ -350,15 +431,33 @@ function InlineApplicationEditModal({
                 onChange={handleChange}
                 rows={4}
                 placeholder="Add any notes about this application..."
+                className="border-gray-200 focus:border-blue-300 transition-colors resize-none"
               />
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={loading}
+                className="hover:bg-gray-100 transition-colors"
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : "Save Changes"}
+              <Button
+                type="submit"
+                disabled={loading}
+                className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 transition-all"
+              >
+                {loading ? (
+                  <span className="flex items-center">
+                    <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    Saving...
+                  </span>
+                ) : (
+                  "Save Changes"
+                )}
               </Button>
             </div>
           </form>
@@ -370,7 +469,7 @@ function InlineApplicationEditModal({
   return createPortal(modalContent, document.body)
 }
 
-// Inline ApplicationStatusModal component
+// Update the InlineApplicationStatusModal component with animations and styling
 function InlineApplicationStatusModal({
   isOpen,
   onClose,
@@ -383,6 +482,7 @@ function InlineApplicationStatusModal({
   onUpdate: () => void
 }) {
   const [mounted, setMounted] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<Application["status"]>("applied")
   const [interviewDate, setInterviewDate] = useState("")
@@ -390,8 +490,11 @@ function InlineApplicationStatusModal({
 
   useEffect(() => {
     setMounted(true)
+    if (isOpen) {
+      setTimeout(() => setIsVisible(true), 10)
+    }
     return () => setMounted(false)
-  }, [])
+  }, [isOpen])
 
   useEffect(() => {
     if (application) {
@@ -400,6 +503,11 @@ function InlineApplicationStatusModal({
       setNotes(application.notes || "")
     }
   }, [application])
+
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(() => onClose(), 300)
+  }
 
   if (!isOpen || !mounted) return null
 
@@ -415,15 +523,17 @@ function InlineApplicationStatusModal({
         updated_at: new Date().toISOString(),
       }
 
-      if (interviewDate) {
-        updateData.interview_date = interviewDate
+      // Handle interview date - convert empty string to null
+      if (interviewDate !== undefined) {
+        updateData.interview_date = interviewDate?.trim() || null
       }
 
-      if (notes) {
-        updateData.notes = notes
+      // Handle notes - convert empty string to null
+      if (notes !== undefined) {
+        updateData.notes = notes?.trim() || null
       }
 
-      console.log("Status update data:", updateData)
+      console.log("Status update data with proper null handling:", updateData)
 
       // Use direct Supabase query instead of ApplicationsService
       const { data, error } = await supabase.from("applications").update(updateData).eq("id", application.id).select()
@@ -443,7 +553,7 @@ function InlineApplicationStatusModal({
 
       console.log("Application status updated successfully:", data)
       onUpdate()
-      onClose()
+      handleClose()
     } catch (error) {
       console.error("Unexpected error updating application status:", error)
       alert(`Unexpected error: ${error}`)
@@ -468,31 +578,45 @@ function InlineApplicationStatusModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto z-50"
+      className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto z-50 transition-opacity duration-300 ${
+        isVisible ? "opacity-100" : "opacity-0"
+      }`}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          onClose()
+          handleClose()
         }
       }}
     >
-      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto relative">
-        <button onClick={onClose} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10">
+      <Card
+        className={`w-full max-w-md max-h-[85vh] overflow-y-auto relative shadow-xl border-0 transition-all duration-300 ${
+          isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
+        }`}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-white to-gray-50 rounded-lg -z-10"></div>
+        <button
+          onClick={handleClose}
+          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 z-10 p-1 rounded-full hover:bg-gray-100 transition-colors"
+        >
           <X className="w-5 h-5" />
         </button>
 
-        <CardHeader className="pb-4">
-          <CardTitle className="text-xl">Update Application Status</CardTitle>
+        <CardHeader className="pb-4 border-b">
+          <CardTitle className="text-xl bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
+            Update Application Status
+          </CardTitle>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status" className="text-gray-700">
+                Status
+              </Label>
               <select
                 id="status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as Application["status"])}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-300 transition-colors"
               >
                 {statusOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -503,32 +627,55 @@ function InlineApplicationStatusModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="interview_date">Interview Date (Optional)</Label>
+              <Label htmlFor="interview_date" className="text-gray-700">
+                Interview Date (Optional)
+              </Label>
               <Input
                 id="interview_date"
                 type="date"
                 value={interviewDate}
                 onChange={(e) => setInterviewDate(e.target.value)}
+                className="border-gray-200 focus:border-blue-300 transition-colors"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
+              <Label htmlFor="notes" className="text-gray-700">
+                Notes (Optional)
+              </Label>
               <Textarea
                 id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
                 placeholder="Add any notes about this status update..."
+                className="border-gray-200 focus:border-blue-300 transition-colors resize-none"
               />
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={loading}
+                className="hover:bg-gray-100 transition-colors"
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Updating..." : "Update Status"}
+              <Button
+                type="submit"
+                disabled={loading}
+                className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 transition-all"
+              >
+                {loading ? (
+                  <span className="flex items-center">
+                    <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    Updating...
+                  </span>
+                ) : (
+                  "Update Status"
+                )}
               </Button>
             </div>
           </form>
@@ -540,7 +687,7 @@ function InlineApplicationStatusModal({
   return createPortal(modalContent, document.body)
 }
 
-// Inline DeleteConfirmationModal component
+// Update the InlineDeleteConfirmationModal component with animations and styling
 function InlineDeleteConfirmationModal({
   isOpen,
   onClose,
@@ -555,43 +702,83 @@ function InlineDeleteConfirmationModal({
   message: string
 }) {
   const [mounted, setMounted] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     setMounted(true)
+    if (isOpen) {
+      setTimeout(() => setIsVisible(true), 10)
+    }
     return () => setMounted(false)
-  }, [])
+  }, [isOpen])
+
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(() => onClose(), 300)
+  }
+
+  const handleConfirm = async () => {
+    setIsDeleting(true)
+    try {
+      await onConfirm()
+      handleClose()
+    } catch (error) {
+      console.error("Error during deletion:", error)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   if (!isOpen || !mounted) return null
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto z-50"
+      className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto z-50 transition-opacity duration-300 ${
+        isVisible ? "opacity-100" : "opacity-0"
+      }`}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          onClose()
+          handleClose()
         }
       }}
     >
-      <Card className="w-full max-w-md relative">
-        <CardHeader className="pb-4">
+      <Card
+        className={`w-full max-w-md relative shadow-xl border-0 transition-all duration-300 ${
+          isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
+        }`}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-white to-gray-50 rounded-lg -z-10"></div>
+
+        <CardHeader className="pb-4 border-b">
           <CardTitle className="text-xl text-red-600">{title}</CardTitle>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="p-6">
           <p className="text-gray-700 mb-6">{message}</p>
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
+            <Button
+              variant="outline"
+              onClick={handleClose}
+              disabled={isDeleting}
+              className="hover:bg-gray-100 transition-colors"
+            >
               Cancel
             </Button>
             <Button
-              onClick={() => {
-                onConfirm()
-                onClose()
-              }}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleConfirm}
+              disabled={isDeleting}
+              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white transition-all"
             >
-              Delete
+              {isDeleting ? (
+                <span className="flex items-center">
+                  <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                  Deleting...
+                </span>
+              ) : (
+                "Delete"
+              )}
             </Button>
           </div>
         </CardContent>
