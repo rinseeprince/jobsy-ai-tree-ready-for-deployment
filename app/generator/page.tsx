@@ -42,7 +42,7 @@ export default function GeneratorPage() {
                   </Link>
                   <Link
                     href="/generator"
-                    className="group flex items-center px-3 py-2 text-sm font-medium rounded-md bg-blue-50 text-blue-700 border-r-2 border-blue-700"
+                    className="group flex items-center px-3 py-2 text-sm font-medium rounded-md bg-blue-50 text-blue-700"
                   >
                     <svg
                       className="mr-3 h-5 w-5 text-blue-500"
@@ -64,7 +64,7 @@ export default function GeneratorPage() {
                   </Link>
 
                   <Link
-                    href="/cv-builder"
+                    href="/dashboard/cv-builder"
                     className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                   >
                     <svg

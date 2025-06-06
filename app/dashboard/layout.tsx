@@ -1,11 +1,16 @@
+"use client"
+
 import type React from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const pathname = usePathname()
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Desktop Sidebar - hardcoded for now to test */}
@@ -27,10 +32,16 @@ export default function DashboardLayout({
                 <div className="mt-2 space-y-1">
                   <Link
                     href="/dashboard"
-                    className="group flex items-center px-3 py-2 text-sm font-medium rounded-md bg-blue-50 text-blue-700 border-r-2 border-blue-700"
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                      pathname === "/dashboard"
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
                   >
                     <svg
-                      className="mr-3 h-5 w-5 text-blue-500"
+                      className={`mr-3 h-5 w-5 ${
+                        pathname === "/dashboard" ? "text-blue-500" : "text-gray-400 group-hover:text-gray-500"
+                      }`}
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
                       fill="none"
@@ -46,10 +57,16 @@ export default function DashboardLayout({
                   </Link>
                   <Link
                     href="/generator"
-                    className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                      pathname === "/generator"
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
                   >
                     <svg
-                      className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500"
+                      className={`mr-3 h-5 w-5 ${
+                        pathname === "/generator" ? "text-blue-500" : "text-gray-400 group-hover:text-gray-500"
+                      }`}
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
                       fill="none"
@@ -69,11 +86,19 @@ export default function DashboardLayout({
 
                   {/* CV Builder Button - Let's add it directly here */}
                   <Link
-                    href="/cv-builder"
-                    className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    href="/dashboard/cv-builder"
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                      pathname === "/dashboard/cv-builder" || pathname.startsWith("/dashboard/cv-builder")
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
                   >
                     <svg
-                      className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500"
+                      className={`mr-3 h-5 w-5 ${
+                        pathname === "/dashboard/cv-builder" || pathname.startsWith("/dashboard/cv-builder")
+                          ? "text-blue-500"
+                          : "text-gray-400 group-hover:text-gray-500"
+                      }`}
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
                       fill="none"
@@ -96,10 +121,16 @@ export default function DashboardLayout({
                 <div className="mt-2 space-y-1">
                   <Link
                     href="/search"
-                    className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                      pathname === "/search"
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
                   >
                     <svg
-                      className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500"
+                      className={`mr-3 h-5 w-5 ${
+                        pathname === "/search" ? "text-blue-500" : "text-gray-400 group-hover:text-gray-500"
+                      }`}
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
                       fill="none"
@@ -115,10 +146,16 @@ export default function DashboardLayout({
                   </Link>
                   <Link
                     href="/saved-jobs"
-                    className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                      pathname === "/saved-jobs"
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
                   >
                     <svg
-                      className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500"
+                      className={`mr-3 h-5 w-5 ${
+                        pathname === "/saved-jobs" ? "text-blue-500" : "text-gray-400 group-hover:text-gray-500"
+                      }`}
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
                       fill="none"
@@ -139,10 +176,16 @@ export default function DashboardLayout({
             <div className="px-2 space-y-1 mt-auto pb-4">
               <Link
                 href="/settings"
-                className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                  pathname === "/settings"
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                }`}
               >
                 <svg
-                  className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500"
+                  className={`mr-3 h-5 w-5 ${
+                    pathname === "/settings" ? "text-blue-500" : "text-gray-400 group-hover:text-gray-500"
+                  }`}
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
                   fill="none"
@@ -158,10 +201,16 @@ export default function DashboardLayout({
               </Link>
               <Link
                 href="/help"
-                className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                  pathname === "/help"
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                }`}
               >
                 <svg
-                  className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500"
+                  className={`mr-3 h-5 w-5 ${
+                    pathname === "/help" ? "text-blue-500" : "text-gray-400 group-hover:text-gray-500"
+                  }`}
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
                   fill="none"
