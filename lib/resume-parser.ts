@@ -1,8 +1,7 @@
-/**
- * Resume parser utility
- * This would normally use a more sophisticated parsing library or API
- */
+// Resume parser utility - browser-compatible version
+// Server-side parsing is handled by /api/cv-parser
 
+// Define the interfaces here (using the existing structure from your codebase)
 export interface ParsedResumeData {
   personal: {
     firstName: string
@@ -44,11 +43,39 @@ export interface ParsedResumeData {
   }>
 }
 
-export async function parseResume(file: File): Promise<ParsedResumeData> {
-  // This is a mock implementation
-  // In a real application, you would use a library like pdf-parse, docx-parser, etc.
-  // or a dedicated resume parsing API
+interface ParsedResume {
+  text: string
+  structured?: ParsedResumeData | null
+}
 
+// Browser-compatible function that calls the API
+export async function parseResume(file: File): Promise<ParsedResume> {
+  try {
+    const formData = new FormData()
+    formData.append("file", file)
+
+    const response = await fetch("/api/cv-parser", {
+      method: "POST",
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return {
+      text: data.text,
+      structured: data.structured || null,
+    }
+  } catch (error) {
+    console.error("Error parsing resume:", error)
+    throw new Error("Failed to parse resume")
+  }
+}
+
+// Mock function for testing - browser compatible
+export async function parseResumeFromFile(file: File): Promise<ParsedResumeData> {
   console.log("Parsing resume file:", file.name, file.type)
 
   // Simulate parsing delay
