@@ -28,13 +28,31 @@ const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(
       <div ref={ref} className={cn("", className)} data-value={currentValue} {...props}>
         {React.Children.map(children, (child) => {
           if (React.isValidElement(child)) {
-            return React.cloneElement(
-              child as React.ReactElement<{ value?: string; onValueChange?: (value: string) => void }>,
-              {
-                value: currentValue,
-                onValueChange: handleValueChange,
-              },
-            )
+            // Check the component type and pass appropriate props
+            if (child.type === TabsTrigger) {
+              return React.cloneElement(
+                child as React.ReactElement<{ value?: string; onValueChange?: (value: string) => void }>,
+                {
+                  value: currentValue,
+                  onValueChange: handleValueChange,
+                },
+              )
+            } else if (child.type === TabsContent) {
+              return React.cloneElement(child as React.ReactElement<{ currentValue?: string }>, {
+                currentValue,
+              })
+            } else if (child.type === TabsList) {
+              // TabsList doesn't need currentValue, just pass it through with its own props
+              return React.cloneElement(
+                child as React.ReactElement<{ value?: string; onValueChange?: (value: string) => void }>,
+                {
+                  value: currentValue,
+                  onValueChange: handleValueChange,
+                },
+              )
+            }
+            // For any other components, just return them as-is
+            return child
           }
           return child
         })}

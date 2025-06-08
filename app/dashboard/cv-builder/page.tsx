@@ -29,6 +29,8 @@ import {
   RefreshCw,
 } from "lucide-react"
 
+import { CVService } from "@/lib/cv-service"
+
 // CV sections interface
 interface CVData {
   personalInfo: {
@@ -131,28 +133,39 @@ export default function CVBuilderPage() {
   const [success, setSuccess] = useState("")
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit")
 
+  // Debug logging - add this right after your useState declarations
+  console.log("🔍 CV Builder Debug:", {
+    activeTab,
+    parsedCvText: parsedCvText ? "has content" : "empty",
+    cvDataName: cvData.personalInfo.name,
+    loading,
+    error,
+    success,
+  })
+
   // Handle file upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Check if file is PDF or Word
+    // Check if file is .docx or .doc only
     if (
-      file.type !== "application/pdf" &&
       file.type !== "application/vnd.openxmlformats-officedocument.wordprocessingml.document" &&
       file.type !== "application/msword"
     ) {
-      setError("Please upload a PDF or Word document")
+      setError("Please upload a Word document (.docx or .doc)")
       return
     }
 
     setLoading(true)
     setError("")
+    setSuccess("")
 
     try {
       const formData = new FormData()
       formData.append("file", file)
 
+      // Parse the CV
       const response = await fetch("/api/cv-parser", {
         method: "POST",
         body: formData,
@@ -165,6 +178,17 @@ export default function CVBuilderPage() {
       const data = await response.json()
       setParsedCvText(data.text)
 
+      // Save to Supabase
+      const savedCV = await CVService.saveCV({
+        title: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension for title
+        file_name: file.name,
+        file_size: file.size,
+        parsed_content: data.text,
+        raw_text: data.text,
+      })
+
+      console.log("✅ CV saved to database:", savedCV)
+
       // Try to parse structured data if available
       if (data.structured) {
         setCvData(data.structured)
@@ -174,10 +198,14 @@ export default function CVBuilderPage() {
       }
 
       setActiveTab("edit")
-      setSuccess("CV uploaded and parsed successfully!")
+      setSuccess(`CV "${file.name}" uploaded and saved successfully!`)
     } catch (err) {
       console.error("Error uploading CV:", err)
-      setError("Failed to parse CV. Please try again or enter your CV content manually.")
+      if (err instanceof Error) {
+        setError(`Failed to upload CV: ${err.message}`)
+      } else {
+        setError("Failed to parse CV. Please try again or enter your CV content manually.")
+      }
     } finally {
       setLoading(false)
     }
@@ -644,7 +672,7 @@ export default function CVBuilderPage() {
           </TabsList>
 
           {/* Upload Tab */}
-          <TabsContent value="upload">
+          <TabsContent value="upload" currentValue={activeTab}>
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle>Upload Your CV</CardTitle>
@@ -700,7 +728,7 @@ export default function CVBuilderPage() {
           </TabsContent>
 
           {/* Edit Tab */}
-          <TabsContent value="edit">
+          <TabsContent value="edit" currentValue={activeTab}>
             <div className="flex justify-end mb-4 space-x-4">
               <Button
                 variant={viewMode === "edit" ? "default" : "outline"}
@@ -1253,7 +1281,7 @@ export default function CVBuilderPage() {
           </TabsContent>
 
           {/* AI Recommendations Tab */}
-          <TabsContent value="recommendations">
+          <TabsContent value="recommendations" currentValue={activeTab}>
             <Card className="border-0 shadow-lg">
               <CardHeader className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
                 <CardTitle className="flex items-center">
@@ -1351,7 +1379,7 @@ export default function CVBuilderPage() {
           </TabsContent>
 
           {/* Download Tab */}
-          <TabsContent value="download">
+          <TabsContent value="download" currentValue={activeTab}>
             <Card className="border-0 shadow-lg">
               <CardHeader className="bg-gradient-to-r from-blue-600 to-teal-600 text-white">
                 <CardTitle className="flex items-center">

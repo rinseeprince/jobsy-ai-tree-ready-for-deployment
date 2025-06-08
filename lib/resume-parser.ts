@@ -1,7 +1,18 @@
-// Resume parser utility - browser-compatible version
+// CV/Resume parser utility - browser-compatible version
 // Server-side parsing is handled by /api/cv-parser
 
 // Define the interfaces here (using the existing structure from your codebase)
+export interface CVData {
+  id?: string
+  user_id?: string
+  name: string
+  original_filename: string
+  file_size: number
+  raw_text: string
+  created_at?: string
+  updated_at?: string
+}
+
 export interface ParsedResumeData {
   personal: {
     firstName: string
@@ -43,9 +54,43 @@ export interface ParsedResumeData {
   }>
 }
 
+interface ParsedCV {
+  text: string
+  fileName: string
+  fileSize: number
+}
+
 interface ParsedResume {
   text: string
   structured?: ParsedResumeData | null
+}
+
+// Browser-compatible function that calls the API
+export async function parseCV(file: File): Promise<ParsedCV> {
+  try {
+    const formData = new FormData()
+    formData.append("file", file)
+
+    const response = await fetch("/api/cv-parser", {
+      method: "POST",
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.message || `Error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return {
+      text: data.text,
+      fileName: data.fileName,
+      fileSize: data.fileSize,
+    }
+  } catch (error) {
+    console.error("Error parsing CV:", error)
+    throw new Error(error instanceof Error ? error.message : "Failed to parse CV")
+  }
 }
 
 // Browser-compatible function that calls the API
