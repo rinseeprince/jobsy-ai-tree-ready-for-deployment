@@ -1,66 +1,89 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
-import { createOpenAI } from "@ai-sdk/openai"
-
-const openaiClient = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+import { openai } from "@ai-sdk/openai"
 
 export async function POST(request: NextRequest) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: "OpenAI API key is not configured" }, { status: 500 })
+    console.log("=== CV IMPROVEMENT API ROUTE CALLED ===")
+
+    const { cvContent, jobDescription } = await request.json()
+
+    if (!cvContent || !jobDescription) {
+      return NextResponse.json({ error: "CV content and job description are required" }, { status: 400 })
     }
 
-    const { jobPosting, cvContent } = await request.json()
-
-    if (!jobPosting || !cvContent) {
-      return NextResponse.json({ error: "Job posting and CV content are required" }, { status: 400 })
-    }
+    console.log("CV Content length:", cvContent.length)
+    console.log("Job Description length:", jobDescription.length)
 
     const { text } = await generateText({
-      model: openaiClient("gpt-4o"),
-      system: `You are an expert career coach and CV optimization specialist. Your task is to provide specific, actionable suggestions to improve a CV for a particular job application.
+      model: openai("gpt-4o"),
+      prompt: `You are an expert CV optimization specialist with deep knowledge of Applicant Tracking Systems (ATS) and modern recruitment practices. 
 
-CRITICAL INSTRUCTIONS:
-- ONLY provide recommendations and suggestions for improvement
-- DO NOT invent, create, or suggest specific qualifications, degrees, companies, or achievements that are not in the original CV
-- DO NOT write sample CV content or examples as if they were real
-- Focus on optimizing what already exists in the CV
-- If suggesting additions, clearly label them as "Consider adding..." or "If you have experience with..."
+TASK: Analyze the provided CV against the job description and provide comprehensive, ATS-optimized improvement recommendations.
 
-Guidelines:
-- Provide specific, actionable recommendations
-- Focus on keywords and phrases from the job posting
-- Suggest improvements to formatting, content, and structure
-- Highlight missing skills or experiences that should be emphasized IF they exist
-- Recommend quantifiable achievements where the person can add their own metrics
-- Ensure ATS optimization
-- Be constructive and specific in feedback
+ATS OPTIMIZATION REQUIREMENTS:
+- Use exact keywords and phrases from the job description
+- Recommend industry-standard section headings (EXPERIENCE, EDUCATION, SKILLS, etc.)
+- Suggest quantifiable achievements with specific metrics
+- Ensure proper formatting for ATS parsing
+- Recommend relevant technical and soft skills
+- Optimize for keyword density without stuffing
 
-Format your response with clear sections and numbered recommendations for easy reading.`,
-      prompt: `Analyze the following CV against this job posting and provide detailed improvement suggestions:
-
-JOB POSTING:
-${jobPosting}
-
-CURRENT CV:
+CV CONTENT:
 ${cvContent}
 
-Please provide specific suggestions for improving this CV to better match the job requirements. Include:
-1. Keywords to add or emphasize
-2. Skills or experiences to highlight more prominently
-3. Formatting or structure improvements
-4. Missing elements that should be included
-5. Specific examples or achievements to add`,
+JOB DESCRIPTION:
+${jobDescription}
+
+Please provide detailed, actionable recommendations in the following format:
+
+## ATS OPTIMIZATION SUMMARY
+[Brief overview of ATS compatibility and keyword matching score]
+
+## KEYWORD OPTIMIZATION
+- Missing critical keywords from job description
+- Recommended keyword placement strategies
+- Industry-specific terminology to include
+
+## PROFESSIONAL SUMMARY IMPROVEMENTS
+[Detailed rewrite suggestions with ATS-friendly language and job-specific keywords]
+
+## EXPERIENCE SECTION ENHANCEMENTS
+- Quantify achievements with specific metrics (percentages, dollar amounts, team sizes)
+- Use action verbs that match job requirements
+- Include relevant technologies, methodologies, and tools mentioned in job posting
+- Structure bullet points for maximum ATS readability
+
+## SKILLS SECTION OPTIMIZATION
+- Technical skills that match job requirements
+- Soft skills mentioned in job description
+- Industry certifications and tools
+- Proper skill categorization for ATS parsing
+
+## EDUCATION & CERTIFICATIONS
+[Recommendations for highlighting relevant education and adding missing certifications]
+
+## FORMATTING FOR ATS SUCCESS
+- Section heading recommendations
+- Bullet point structure
+- File format suggestions
+- Font and layout considerations
+
+## ADDITIONAL RECOMMENDATIONS
+- Industry-specific improvements
+- Missing sections that could strengthen application
+- Tailoring strategies for this specific role
+
+Provide specific, actionable advice with examples. Focus on making the CV both human-readable and ATS-friendly while maintaining authenticity.`,
     })
 
-    return NextResponse.json({ cvSuggestions: text })
+    console.log("✅ AI CV improvement generated successfully")
+
+    return NextResponse.json({
+      improvedCV: text,
+    })
   } catch (error) {
-    console.error("Error generating CV improvements:", error)
-    return NextResponse.json(
-      { error: `Failed to generate CV improvements: ${error instanceof Error ? error.message : "Unknown error"}` },
-      { status: 500 },
-    )
+    console.error("❌ Error in CV improvement API:", error)
+    return NextResponse.json({ error: "Failed to generate CV improvements" }, { status: 500 })
   }
 }

@@ -204,3 +204,67 @@ export async function parseResumeFromFile(file: File): Promise<ParsedResumeData>
     ],
   }
 }
+
+// NEW: AI parsing function that calls the API endpoint
+export async function parseResumeWithAI(cvText: string): Promise<ParsedResumeData | null> {
+  try {
+    const response = await fetch("/api/ai-cv-parser", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ cvText }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    if (data.error) {
+      throw new Error(data.error)
+    }
+
+    return data.parsedCV
+  } catch (error) {
+    console.error("Error parsing resume with AI:", error)
+    return null
+  }
+}
+
+// Basic fallback parser (existing functionality)
+export function parseBasicResume(text: string) {
+  // Basic parsing logic as fallback
+  return {
+    personal: {
+      firstName: "",
+      lastName: "",
+      jobTitle: "",
+      email: extractEmail(text) || "",
+      phone: extractPhone(text) || "",
+      location: "",
+      website: "",
+      linkedin: "",
+      github: "",
+      twitter: "",
+      summary: "",
+    },
+    experience: [],
+    education: [],
+    skills: [],
+    certifications: [],
+  }
+}
+
+function extractEmail(text: string): string | null {
+  const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/
+  const match = text.match(emailRegex)
+  return match ? match[0] : null
+}
+
+function extractPhone(text: string): string | null {
+  const phoneRegex = /(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/
+  const match = text.match(phoneRegex)
+  return match ? match[0] : null
+}

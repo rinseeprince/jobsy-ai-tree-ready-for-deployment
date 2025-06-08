@@ -27,9 +27,12 @@ import {
   Eye,
   ArrowLeft,
   RefreshCw,
+  Target,
+  Zap,
 } from "lucide-react"
 
 import { CVService } from "@/lib/cv-service"
+import { parseResumeWithAI } from "@/lib/resume-parser"
 
 // CV sections interface
 interface CVData {
@@ -189,16 +192,70 @@ export default function CVBuilderPage() {
 
       console.log("✅ CV saved to database:", savedCV)
 
-      // Try to parse structured data if available
-      if (data.structured) {
-        setCvData(data.structured)
+      // NEW: Use AI to parse the CV text
+      setProgress(10)
+      const aiParsedData = await parseResumeWithAI(data.text)
+
+      if (aiParsedData) {
+        console.log("✅ AI successfully parsed the CV:", aiParsedData)
+        setCvData({
+          personalInfo: {
+            name: `${aiParsedData.personal.firstName || ""} ${aiParsedData.personal.lastName || ""}`.trim(),
+            title: aiParsedData.personal.jobTitle || "",
+            email: aiParsedData.personal.email || "",
+            phone: aiParsedData.personal.phone || "",
+            location: aiParsedData.personal.location || "",
+            summary: aiParsedData.personal.summary || "",
+            linkedin: aiParsedData.personal.linkedin || "",
+            website: aiParsedData.personal.website || "",
+          },
+          experience:
+            aiParsedData.experience.length > 0
+              ? aiParsedData.experience.map((exp, index) => ({
+                  id: `exp-${index + 1}`,
+                  title: exp.title || "",
+                  company: exp.company || "",
+                  location: exp.location || "",
+                  startDate: exp.startDate || "",
+                  endDate: exp.endDate || "",
+                  current: exp.current || false,
+                  description: exp.description || "",
+                }))
+              : defaultCVData.experience,
+          education:
+            aiParsedData.education.length > 0
+              ? aiParsedData.education.map((edu, index) => ({
+                  id: `edu-${index + 1}`,
+                  degree: edu.degree || "",
+                  institution: edu.institution || "",
+                  location: edu.location || "",
+                  startDate: edu.startDate || "",
+                  endDate: edu.endDate || "",
+                  current: edu.current || false,
+                  description: edu.description || "",
+                }))
+              : defaultCVData.education,
+          skills: aiParsedData.skills || [""],
+          certifications:
+            aiParsedData.certifications.length > 0
+              ? aiParsedData.certifications.map((cert, index) => ({
+                  id: `cert-${index + 1}`,
+                  name: cert.name || "",
+                  issuer: cert.issuer || "",
+                  date: cert.date || "",
+                  description: cert.description || "",
+                }))
+              : defaultCVData.certifications,
+        })
+        setProgress(100)
+        setSuccess(`CV "${file.name}" uploaded, parsed, and optimized for ATS compatibility!`)
       } else {
-        // Attempt basic parsing of the text
+        // Fall back to basic parsing if AI fails
         attemptBasicParsing(data.text)
+        setSuccess(`CV "${file.name}" uploaded and saved successfully! (Basic parsing used)`)
       }
 
       setActiveTab("edit")
-      setSuccess(`CV "${file.name}" uploaded and saved successfully!`)
     } catch (err) {
       console.error("Error uploading CV:", err)
       if (err instanceof Error) {
@@ -294,7 +351,7 @@ export default function CVBuilderPage() {
       setProgress(100)
       setAiRecommendations(recommendations)
       setActiveTab("recommendations")
-      setSuccess("AI recommendations generated successfully!")
+      setSuccess("ATS-optimized recommendations generated successfully!")
     } catch (err) {
       console.error("Error getting AI recommendations:", err)
       setError("Failed to generate recommendations. Please try again.")
@@ -475,7 +532,7 @@ export default function CVBuilderPage() {
     const element = document.createElement("a")
     const file = new Blob([cvText], { type: "text/plain" })
     element.href = URL.createObjectURL(file)
-    element.download = "my-cv.txt"
+    element.download = "my-ats-optimized-cv.txt"
     document.body.appendChild(element)
     element.click()
     document.body.removeChild(element)
@@ -495,7 +552,7 @@ export default function CVBuilderPage() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>My CV</title>
+          <title>ATS-Optimized CV</title>
           <meta charset="utf-8">
           <style>
             @page { margin: 1in; size: A4; }
@@ -549,10 +606,10 @@ export default function CVBuilderPage() {
         </head>
         <body>
           <div class="print-instructions no-print">
-            <strong>📄 Save as PDF Instructions:</strong><br>
+            <strong>📄 ATS-Optimized CV - Save as PDF Instructions:</strong><br>
             1. Click "Print" below or press Ctrl+P (Cmd+P on Mac)<br>
             2. Choose "Save as PDF" or "Microsoft Print to PDF" as your printer<br>
-            3. Click "Save" to download your PDF<br><br>
+            3. Click "Save" to download your ATS-friendly PDF<br><br>
             <button class="print-button" onclick="window.print()">🖨️ Print / Save as PDF</button>
             <button class="print-button" onclick="window.close()">❌ Close</button>
           </div>
@@ -573,7 +630,7 @@ export default function CVBuilderPage() {
           </div>
           
           <div class="section">
-            <h2>Experience</h2>
+            <h2>EXPERIENCE</h2>
             ${cvData.experience
               .map(
                 (exp) => `
@@ -591,7 +648,7 @@ export default function CVBuilderPage() {
           </div>
           
           <div class="section">
-            <h2>Education</h2>
+            <h2>EDUCATION</h2>
             ${cvData.education
               .map(
                 (edu) => `
@@ -609,14 +666,14 @@ export default function CVBuilderPage() {
           </div>
           
           <div class="section">
-            <h2>Skills</h2>
+            <h2>SKILLS</h2>
             <div class="skills-list">
               ${cvData.skills.map((skill) => `<span class="skill-item">${skill}</span>`).join("")}
             </div>
           </div>
           
           <div class="section">
-            <h2>Certifications</h2>
+            <h2>CERTIFICATIONS</h2>
             ${cvData.certifications
               .map(
                 (cert) => `
@@ -645,8 +702,27 @@ export default function CVBuilderPage() {
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">CV Builder</h1>
-          <p className="text-gray-600 mt-2">Create, optimize, and download your professional CV</p>
+          <div className="flex items-center gap-3 mb-4">
+            <Target className="w-8 h-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-gray-900">ATS-Optimized CV Builder</h1>
+          </div>
+          <p className="text-gray-600 text-lg">
+            Create professional, ATS-friendly CVs that get past applicant tracking systems and land you interviews
+          </p>
+          <div className="flex items-center gap-6 mt-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-green-600" />
+              <span>ATS-Optimized Formatting</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-blue-600" />
+              <span>Keyword Optimization</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-600" />
+              <span>AI-Powered Recommendations</span>
+            </div>
+          </div>
         </div>
 
         {error && (
@@ -667,7 +743,7 @@ export default function CVBuilderPage() {
           <TabsList className="grid grid-cols-4 mb-8">
             <TabsTrigger value="upload">Upload CV</TabsTrigger>
             <TabsTrigger value="edit">Edit CV</TabsTrigger>
-            <TabsTrigger value="recommendations">AI Recommendations</TabsTrigger>
+            <TabsTrigger value="recommendations">ATS Optimization</TabsTrigger>
             <TabsTrigger value="download">Download</TabsTrigger>
           </TabsList>
 
@@ -675,13 +751,29 @@ export default function CVBuilderPage() {
           <TabsContent value="upload" currentValue={activeTab}>
             <Card className="border-0 shadow-lg">
               <CardHeader>
-                <CardTitle>Upload Your CV</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  Upload Your CV for ATS Optimization
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-start gap-3">
+                    <Target className="w-5 h-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <h3 className="font-medium text-blue-900 mb-1">ATS-Friendly CV Builder</h3>
+                      <p className="text-blue-700 text-sm">
+                        Our AI automatically optimizes your CV for Applicant Tracking Systems, ensuring it gets past
+                        automated screening and reaches human recruiters.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
                   <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">Upload your CV</h3>
-                  <p className="text-gray-500 mb-4">PDF or Word document</p>
+                  <p className="text-gray-500 mb-4">Word document (.docx or .doc) for best ATS compatibility</p>
                   <div className="relative">
                     <Input
                       id="cv-upload"
@@ -695,7 +787,7 @@ export default function CVBuilderPage() {
                       className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
                       disabled={loading}
                     >
-                      {loading ? "Uploading..." : "Select File"}
+                      {loading ? "Processing for ATS..." : "Select File"}
                     </Button>
                   </div>
                 </div>
@@ -703,23 +795,23 @@ export default function CVBuilderPage() {
                 <div className="text-center">
                   <p className="text-gray-500 mb-2">Or</p>
                   <Button variant="outline" onClick={() => setActiveTab("edit")}>
-                    Create CV From Scratch
+                    Create ATS-Optimized CV From Scratch
                   </Button>
                 </div>
 
                 <div className="space-y-4 mt-8">
                   <div className="space-y-2">
-                    <Label htmlFor="job-description">Job Description (for AI recommendations)</Label>
+                    <Label htmlFor="job-description">Job Description (Required for ATS Optimization)</Label>
                     <Textarea
                       id="job-description"
                       value={jobDescription}
                       onChange={(e) => setJobDescription(e.target.value)}
-                      placeholder="Paste the job description here to get tailored AI recommendations..."
+                      placeholder="Paste the complete job description here to get ATS-optimized recommendations with relevant keywords..."
                       className="min-h-[150px]"
                     />
                     <p className="text-sm text-gray-500">
-                      Adding a job description helps our AI tailor recommendations specifically for the position
-                      you&apos;re applying to.
+                      <strong>ATS Tip:</strong> Adding the job description helps our AI match keywords, optimize
+                      formatting, and ensure your CV passes automated screening systems.
                     </p>
                   </div>
                 </div>
@@ -744,7 +836,7 @@ export default function CVBuilderPage() {
                 className="flex items-center"
               >
                 <Eye className="w-4 h-4 mr-2" />
-                Preview Mode
+                ATS Preview
               </Button>
             </div>
 
@@ -759,6 +851,12 @@ export default function CVBuilderPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-6 space-y-4">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                      <p className="text-amber-800 text-sm">
+                        <strong>ATS Tip:</strong> Use a clear, professional format. Avoid headers/footers, images, or
+                        complex formatting that ATS systems can&apos;t read.
+                      </p>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="name">Full Name</Label>
@@ -830,9 +928,13 @@ export default function CVBuilderPage() {
                           id="summary"
                           value={cvData.personalInfo.summary}
                           onChange={(e) => updatePersonalInfo("summary", e.target.value)}
-                          placeholder="A brief summary of your professional background and career goals..."
+                          placeholder="Write a compelling summary that includes keywords from your target job description..."
                           className="min-h-[100px]"
                         />
+                        <p className="text-sm text-gray-500 mt-1">
+                          <strong>ATS Tip:</strong> Include 2-3 key skills and quantifiable achievements in your
+                          summary.
+                        </p>
                       </div>
                     </div>
                   </CardContent>
@@ -847,6 +949,12 @@ export default function CVBuilderPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-6 space-y-6">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                      <p className="text-green-800 text-sm">
+                        <strong>ATS Optimization:</strong> Use action verbs, quantify achievements with numbers, and
+                        include relevant keywords from job descriptions.
+                      </p>
+                    </div>
                     {cvData.experience.map((exp, index) => (
                       <div key={exp.id} className="space-y-4 pb-6 border-b border-gray-200 last:border-0">
                         <div className="flex justify-between items-center">
@@ -922,9 +1030,13 @@ export default function CVBuilderPage() {
                               id={`description-${exp.id}`}
                               value={exp.description}
                               onChange={(e) => updateExperience(exp.id, "description", e.target.value)}
-                              placeholder="Describe your responsibilities and achievements..."
+                              placeholder="• Increased sales by 25% through strategic partnerships&#10;• Led a team of 8 developers using Agile methodologies&#10;• Implemented automated testing reducing bugs by 40%"
                               className="min-h-[100px]"
                             />
+                            <p className="text-sm text-gray-500 mt-1">
+                              <strong>ATS Tip:</strong> Use bullet points, start with action verbs, and include specific
+                              metrics and achievements.
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -1042,17 +1154,23 @@ export default function CVBuilderPage() {
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-4">
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+                        <p className="text-purple-800 text-sm">
+                          <strong>ATS Strategy:</strong> Include both technical and soft skills mentioned in the job
+                          description. Use exact keyword matches when possible.
+                        </p>
+                      </div>
                       <Label htmlFor="skills">Skills (comma-separated)</Label>
                       <Textarea
                         id="skills"
                         value={cvData.skills.join(", ")}
                         onChange={(e) => updateSkills(e.target.value)}
-                        placeholder="JavaScript, React, Node.js, Project Management, Communication..."
+                        placeholder="JavaScript, React, Node.js, Project Management, Communication, Agile, SQL, Python..."
                         className="min-h-[100px]"
                       />
                       <p className="text-sm text-gray-500">
-                        Enter your skills separated by commas. Include both technical and soft skills relevant to the
-                        job.
+                        <strong>ATS Tip:</strong> List skills exactly as they appear in job descriptions. Include both
+                        technical skills and soft skills relevant to the role.
                       </p>
                     </div>
                   </CardContent>
@@ -1136,7 +1254,7 @@ export default function CVBuilderPage() {
                       className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
                     >
                       <Sparkles className="w-4 h-4 mr-2" />
-                      Get AI Recommendations
+                      Get ATS Optimization
                     </Button>
                     <Button
                       onClick={() => setActiveTab("download")}
@@ -1152,7 +1270,10 @@ export default function CVBuilderPage() {
               // Preview Mode
               <Card className="border-0 shadow-lg">
                 <CardHeader className="bg-gradient-to-r from-blue-600 to-teal-600 text-white">
-                  <CardTitle>CV Preview</CardTitle>
+                  <CardTitle className="flex items-center">
+                    <Target className="w-5 h-5 mr-2" />
+                    ATS-Optimized CV Preview
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="bg-white p-8 border border-gray-200 rounded-lg shadow-inner">
@@ -1264,14 +1385,14 @@ export default function CVBuilderPage() {
                         className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
                       >
                         <Sparkles className="w-4 h-4 mr-2" />
-                        Get AI Recommendations
+                        Get ATS Optimization
                       </Button>
                       <Button
                         onClick={() => setActiveTab("download")}
                         className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
                       >
                         <FileDown className="w-4 h-4 mr-2" />
-                        Download CV
+                        Download ATS CV
                       </Button>
                     </div>
                   </div>
@@ -1285,18 +1406,19 @@ export default function CVBuilderPage() {
             <Card className="border-0 shadow-lg">
               <CardHeader className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
                 <CardTitle className="flex items-center">
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  AI CV Recommendations
+                  <Target className="w-5 h-5 mr-2" />
+                  ATS Optimization & AI Recommendations
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 {loading ? (
                   <div className="space-y-6 py-8">
                     <div className="text-center">
-                      <Sparkles className="w-16 h-16 text-indigo-500 mx-auto animate-pulse" />
-                      <h3 className="text-xl font-medium mt-4 mb-2">Analyzing your CV...</h3>
+                      <Target className="w-16 h-16 text-indigo-500 mx-auto animate-pulse" />
+                      <h3 className="text-xl font-medium mt-4 mb-2">Optimizing your CV for ATS...</h3>
                       <p className="text-gray-600 mb-6">
-                        Our AI is comparing your CV against the job description to provide tailored recommendations.
+                        Our AI is analyzing keywords, formatting, and structure to ensure maximum ATS compatibility and
+                        recruiter appeal.
                       </p>
                     </div>
                     <Progress value={progress} className="h-2" />
@@ -1306,8 +1428,8 @@ export default function CVBuilderPage() {
                   <div className="space-y-6">
                     <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-lg border border-purple-100">
                       <h3 className="text-lg font-medium text-purple-800 mb-4 flex items-center">
-                        <Sparkles className="w-5 h-5 mr-2 text-purple-600" />
-                        AI Recommendations for Your CV
+                        <Target className="w-5 h-5 mr-2 text-purple-600" />
+                        ATS Optimization Report & Recommendations
                       </h3>
                       <div className="prose max-w-none">
                         <pre className="whitespace-pre-wrap text-gray-800 font-sans">{aiRecommendations}</pre>
@@ -1324,27 +1446,31 @@ export default function CVBuilderPage() {
                         className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
                       >
                         <FileDown className="w-4 h-4 mr-2" />
-                        Preview & Download
+                        Download Optimized CV
                       </Button>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-6">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                      <h3 className="text-lg font-medium text-blue-800 mb-2">Get AI Recommendations for Your CV</h3>
+                      <h3 className="text-lg font-medium text-blue-800 mb-2 flex items-center">
+                        <Target className="w-5 h-5 mr-2" />
+                        Get ATS Optimization & Detailed Recommendations
+                      </h3>
                       <p className="text-blue-700 mb-4">
-                        Our AI can analyze your CV against the job description to provide tailored recommendations for
-                        improvement.
+                        Our advanced AI analyzes your CV against the job description to provide comprehensive ATS
+                        optimization, keyword matching, and detailed improvement suggestions with specific metrics and
+                        examples.
                       </p>
 
                       <div className="space-y-4">
                         <div>
-                          <Label htmlFor="ai-job-description">Job Description</Label>
+                          <Label htmlFor="ai-job-description">Job Description (Required for ATS Analysis)</Label>
                           <Textarea
                             id="ai-job-description"
                             value={jobDescription}
                             onChange={(e) => setJobDescription(e.target.value)}
-                            placeholder="Paste the job description here..."
+                            placeholder="Paste the complete job description here for comprehensive ATS optimization..."
                             className="min-h-[150px]"
                           />
                         </div>
@@ -1354,13 +1480,13 @@ export default function CVBuilderPage() {
                           disabled={!jobDescription || !parsedCvText}
                           className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
                         >
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          Generate AI Recommendations
+                          <Target className="w-4 h-4 mr-2" />
+                          Generate ATS Optimization Report
                         </Button>
 
                         {!parsedCvText && (
                           <p className="text-amber-600 text-sm">
-                            Please upload or create your CV first before getting recommendations.
+                            Please upload or create your CV first before getting ATS optimization recommendations.
                           </p>
                         )}
                       </div>
@@ -1384,11 +1510,24 @@ export default function CVBuilderPage() {
               <CardHeader className="bg-gradient-to-r from-blue-600 to-teal-600 text-white">
                 <CardTitle className="flex items-center">
                   <FileDown className="w-5 h-5 mr-2" />
-                  Download Your CV
+                  Download Your ATS-Optimized CV
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-8">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-start gap-3">
+                      <Check className="w-5 h-5 text-green-600 mt-0.5" />
+                      <div>
+                        <h3 className="font-medium text-green-900 mb-1">ATS-Optimized & Ready to Submit</h3>
+                        <p className="text-green-700 text-sm">
+                          Your CV has been formatted for maximum ATS compatibility with proper structure, keywords, and
+                          professional formatting that both systems and recruiters will love.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="bg-white p-8 border border-gray-200 rounded-lg shadow-inner">
                     <div className="text-center mb-6">
                       <h1 className="text-2xl font-bold">{cvData.personalInfo.name || "Your Name"}</h1>
@@ -1494,11 +1633,12 @@ export default function CVBuilderPage() {
                         </div>
                         <h3 className="text-lg font-medium mb-2">Download as Text</h3>
                         <p className="text-gray-600 mb-4">
-                          Download your CV as a plain text file that you can easily edit in any text editor.
+                          Download your ATS-optimized CV as a plain text file with proper formatting for maximum
+                          compatibility.
                         </p>
                         <Button onClick={downloadCV} className="w-full">
                           <Download className="w-4 h-4 mr-2" />
-                          Download .txt
+                          Download ATS .txt
                         </Button>
                       </CardContent>
                     </Card>
@@ -1510,14 +1650,15 @@ export default function CVBuilderPage() {
                         </div>
                         <h3 className="text-lg font-medium mb-2">Download as PDF</h3>
                         <p className="text-gray-600 mb-4">
-                          Download your CV as a professionally formatted PDF document ready to send to employers.
+                          Download your ATS-optimized CV as a professionally formatted PDF document ready for
+                          submission.
                         </p>
                         <Button
                           onClick={downloadCVAsPDF}
                           className="w-full bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700"
                         >
                           <Download className="w-4 h-4 mr-2" />
-                          Download PDF
+                          Download ATS PDF
                         </Button>
                       </CardContent>
                     </Card>
@@ -1540,7 +1681,7 @@ export default function CVBuilderPage() {
                       className="flex items-center"
                     >
                       <RefreshCw className="w-4 h-4 mr-2" />
-                      Start New CV
+                      Create New ATS CV
                     </Button>
                   </div>
                 </div>
