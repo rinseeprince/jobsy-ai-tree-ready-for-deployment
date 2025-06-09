@@ -33,6 +33,7 @@ import {
 
 import { CVService } from "@/lib/cv-service"
 import { parseResumeWithAI } from "@/lib/resume-parser"
+import CVATSScore from "@/components/cv-ats-score"
 
 // CV sections interface
 interface CVData {
@@ -702,9 +703,13 @@ export default function CVBuilderPage() {
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <Target className="w-8 h-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">ATS-Optimized CV Builder</h1>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Target className="w-8 h-8 text-blue-600" />
+              <h1 className="text-3xl font-bold text-gray-900">ATS-Optimized CV Builder</h1>
+            </div>
+            {/* Make sure the ATS Score Component is visible */}
+            {parsedCvText && <CVATSScore cvText={parsedCvText || generateCVText()} className="w-auto" />}
           </div>
           <p className="text-gray-600 text-lg">
             Create professional, ATS-friendly CVs that get past applicant tracking systems and land you interviews
