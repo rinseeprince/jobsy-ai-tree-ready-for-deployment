@@ -26,14 +26,15 @@ interface ScoreResult {
 }
 
 // Donut Chart Component
-function DonutChart({ score, size = 90 }: { score: number; size?: number }) {
+function DonutChart({ score, size = 90, isAnimating }: { score: number; size?: number; isAnimating: boolean }) {
   const radius = (size - 20) / 2
   const circumference = 2 * Math.PI * radius
   const strokeDasharray = circumference
   const strokeDashoffset = circumference - (score / 100) * circumference
 
   // Color based on score
-  const getColor = (score: number) => {
+  const getColor = (score: number, isAnimating: boolean) => {
+    if (isAnimating && score > 90) return "#10b981" // Always green during initial animation
     if (score >= 90) return "#10b981" // green-500
     if (score >= 80) return "#22c55e" // green-400
     if (score >= 70) return "#84cc16" // lime-500
@@ -42,7 +43,7 @@ function DonutChart({ score, size = 90 }: { score: number; size?: number }) {
     return "#ef4444" // red-500
   }
 
-  const color = getColor(score)
+  const color = getColor(score, isAnimating)
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
@@ -207,19 +208,62 @@ export default function CVATSScore({ cvText = "", className = "" }: ATSScoreProp
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
 
+  // Add new state for animation
+  const [animationScore, setAnimationScore] = useState<number>(0)
+  const [isAnimating, setIsAnimating] = useState(false)
+
+  // Modify the useEffect to handle the animation
   useEffect(() => {
     if (cvText && cvText.trim().length > 0) {
       setIsAnalyzing(true)
+      setIsAnimating(true)
+
       // Simulate analysis delay for better UX
       const timer = setTimeout(() => {
         const result = calculateATSScore(cvText)
         setScore(result)
         setIsAnalyzing(false)
+
+        // Start animation: go to 100% first (green), then settle to actual score
+        setAnimationScore(100)
+
+        setTimeout(() => {
+          // Animate down to actual score
+          const animateToActual = () => {
+            const startScore = 100
+            const endScore = result.overall
+            const duration = 1500 // 1.5 seconds
+            const startTime = Date.now()
+
+            const animate = () => {
+              const elapsed = Date.now() - startTime
+              const progress = Math.min(elapsed / duration, 1)
+
+              // Easing function for smooth animation
+              const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+              const currentScore = startScore - (startScore - endScore) * easeOutCubic
+
+              setAnimationScore(currentScore)
+
+              if (progress < 1) {
+                requestAnimationFrame(animate)
+              } else {
+                setIsAnimating(false)
+              }
+            }
+
+            requestAnimationFrame(animate)
+          }
+
+          animateToActual()
+        }, 500) // Wait 500ms at 100% before animating down
       }, 1500)
 
       return () => clearTimeout(timer)
     } else {
       setScore(calculateATSScore(""))
+      setAnimationScore(0)
+      setIsAnimating(false)
     }
   }, [cvText])
 
@@ -260,7 +304,7 @@ export default function CVATSScore({ cvText = "", className = "" }: ATSScoreProp
                   <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
                 </div>
               ) : (
-                <DonutChart score={score.overall} size={80} />
+                <DonutChart score={isAnimating ? animationScore : score.overall} size={80} isAnimating={isAnimating} />
               )}
             </div>
             <div className="flex-1 min-w-0">

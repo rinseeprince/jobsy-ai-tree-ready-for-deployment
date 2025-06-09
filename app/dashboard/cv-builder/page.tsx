@@ -2,10 +2,10 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -137,6 +137,32 @@ export default function CVBuilderPage() {
   const [success, setSuccess] = useState("")
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit")
 
+  // Auto-dismiss success message after 3 seconds
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess("")
+      }, 3000)
+
+      return () => clearTimeout(timer)
+    }
+  }, [success])
+
+  // Add this function after the existing state declarations and before the handleFileUpload function
+  const handleTabChange = (newTab: string) => {
+    // If switching to upload tab, reset success/error messages and clear CV data for fresh start
+    if (newTab === "upload") {
+      setSuccess("")
+      setError("")
+      // Clear parsed CV text to hide ATS Score component
+      setParsedCvText("")
+      // Optionally reset CV data for completely fresh start
+      // setCvData(defaultCVData)
+      // setAiRecommendations("")
+    }
+    setActiveTab(newTab)
+  }
+
   // Debug logging - add this right after your useState declarations
   console.log("🔍 CV Builder Debug:", {
     activeTab,
@@ -180,7 +206,7 @@ export default function CVBuilderPage() {
       }
 
       const data = await response.json()
-      setParsedCvText(data.text)
+      // setParsedCvText(data.text)
 
       // Save to Supabase
       const savedCV = await CVService.saveCV({
@@ -249,10 +275,14 @@ export default function CVBuilderPage() {
               : defaultCVData.certifications,
         })
         setProgress(100)
+        // Set parsedCvText only after everything is complete
+        setParsedCvText(data.text)
         setSuccess(`CV "${file.name}" uploaded, parsed, and optimized for ATS compatibility!`)
       } else {
         // Fall back to basic parsing if AI fails
         attemptBasicParsing(data.text)
+        // Set parsedCvText here too for the fallback case
+        setParsedCvText(data.text)
         setSuccess(`CV "${file.name}" uploaded and saved successfully! (Basic parsing used)`)
       }
 
@@ -738,20 +768,13 @@ export default function CVBuilderPage() {
         )}
 
         {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center text-green-700">
-            <Check className="w-5 h-5 mr-2" />
-            {success}
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center text-green-700 transition-all duration-500 ease-in-out animate-in slide-in-from-top-2">
+            <Check className="w-5 h-5 mr-2 flex-shrink-0" />
+            <span className="flex-1">{success}</span>
           </div>
         )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-4 mb-8">
-            <TabsTrigger value="upload">Upload CV</TabsTrigger>
-            <TabsTrigger value="edit">Edit CV</TabsTrigger>
-            <TabsTrigger value="recommendations">ATS Optimization</TabsTrigger>
-            <TabsTrigger value="download">Download</TabsTrigger>
-          </TabsList>
-
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           {/* Upload Tab */}
           <TabsContent value="upload" currentValue={activeTab}>
             <Card className="border-0 shadow-lg">
@@ -775,27 +798,43 @@ export default function CVBuilderPage() {
                   </div>
                 </div>
 
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
-                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Upload your CV</h3>
-                  <p className="text-gray-500 mb-4">Word document (.docx or .doc) for best ATS compatibility</p>
-                  <div className="relative">
-                    <Input
-                      id="cv-upload"
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      onChange={handleFileUpload}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      disabled={loading}
-                    />
-                    <Button
-                      className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
-                      disabled={loading}
-                    >
-                      {loading ? "Processing for ATS..." : "Select File"}
-                    </Button>
+                {loading ? (
+                  <div className="border-2 border-blue-300 bg-blue-50 rounded-lg p-12 text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <h3 className="text-lg font-medium text-blue-900 mb-2">Processing Your CV</h3>
+                    <p className="text-blue-700 mb-4">Uploading, parsing, and optimizing for ATS compatibility...</p>
+                    <div className="bg-white rounded-lg p-4 max-w-md mx-auto">
+                      <div className="flex items-center justify-between text-sm text-blue-800">
+                        <span>Progress</span>
+                        <span>{progress}%</span>
+                      </div>
+                      <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${progress}%` }}
+                        ></div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
+                    <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Upload your CV</h3>
+                    <p className="text-gray-500 mb-4">Word document (.docx or .doc) for best ATS compatibility</p>
+                    <div className="relative">
+                      <Input
+                        id="cv-upload"
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        onChange={handleFileUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <Button className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700">
+                        Select File
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="text-center">
                   <p className="text-gray-500 mb-2">Or</p>
@@ -826,23 +865,64 @@ export default function CVBuilderPage() {
 
           {/* Edit Tab */}
           <TabsContent value="edit" currentValue={activeTab}>
-            <div className="flex justify-end mb-4 space-x-4">
-              <Button
-                variant={viewMode === "edit" ? "default" : "outline"}
-                onClick={() => setViewMode("edit")}
-                className="flex items-center"
-              >
-                <Pencil className="w-4 h-4 mr-2" />
-                Edit Mode
-              </Button>
-              <Button
-                variant={viewMode === "preview" ? "default" : "outline"}
-                onClick={() => setViewMode("preview")}
-                className="flex items-center"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                ATS Preview
-              </Button>
+            {/* Top Action Bar */}
+            <div className="flex justify-end mb-6">
+              <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleTabChange("upload")}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Upload
+                </Button>
+
+                <div className="w-px h-6 bg-gray-200" />
+
+                <Button
+                  variant={viewMode === "edit" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("edit")}
+                  className="flex items-center"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+
+                <Button
+                  variant={viewMode === "preview" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("preview")}
+                  className="flex items-center"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Preview
+                </Button>
+
+                <div className="w-px h-6 bg-gray-200" />
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveTab("recommendations")}
+                  disabled={!jobDescription}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Get ATS Optimization
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveTab("download")}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                >
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Save & Download
+                </Button>
+              </div>
             </div>
 
             {viewMode === "edit" ? (
@@ -1246,30 +1326,6 @@ export default function CVBuilderPage() {
                     </Button>
                   </CardContent>
                 </Card>
-
-                <div className="flex justify-between">
-                  <Button variant="outline" onClick={() => setActiveTab("upload")} className="flex items-center">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Upload
-                  </Button>
-                  <div className="space-x-4">
-                    <Button
-                      onClick={() => setActiveTab("recommendations")}
-                      disabled={!jobDescription}
-                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Get ATS Optimization
-                    </Button>
-                    <Button
-                      onClick={() => setActiveTab("download")}
-                      className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
-                    >
-                      <FileDown className="w-4 h-4 mr-2" />
-                      Preview & Download
-                    </Button>
-                  </div>
-                </div>
               </div>
             ) : (
               // Preview Mode
@@ -1377,30 +1433,6 @@ export default function CVBuilderPage() {
                       </div>
                     )}
                   </div>
-
-                  <div className="flex justify-between mt-6">
-                    <Button variant="outline" onClick={() => setViewMode("edit")} className="flex items-center">
-                      <Pencil className="w-4 h-4 mr-2" />
-                      Back to Edit Mode
-                    </Button>
-                    <div className="space-x-4">
-                      <Button
-                        onClick={() => setActiveTab("recommendations")}
-                        disabled={!jobDescription}
-                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-                      >
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Get ATS Optimization
-                      </Button>
-                      <Button
-                        onClick={() => setActiveTab("download")}
-                        className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
-                      >
-                        <FileDown className="w-4 h-4 mr-2" />
-                        Download ATS CV
-                      </Button>
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
             )}
@@ -1442,9 +1474,9 @@ export default function CVBuilderPage() {
                     </div>
 
                     <div className="flex justify-between">
-                      <Button variant="outline" onClick={() => setActiveTab("edit")} className="flex items-center">
+                      <Button variant="outline" onClick={() => handleTabChange("upload")} className="flex items-center">
                         <ArrowLeft className="w-4 h-4 mr-2" />
-                        Back to Edit CV
+                        Back to Upload
                       </Button>
                       <Button
                         onClick={() => setActiveTab("download")}
