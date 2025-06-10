@@ -34,48 +34,7 @@ import {
 import { CVService } from "@/lib/cv-service"
 import { parseResumeWithAI } from "@/lib/resume-parser"
 import CVATSScore from "@/components/cv-ats-score"
-
-// CV sections interface
-interface CVData {
-  personalInfo: {
-    name: string
-    title: string
-    email: string
-    phone: string
-    location: string
-    summary: string
-    linkedin?: string
-    website?: string
-  }
-  experience: Array<{
-    id: string
-    title: string
-    company: string
-    location: string
-    startDate: string
-    endDate: string
-    current: boolean
-    description: string
-  }>
-  education: Array<{
-    id: string
-    degree: string
-    institution: string
-    location: string
-    startDate: string
-    endDate: string
-    current: boolean
-    description: string
-  }>
-  skills: string[]
-  certifications: Array<{
-    id: string
-    name: string
-    issuer: string
-    date: string
-    description: string
-  }>
-}
+import { CV_TEMPLATES, getTemplateById, renderTemplate, type CVData } from "@/lib/cv-templates"
 
 // Default empty CV data
 const defaultCVData: CVData = {
@@ -136,6 +95,8 @@ export default function CVBuilderPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit")
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("ats-optimized")
+  const [templatePreview, setTemplatePreview] = useState<string>("")
 
   // Auto-dismiss success message after 3 seconds
   useEffect(() => {
@@ -220,11 +181,13 @@ export default function CVBuilderPage() {
       console.log("✅ CV saved to database:", savedCV)
 
       // NEW: Use AI to parse the CV text
-      setProgress(10)
+      setProgress(20)
       const aiParsedData = await parseResumeWithAI(data.text)
 
       if (aiParsedData) {
         console.log("✅ AI successfully parsed the CV:", aiParsedData)
+        setProgress(60)
+
         setCvData({
           personalInfo: {
             name: `${aiParsedData.personal.firstName || ""} ${aiParsedData.personal.lastName || ""}`.trim(),
@@ -274,15 +237,19 @@ export default function CVBuilderPage() {
                 }))
               : defaultCVData.certifications,
         })
-        setProgress(100)
+
+        setProgress(90)
         // Set parsedCvText only after everything is complete
         setParsedCvText(data.text)
+        setProgress(100)
         setSuccess(`CV "${file.name}" uploaded, parsed, and optimized for ATS compatibility!`)
       } else {
         // Fall back to basic parsing if AI fails
+        setProgress(70)
         attemptBasicParsing(data.text)
         // Set parsedCvText here too for the fallback case
         setParsedCvText(data.text)
+        setProgress(100)
         setSuccess(`CV "${file.name}" uploaded and saved successfully! (Basic parsing used)`)
       }
 
@@ -569,15 +536,21 @@ export default function CVBuilderPage() {
     document.body.removeChild(element)
   }
 
-  // Download CV as PDF
+  // Download CV as PDF using selected template
   const downloadCVAsPDF = () => {
-    // Open printable version in new window
     const printWindow = window.open("", "_blank")
-
     if (!printWindow) {
       setError("Pop-up blocked. Please allow pop-ups to download as PDF.")
       return
     }
+
+    const template = getTemplateById(selectedTemplate)
+    if (!template) {
+      setError("Template not found.")
+      return
+    }
+
+    const templateHTML = renderTemplate(cvData, template)
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -586,30 +559,11 @@ export default function CVBuilderPage() {
           <title>ATS-Optimized CV</title>
           <meta charset="utf-8">
           <style>
-            @page { margin: 1in; size: A4; }
-            body { 
-              font-family: 'Arial', sans-serif; 
-              font-size: 12pt; 
-              line-height: 1.6; 
-              color: #000; 
-              max-width: 8.5in; 
-              margin: 0 auto; 
-              padding: 0; 
+            @page { margin: 0.5in; size: A4; }
+            @media print { 
+              body { margin: 0; padding: 0; } 
+              .no-print { display: none; } 
             }
-            h1, h2, h3 { margin-top: 20px; margin-bottom: 10px; }
-            h1 { font-size: 18pt; }
-            h2 { font-size: 16pt; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .contact-info { text-align: center; margin-bottom: 20px; font-size: 11pt; }
-            .section { margin-bottom: 20px; }
-            .item { margin-bottom: 15px; }
-            .item-header { display: flex; justify-content: space-between; font-weight: bold; }
-            .item-title { font-weight: bold; }
-            .item-subtitle { font-style: italic; }
-            .item-date { color: #666; }
-            .item-description { margin-top: 5px; white-space: pre-wrap; }
-            .skills-list { display: flex; flex-wrap: wrap; gap: 10px; }
-            .skill-item { background: #f0f0f0; padding: 3px 10px; border-radius: 15px; font-size: 10pt; }
             .print-instructions { 
               background: #f0f8ff; 
               border: 1px solid #0066cc; 
@@ -629,10 +583,6 @@ export default function CVBuilderPage() {
               margin-right: 10px; 
             }
             .print-button:hover { background: #0052a3; }
-            @media print { 
-              body { margin: 0; padding: 0; } 
-              .no-print { display: none; } 
-            }
           </style>
         </head>
         <body>
@@ -645,81 +595,7 @@ export default function CVBuilderPage() {
             <button class="print-button" onclick="window.close()">❌ Close</button>
           </div>
           
-          <div class="header">
-            <h1>${cvData.personalInfo.name}</h1>
-            <div>${cvData.personalInfo.title}</div>
-          </div>
-          
-          <div class="contact-info">
-            ${cvData.personalInfo.email} | ${cvData.personalInfo.phone} | ${cvData.personalInfo.location}
-            ${cvData.personalInfo.linkedin ? `<br>LinkedIn: ${cvData.personalInfo.linkedin}` : ""}
-            ${cvData.personalInfo.website ? `<br>Website: ${cvData.personalInfo.website}` : ""}
-          </div>
-          
-          <div class="section">
-            <p>${cvData.personalInfo.summary}</p>
-          </div>
-          
-          <div class="section">
-            <h2>EXPERIENCE</h2>
-            ${cvData.experience
-              .map(
-                (exp) => `
-              <div class="item">
-                <div class="item-header">
-                  <span class="item-title">${exp.title}</span>
-                  <span class="item-date">${exp.startDate} - ${exp.current ? "Present" : exp.endDate}</span>
-                </div>
-                <div class="item-subtitle">${exp.company}, ${exp.location}</div>
-                <div class="item-description">${exp.description.replace(/\n/g, "<br>")}</div>
-              </div>
-            `,
-              )
-              .join("")}
-          </div>
-          
-          <div class="section">
-            <h2>EDUCATION</h2>
-            ${cvData.education
-              .map(
-                (edu) => `
-              <div class="item">
-                <div class="item-header">
-                  <span class="item-title">${edu.degree}</span>
-                  <span class="item-date">${edu.startDate} - ${edu.current ? "Present" : edu.endDate}</span>
-                </div>
-                <div class="item-subtitle">${edu.institution}, ${edu.location}</div>
-                <div class="item-description">${edu.description.replace(/\n/g, "<br>")}</div>
-              </div>
-            `,
-              )
-              .join("")}
-          </div>
-          
-          <div class="section">
-            <h2>SKILLS</h2>
-            <div class="skills-list">
-              ${cvData.skills.map((skill) => `<span class="skill-item">${skill}</span>`).join("")}
-            </div>
-          </div>
-          
-          <div class="section">
-            <h2>CERTIFICATIONS</h2>
-            ${cvData.certifications
-              .map(
-                (cert) => `
-              <div class="item">
-                <div class="item-header">
-                  <span class="item-title">${cert.name}</span>
-                  <span class="item-date">${cert.date}</span>
-                </div>
-                <div class="item-subtitle">${cert.issuer}</div>
-                ${cert.description ? `<div class="item-description">${cert.description.replace(/\n/g, "<br>")}</div>` : ""}
-              </div>
-            `,
-              )
-              .join("")}
-          </div>
+          ${templateHTML}
         </body>
       </html>
     `
@@ -901,6 +777,16 @@ export default function CVBuilderPage() {
                 </Button>
 
                 <div className="w-px h-6 bg-gray-200" />
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveTab("templates")}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Templates
+                </Button>
 
                 <Button
                   variant="ghost"
@@ -1327,8 +1213,20 @@ export default function CVBuilderPage() {
                   </CardContent>
                 </Card>
               </div>
+            ) : // Preview Mode
+            templatePreview ? (
+              <Card className="border-0 shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-blue-600 to-teal-600 text-white">
+                  <CardTitle className="flex items-center">
+                    <Target className="w-5 h-5 mr-2" />
+                    Template Preview - {getTemplateById(selectedTemplate)?.name}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div dangerouslySetInnerHTML={{ __html: templatePreview }} />
+                </CardContent>
+              </Card>
             ) : (
-              // Preview Mode
               <Card className="border-0 shadow-lg">
                 <CardHeader className="bg-gradient-to-r from-blue-600 to-teal-600 text-white">
                   <CardTitle className="flex items-center">
@@ -1438,8 +1336,326 @@ export default function CVBuilderPage() {
             )}
           </TabsContent>
 
+          {/* Templates Tab */}
+          <TabsContent value="templates" currentValue={activeTab}>
+            {/* Keep the consistent navigation bar */}
+            <div className="flex justify-end mb-6">
+              <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleTabChange("upload")}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Upload
+                </Button>
+
+                <div className="w-px h-6 bg-gray-200" />
+
+                <Button
+                  variant={viewMode === "edit" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setViewMode("edit")
+                    setActiveTab("edit")
+                  }}
+                  className="flex items-center"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+
+                <Button
+                  variant={viewMode === "preview" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setViewMode("preview")
+                    setActiveTab("edit")
+                  }}
+                  className="flex items-center"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Preview
+                </Button>
+
+                <div className="w-px h-6 bg-gray-200" />
+
+                <Button variant="default" size="sm" className="flex items-center">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Templates
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveTab("recommendations")}
+                  disabled={!jobDescription}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Get ATS Optimization
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveTab("download")}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                >
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Save & Download
+                </Button>
+              </div>
+            </div>
+
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-purple-600 to-pink-600 text-white">
+                <CardTitle className="flex items-center">
+                  <FileText className="w-5 h-5 mr-2" />
+                  Choose Your CV Template
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="font-medium text-blue-900 mb-2">Professional CV Templates</h3>
+                    <p className="text-blue-700 text-sm">
+                      Choose from our professionally designed templates. Each template is optimized for different
+                      industries and ATS systems.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {CV_TEMPLATES.map((template) => {
+                      // Create sample data for preview
+                      const sampleData: CVData = {
+                        personalInfo: {
+                          name: cvData.personalInfo.name || "John Doe",
+                          title: cvData.personalInfo.title || "Software Engineer",
+                          email: cvData.personalInfo.email || "john.doe@example.com",
+                          phone: cvData.personalInfo.phone || "(555) 123-4567",
+                          location: cvData.personalInfo.location || "New York, NY",
+                          summary:
+                            cvData.personalInfo.summary ||
+                            "Experienced software engineer with expertise in full-stack development and team leadership.",
+                          linkedin: cvData.personalInfo.linkedin || "",
+                          website: cvData.personalInfo.website || "",
+                        },
+                        experience: cvData.experience[0]?.title
+                          ? cvData.experience.slice(0, 2)
+                          : [
+                              {
+                                id: "exp-1",
+                                title: "Senior Software Engineer",
+                                company: "Tech Corp",
+                                location: "New York, NY",
+                                startDate: "2020",
+                                endDate: "Present",
+                                current: true,
+                                description: "• Led development of key features\n• Improved system performance by 40%",
+                              },
+                            ],
+                        education: cvData.education[0]?.degree
+                          ? cvData.education.slice(0, 1)
+                          : [
+                              {
+                                id: "edu-1",
+                                degree: "Bachelor of Computer Science",
+                                institution: "University of Technology",
+                                location: "New York, NY",
+                                startDate: "2016",
+                                endDate: "2020",
+                                current: false,
+                                description: "",
+                              },
+                            ],
+                        skills: cvData.skills[0]
+                          ? cvData.skills.slice(0, 6)
+                          : ["JavaScript", "React", "Node.js", "Python", "SQL", "AWS"],
+                        certifications: cvData.certifications[0]?.name
+                          ? cvData.certifications.slice(0, 1)
+                          : [
+                              {
+                                id: "cert-1",
+                                name: "AWS Certified Developer",
+                                issuer: "Amazon Web Services",
+                                date: "2023",
+                                description: "",
+                              },
+                            ],
+                      }
+
+                      return (
+                        <Card
+                          key={template.id}
+                          className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                            selectedTemplate === template.id ? "ring-2 ring-blue-500 shadow-lg" : "hover:shadow-md"
+                          }`}
+                          onClick={() => setSelectedTemplate(template.id)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="aspect-[3/4] bg-white rounded-lg mb-4 overflow-hidden border shadow-sm">
+                              {/* Template Preview */}
+                              <div className="w-full h-full p-2 text-xs leading-tight overflow-hidden">
+                                <div
+                                  className="w-full h-full overflow-hidden"
+                                  style={{
+                                    transform: "scale(0.35)",
+                                    transformOrigin: "top left",
+                                    width: "285%",
+                                    height: "285%",
+                                  }}
+                                >
+                                  <div
+                                    dangerouslySetInnerHTML={{
+                                      __html: renderTemplate(sampleData, template)
+                                        .replace(/font-size:\s*\d+px/g, "font-size: 14px")
+                                        .replace(/padding:\s*[\d.]+in/g, "padding: 20px")
+                                        .replace(/margin:\s*[\d.]+in/g, "margin: 10px"),
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <h3 className="font-semibold text-gray-900 mb-2">{template.name}</h3>
+                            <p className="text-sm text-gray-600 mb-3">{template.description}</p>
+                            <div className="flex items-center justify-between">
+                              <div className="flex space-x-1">
+                                {Object.values(template.colors)
+                                  .slice(0, 3)
+                                  .map((color, index) => (
+                                    <div
+                                      key={index}
+                                      className="w-4 h-4 rounded-full border border-gray-200"
+                                      style={{ backgroundColor: color }}
+                                    />
+                                  ))}
+                              </div>
+                              <span className="text-xs text-gray-500 capitalize bg-gray-100 px-2 py-1 rounded">
+                                {template.category.replace("-", " ")}
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+
+                  <div className="flex justify-between items-center pt-4 border-t">
+                    <Button variant="outline" onClick={() => setActiveTab("edit")} className="flex items-center">
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Back to Edit
+                    </Button>
+
+                    <div className="flex gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const template = getTemplateById(selectedTemplate)
+                          if (template) {
+                            const preview = renderTemplate(cvData, template)
+                            setTemplatePreview(preview)
+                            setViewMode("preview")
+                            setActiveTab("edit")
+                          }
+                        }}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        Preview Template
+                      </Button>
+
+                      <Button
+                        onClick={() => {
+                          const template = getTemplateById(selectedTemplate)
+                          if (template) {
+                            setSuccess(`${template.name} template applied successfully!`)
+                            setActiveTab("download")
+                          }
+                        }}
+                        className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                      >
+                        <Check className="w-4 h-4 mr-2" />
+                        Apply Template
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* AI Recommendations Tab */}
           <TabsContent value="recommendations" currentValue={activeTab}>
+            {/* Consistent navigation bar */}
+            <div className="flex justify-end mb-6">
+              <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleTabChange("upload")}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Upload
+                </Button>
+
+                <div className="w-px h-6 bg-gray-200" />
+
+                <Button
+                  variant={viewMode === "edit" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setViewMode("edit")
+                    setActiveTab("edit")
+                  }}
+                  className="flex items-center"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+
+                <Button
+                  variant={viewMode === "preview" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setViewMode("preview")
+                    setActiveTab("edit")
+                  }}
+                  className="flex items-center"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Preview
+                </Button>
+
+                <div className="w-px h-6 bg-gray-200" />
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveTab("templates")}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Templates
+                </Button>
+
+                <Button variant="default" size="sm" className="flex items-center">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Get ATS Optimization
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveTab("download")}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                >
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Save & Download
+                </Button>
+              </div>
+            </div>
             <Card className="border-0 shadow-lg">
               <CardHeader className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
                 <CardTitle className="flex items-center">
@@ -1543,6 +1759,76 @@ export default function CVBuilderPage() {
 
           {/* Download Tab */}
           <TabsContent value="download" currentValue={activeTab}>
+            {/* Consistent navigation bar */}
+            <div className="flex justify-end mb-6">
+              <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleTabChange("upload")}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Upload
+                </Button>
+
+                <div className="w-px h-6 bg-gray-200" />
+
+                <Button
+                  variant={viewMode === "edit" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setViewMode("edit")
+                    setActiveTab("edit")
+                  }}
+                  className="flex items-center"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+
+                <Button
+                  variant={viewMode === "preview" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setViewMode("preview")
+                    setActiveTab("edit")
+                  }}
+                  className="flex items-center"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Preview
+                </Button>
+
+                <div className="w-px h-6 bg-gray-200" />
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveTab("templates")}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Templates
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveTab("recommendations")}
+                  disabled={!jobDescription}
+                  className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Get ATS Optimization
+                </Button>
+
+                <Button variant="default" size="sm" className="flex items-center">
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Save & Download
+                </Button>
+              </div>
+            </div>
             <Card className="border-0 shadow-lg">
               <CardHeader className="bg-gradient-to-r from-blue-600 to-teal-600 text-white">
                 <CardTitle className="flex items-center">
