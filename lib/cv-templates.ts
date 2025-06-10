@@ -9,6 +9,7 @@ export interface CVData {
     summary: string
     linkedin?: string
     website?: string
+    profilePhoto?: string // Add this new field for base64 image data
   }
   experience: Array<{
     id: string
@@ -55,14 +56,14 @@ export interface CVTemplate {
   }
 }
 
-// Template Definitions
+// Template Definitions with better previews
 export const CV_TEMPLATES: CVTemplate[] = [
   {
     id: "ats-optimized",
     name: "ATS Optimized",
     description: "Clean, simple format that passes through ATS systems easily",
     category: "ats-optimized",
-    preview: "/placeholder.svg?height=400&width=300&text=ATS+Template",
+    preview: "/placeholder.svg?height=400&width=300&text=ATS%20Template&bg=ffffff&color=2563eb",
     colors: {
       primary: "#2563eb",
       secondary: "#64748b",
@@ -75,7 +76,7 @@ export const CV_TEMPLATES: CVTemplate[] = [
     name: "Professional",
     description: "Traditional corporate design with clean typography",
     category: "professional",
-    preview: "/placeholder.svg?height=400&width=300&text=Professional+Template",
+    preview: "/placeholder.svg?height=400&width=300&text=Professional%20Template&bg=ffffff&color=1f2937",
     colors: {
       primary: "#1f2937",
       secondary: "#6b7280",
@@ -88,7 +89,7 @@ export const CV_TEMPLATES: CVTemplate[] = [
     name: "Modern",
     description: "Contemporary design with subtle colors and modern layout",
     category: "modern",
-    preview: "/placeholder.svg?height=400&width=300&text=Modern+Template",
+    preview: "/placeholder.svg?height=400&width=300&text=Modern%20Template&bg=ffffff&color=7c3aed",
     colors: {
       primary: "#7c3aed",
       secondary: "#a78bfa",

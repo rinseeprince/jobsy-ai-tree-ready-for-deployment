@@ -47,6 +47,7 @@ const defaultCVData: CVData = {
     summary: "",
     linkedin: "",
     website: "",
+    profilePhoto: "", // Add this field
   },
   experience: [
     {
@@ -134,6 +135,46 @@ export default function CVBuilderPage() {
     success,
   })
 
+  // Add this after the existing updatePersonalInfo function
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload an image file (JPG, PNG, etc.)")
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image file size must be less than 5MB")
+      return
+    }
+
+    try {
+      // Convert to base64
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const base64String = event.target?.result as string
+        updatePersonalInfo("profilePhoto", base64String)
+        setSuccess("Profile photo uploaded successfully!")
+      }
+      reader.onerror = () => {
+        setError("Failed to upload image. Please try again.")
+      }
+      reader.readAsDataURL(file)
+    } catch (err) {
+      console.error("Error processing image:", err)
+      setError("Failed to process image. Please try again.")
+    }
+  }
+
+  const removePhoto = () => {
+    updatePersonalInfo("profilePhoto", "")
+    setSuccess("Profile photo removed")
+  }
+
   // Handle file upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -198,6 +239,7 @@ export default function CVBuilderPage() {
             summary: aiParsedData.personal.summary || "",
             linkedin: aiParsedData.personal.linkedin || "",
             website: aiParsedData.personal.website || "",
+            profilePhoto: cvData.personalInfo.profilePhoto || "",
           },
           experience:
             aiParsedData.experience.length > 0
@@ -908,6 +950,117 @@ export default function CVBuilderPage() {
                         </p>
                       </div>
                     </div>
+
+                    {/* Photo Upload Section */}
+                    <div className="md:col-span-2 border-t pt-6">
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-start gap-3">
+                          <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <h4 className="font-medium text-amber-900 mb-1">Profile Photo Guidelines</h4>
+                            <ul className="text-amber-800 text-sm space-y-1">
+                              <li>
+                                • <strong>ATS Warning:</strong> Photos can cause issues with Applicant Tracking Systems
+                              </li>
+                              <li>
+                                • <strong>Regional:</strong> Common in EU/Asia, discouraged in US/UK/Canada
+                              </li>
+                              <li>
+                                • <strong>Industry:</strong> Acceptable for creative fields, avoid for corporate/tech
+                              </li>
+                              <li>
+                                • <strong>Recommendation:</strong> Only use if specifically requested or
+                                industry-appropriate
+                              </li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <Label htmlFor="profile-photo">Profile Photo (Optional)</Label>
+
+                        {cvData.personalInfo.profilePhoto ? (
+                          // Photo Preview and Remove
+                          <div className="flex items-start gap-4">
+                            <div className="relative">
+                              <img
+                                src={cvData.personalInfo.profilePhoto || "/placeholder.svg"}
+                                alt="Profile"
+                                className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                              />
+                            </div>
+                            <div className="flex-1 space-y-2">
+                              <p className="text-sm text-green-700 font-medium">✓ Profile photo uploaded</p>
+                              <p className="text-xs text-gray-600">
+                                Your photo will appear in photo-enabled templates. ATS-optimized templates will ignore
+                                this image.
+                              </p>
+                              <div className="flex gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => document.getElementById("profile-photo")?.click()}
+                                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                >
+                                  Change Photo
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={removePhoto}
+                                  className="text-red-600 border-red-200 hover:bg-red-50"
+                                >
+                                  Remove Photo
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          // Photo Upload Area
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                            <div className="space-y-3">
+                              <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto flex items-center justify-center">
+                                <User className="w-8 h-8 text-gray-400" />
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-medium text-gray-900">Upload Profile Photo</h3>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  JPG, PNG up to 5MB. Will be automatically resized and cropped to fit.
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => document.getElementById("profile-photo")?.click()}
+                                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                              >
+                                Choose Photo
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        <Input
+                          id="profile-photo"
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoUpload}
+                          className="hidden"
+                        />
+
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <p className="text-blue-800 text-xs">
+                            <strong>Smart Template Selection:</strong> Our system will recommend photo-free templates
+                            for ATS-heavy industries and photo-enabled templates for creative fields or international
+                            applications.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -1441,6 +1594,7 @@ export default function CVBuilderPage() {
                             "Experienced software engineer with expertise in full-stack development and team leadership.",
                           linkedin: cvData.personalInfo.linkedin || "",
                           website: cvData.personalInfo.website || "",
+                          profilePhoto: cvData.personalInfo.profilePhoto || "",
                         },
                         experience: cvData.experience[0]?.title
                           ? cvData.experience.slice(0, 2)
