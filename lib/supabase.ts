@@ -1,5 +1,48 @@
 import { createClient } from "@supabase/supabase-js"
 
+// Define proper types for CV data
+export interface CVData {
+  personalInfo: {
+    name: string
+    title: string
+    email: string
+    phone: string
+    location: string
+    summary: string
+    linkedin: string
+    website: string
+    profilePhoto: string
+  }
+  experience: Array<{
+    id: string
+    title: string
+    company: string
+    location: string
+    startDate: string
+    endDate: string
+    current: boolean
+    description: string
+  }>
+  education: Array<{
+    id: string
+    degree: string
+    institution: string
+    location: string
+    startDate: string
+    endDate: string
+    current: boolean
+    description: string
+  }>
+  skills: string[]
+  certifications: Array<{
+    id: string
+    name: string
+    issuer: string
+    date: string
+    description: string
+  }>
+}
+
 export type Application = {
   id: string
   user_id: string
@@ -32,30 +75,43 @@ export type Application = {
   updated_at: string
 }
 
+export type SavedCV = {
+  id: string
+  user_id: string
+  title: string
+  cv_data: CVData
+  template_id: string
+  status: "draft" | "ready" | "sent"
+  word_count: number
+  created_at: string
+  updated_at: string
+}
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Validate that both URL and key are present and valid
-const isSupabaseConfigured = () => {
+// Fix the return type issue by ensuring proper boolean return
+const isSupabaseConfigured = (): boolean => {
   console.log("🔍 DETAILED SUPABASE DEBUG:")
   console.log("Raw environment variables:")
   console.log("- NEXT_PUBLIC_SUPABASE_URL:", supabaseUrl)
   console.log("- NEXT_PUBLIC_SUPABASE_ANON_KEY:", supabaseAnonKey)
   console.log("- URL exists:", !!supabaseUrl)
   console.log("- URL is string:", typeof supabaseUrl === "string")
-  console.log("- URL starts with http:", supabaseUrl?.startsWith("http"))
+  console.log("- URL starts with http:", Boolean(supabaseUrl?.startsWith("http")))
   console.log("- URL is not placeholder:", supabaseUrl !== "your_supabase_project_url")
   console.log("- Key exists:", !!supabaseAnonKey)
   console.log("- Key is string:", typeof supabaseAnonKey === "string")
   console.log("- Key length > 10:", (supabaseAnonKey?.length || 0) > 10)
   console.log("- Key is not placeholder:", supabaseAnonKey !== "your_supabase_anon_key")
 
-  const isConfigured =
+  const isConfigured = Boolean(
     supabaseUrl &&
-    supabaseAnonKey &&
-    supabaseUrl !== "your_supabase_project_url" &&
-    supabaseAnonKey !== "your_supabase_anon_key" &&
-    supabaseUrl.startsWith("http")
+      supabaseAnonKey &&
+      supabaseUrl !== "your_supabase_project_url" &&
+      supabaseAnonKey !== "your_supabase_anon_key" &&
+      supabaseUrl.startsWith("http"),
+  )
 
   console.log("Final isSupabaseReady result:", isConfigured)
   return isConfigured
@@ -566,4 +622,260 @@ export class ApplicationsService {
       return null
     }
   }
+
+  // CV Management Functions
+  static async saveCVData(cvData: {
+    title: string
+    cv_data: CVData
+    template_id: string
+    status?: "draft" | "ready" | "sent"
+  }): Promise<SavedCV> {
+    console.log("📝 Attempting to save CV:", {
+      isSupabaseReady,
+      title: cvData.title,
+      templateId: cvData.template_id,
+    })
+
+    if (!isSupabaseReady) {
+      console.error("❌ Cannot save CV: Supabase not configured")
+      throw new Error("Supabase not configured")
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        console.error("❌ Cannot save CV: User not authenticated")
+        throw new Error("User not authenticated")
+      }
+
+      // Calculate word count
+      const wordCount = this.calculateWordCount(cvData.cv_data)
+
+      const insertData = {
+        user_id: user.id,
+        title: cvData.title,
+        cv_data: cvData.cv_data,
+        template_id: cvData.template_id,
+        status: cvData.status || "draft",
+        word_count: wordCount,
+      }
+
+      console.log("💾 Inserting CV to Supabase:", {
+        user_id: insertData.user_id,
+        title: insertData.title,
+        template_id: insertData.template_id,
+        status: insertData.status,
+        word_count: insertData.word_count,
+      })
+
+      const { data, error } = await supabase.from("saved_cvs").insert(insertData).select().single()
+
+      if (error) {
+        console.error("❌ Supabase insert error:", error)
+        throw new Error(`Database error: ${error.message}`)
+      }
+
+      console.log("✅ CV saved successfully:", data)
+      return data as SavedCV
+    } catch (error) {
+      console.error("❌ Error in saveCVData:", error)
+      throw error
+    }
+  }
+
+  static async updateCVData(
+    cvId: string,
+    cvData: {
+      title?: string
+      cv_data?: CVData
+      template_id?: string
+      status?: "draft" | "ready" | "sent"
+    },
+  ): Promise<SavedCV> {
+    console.log("📝 Updating CV:", cvId, cvData)
+
+    if (!isSupabaseReady) {
+      throw new Error("Supabase not configured")
+    }
+
+    try {
+      const updateData: Record<string, unknown> = {
+        ...cvData,
+        updated_at: new Date().toISOString(),
+      }
+
+      // Calculate word count if cv_data is provided
+      if (cvData.cv_data) {
+        updateData.word_count = this.calculateWordCount(cvData.cv_data)
+      }
+
+      const { data, error } = await supabase.from("saved_cvs").update(updateData).eq("id", cvId).select().single()
+
+      if (error) {
+        console.error("❌ Supabase update error:", error)
+        throw new Error(`Database error: ${error.message}`)
+      }
+
+      console.log("✅ CV updated successfully:", data)
+      return data as SavedCV
+    } catch (error) {
+      console.error("❌ Error in updateCVData:", error)
+      throw error
+    }
+  }
+
+  static async getUserSavedCVs(): Promise<SavedCV[]> {
+    console.log("🔍 Getting user saved CVs...")
+
+    if (!isSupabaseReady) {
+      console.log("⚠️ Supabase not ready, returning empty array")
+      return []
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      console.log("❌ No user found, returning empty array")
+      return []
+    }
+
+    const { data, error } = await supabase
+      .from("saved_cvs")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false })
+
+    if (error) {
+      console.error("❌ Error fetching saved CVs:", error)
+      return []
+    }
+
+    console.log("✅ Successfully fetched saved CVs:", data?.length || 0)
+    return (data || []) as SavedCV[]
+  }
+
+  static async getSavedCV(cvId: string): Promise<SavedCV | null> {
+    console.log("🔍 Getting saved CV by ID:", cvId)
+
+    if (!isSupabaseReady) {
+      return null
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return null
+    }
+
+    const { data, error } = await supabase.from("saved_cvs").select("*").eq("id", cvId).eq("user_id", user.id).single()
+
+    if (error) {
+      console.error("❌ Error fetching saved CV:", error)
+      return null
+    }
+
+    return data as SavedCV
+  }
+
+  static async deleteSavedCV(cvId: string): Promise<boolean> {
+    console.log("🗑️ Deleting saved CV:", cvId)
+
+    if (!isSupabaseReady) {
+      return false
+    }
+
+    try {
+      const { error } = await supabase.from("saved_cvs").delete().eq("id", cvId)
+
+      if (error) {
+        console.error("❌ Supabase delete error:", error)
+        return false
+      }
+
+      console.log("✅ Saved CV deleted successfully")
+      return true
+    } catch (error) {
+      console.error("❌ Error in deleteSavedCV:", error)
+      return false
+    }
+  }
+
+  static async duplicateSavedCV(cvId: string, newTitle?: string): Promise<SavedCV> {
+    console.log("📋 Duplicating saved CV:", cvId)
+
+    const originalCV = await this.getSavedCV(cvId)
+    if (!originalCV) {
+      throw new Error("CV not found")
+    }
+
+    const duplicateData = {
+      title: newTitle || `${originalCV.title} (Copy)`,
+      cv_data: originalCV.cv_data,
+      template_id: originalCV.template_id,
+      status: "draft" as const,
+    }
+
+    return this.saveCVData(duplicateData)
+  }
+
+  private static calculateWordCount(cvData: CVData): number {
+    let wordCount = 0
+
+    // Count words in personal info
+    const personalInfo = cvData.personalInfo
+    if (personalInfo && personalInfo.summary) {
+      wordCount += this.countWords(personalInfo.summary)
+    }
+
+    // Count words in experience
+    if (cvData.experience && Array.isArray(cvData.experience)) {
+      cvData.experience.forEach((exp) => {
+        if (exp && exp.description) {
+          wordCount += this.countWords(exp.description)
+        }
+      })
+    }
+
+    // Count words in education
+    if (cvData.education && Array.isArray(cvData.education)) {
+      cvData.education.forEach((edu) => {
+        if (edu && edu.description) {
+          wordCount += this.countWords(edu.description)
+        }
+      })
+    }
+
+    // Count words in certifications
+    if (cvData.certifications && Array.isArray(cvData.certifications)) {
+      cvData.certifications.forEach((cert) => {
+        if (cert && cert.description) {
+          wordCount += this.countWords(cert.description)
+        }
+      })
+    }
+
+    // Count skills (each skill counts as 1 word)
+    if (cvData.skills && Array.isArray(cvData.skills)) {
+      wordCount += cvData.skills.filter((skill) => skill && skill.trim()).length
+    }
+
+    return wordCount
+  }
+
+  private static countWords(text: string): number {
+    if (!text) return 0
+    return text
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length
+  }
 }
+
+// Export the ApplicationsService class
