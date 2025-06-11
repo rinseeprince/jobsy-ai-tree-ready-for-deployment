@@ -7,12 +7,14 @@ import { supabase, isSupabaseReady } from "@/lib/supabase"
 import { AuthModalReal } from "./auth-modal-real"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
+import { ApplicationsService } from "@/lib/supabase"
 
 export function AuthButton() {
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin")
+  const [userName, setUserName] = useState<string>("")
   const router = useRouter()
 
   useEffect(() => {
@@ -52,7 +54,10 @@ export function AuthButton() {
 
             if (event === "SIGNED_IN" && session?.user) {
               setShowAuthModal(false)
+              fetchUserName()
               router.push("/dashboard")
+            } else if (event === "SIGNED_OUT") {
+              setUserName("")
             }
           }
         })
@@ -82,6 +87,31 @@ export function AuthButton() {
     }
   }
 
+  const fetchUserName = async () => {
+    try {
+      const profile = await ApplicationsService.getUserProfile()
+      if (profile?.full_name) {
+        setUserName(profile.full_name)
+      } else if (user?.email) {
+        // Extract name from email as fallback
+        const emailName = user.email.split("@")[0]
+        setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1))
+      }
+    } catch (error) {
+      console.warn("Failed to fetch user name:", error)
+      if (user?.email) {
+        const emailName = user.email.split("@")[0]
+        setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1))
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (user && isSupabaseReady) {
+      fetchUserName()
+    }
+  }, [user])
+
   if (loading) {
     return (
       <Button variant="outline" disabled>
@@ -108,7 +138,7 @@ export function AuthButton() {
   if (user) {
     return (
       <div className="flex items-center space-x-4">
-        <span className="text-sm">Welcome, {user.email}</span>
+        <span className="text-sm">Welcome, {userName || user.email}</span>
         <Button variant="outline" onClick={handleSignOut} size="sm">
           <LogOut className="w-4 h-4 mr-2" />
           Sign Out

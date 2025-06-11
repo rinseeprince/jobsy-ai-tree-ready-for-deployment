@@ -56,16 +56,18 @@ export default function DashboardLayout({
                     Home
                   </Link>
                   <Link
-                    href="/generator"
+                    href="/dashboard/cover-letter-generator"
                     className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                      pathname === "/generator"
+                      pathname === "/dashboard/cover-letter-generator"
                         ? "bg-blue-50 text-blue-700"
                         : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                     }`}
                   >
                     <svg
                       className={`mr-3 h-5 w-5 ${
-                        pathname === "/generator" ? "text-blue-500" : "text-gray-400 group-hover:text-gray-500"
+                        pathname === "/dashboard/cover-letter-generator"
+                          ? "text-blue-500"
+                          : "text-gray-400 group-hover:text-gray-500"
                       }`}
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
