@@ -806,207 +806,291 @@ export default function CVBuilderPage() {
         <div>
           <Tabs value={activeTab} onValueChange={handleTabChange}>
             {/* Upload Tab */}
+
             <TabsContent value="upload" currentValue={activeTab}>
-              <Card className="border-0 shadow-2xl bg-white/80 backdrop-blur-xl rounded-3xl overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8">
-                  <CardTitle className="flex items-center text-2xl">
-                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mr-4">
-                      <Upload className="w-6 h-6" />
-                    </div>
-                    Upload Your CV for AI Analysis
-                  </CardTitle>
-                  <p className="text-blue-100 mt-2">
-                    Upload your existing CV and let our AI transform it into an ATS-optimized masterpiece
-                  </p>
-                </CardHeader>
-                <CardContent className="p-8 space-y-8">
-                  {/* Instructions */}
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center">
-                        <Info className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-blue-900 mb-3 text-lg">How It Works</h3>
-                        <div className="space-y-2 text-blue-800">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                              1
-                            </div>
-                            <p className="text-sm">Upload your CV in Word format (.docx or .doc)</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                              2
-                            </div>
-                            <p className="text-sm">Our AI extracts and structures your information</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                              3
-                            </div>
-                            <p className="text-sm">Add job description for targeted optimization</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                              4
-                            </div>
-                            <p className="text-sm">Get ATS-optimized CV with keyword matching</p>
-                          </div>
+              <div className="space-y-8">
+                {/* Header Section - matching My CVs style */}
+                <div className="mb-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
+                          <Rocket className="w-6 h-6 text-white" />
                         </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {loading ? (
-                    <div className="border-2 border-dashed border-blue-300 bg-gradient-to-br from-blue-50 to-purple-50 rounded-3xl p-12 text-center">
-                      <div className="relative mb-6">
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur-lg opacity-75 animate-pulse"></div>
-                        <div className="relative w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mx-auto flex items-center justify-center">
-                          <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                        </div>
-                      </div>
-                      <h3 className="text-2xl font-bold text-blue-900 mb-3">AI Processing Your CV</h3>
-                      <p className="text-blue-700 mb-6 text-lg">
-                        Analyzing content, extracting data, and optimizing for ATS compatibility...
-                      </p>
-                      <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 max-w-md mx-auto">
-                        <div className="flex items-center justify-between text-blue-800 mb-3">
-                          <span className="font-medium">Processing Progress</span>
-                          <span className="font-bold text-lg">{progress}%</span>
-                        </div>
-                        <div className="w-full bg-blue-200 rounded-full h-4 overflow-hidden">
-                          <div
-                            className="bg-gradient-to-r from-blue-600 to-purple-600 h-4 rounded-full transition-all duration-500 ease-out relative overflow-hidden"
-                            style={{ width: `${progress}%` }}
-                          >
-                            <div className="absolute inset-0 bg-white/30 animate-pulse"></div>
-                          </div>
-                        </div>
-                        <div className="mt-3 text-xs text-blue-600">
-                          {progress < 30 && "Uploading and parsing document..."}
-                          {progress >= 30 && progress < 70 && "AI analyzing content structure..."}
-                          {progress >= 70 && progress < 95 && "Optimizing for ATS compatibility..."}
-                          {progress >= 95 && "Finalizing optimization..."}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="border-2 border-dashed border-gray-300 rounded-3xl p-12 text-center hover:border-blue-400 transition-all duration-300 bg-gradient-to-br from-gray-50 to-blue-50 group">
-                      <div className="relative mb-6">
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur-lg opacity-0 group-hover:opacity-75 transition-opacity duration-300"></div>
-                        <div className="relative w-20 h-20 bg-gradient-to-r from-gray-400 to-blue-400 group-hover:from-blue-600 group-hover:to-purple-600 rounded-2xl mx-auto flex items-center justify-center transition-all duration-300">
-                          <Upload className="w-10 h-10 text-white" />
-                        </div>
-                      </div>
-                      <h3 className="text-2xl font-bold text-gray-900 mb-3">Upload Your CV</h3>
-                      <p className="text-gray-600 mb-6 text-lg">Drag & drop or click to select your CV file</p>
-                      <div className="relative">
-                        <Input
-                          type="file"
-                          accept=".pdf,.doc,.docx"
-                          onChange={handleFileUpload}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                        <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 text-lg rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-                          <Star className="w-5 h-5 mr-2" />
-                          Choose CV File
-                        </Button>
-                      </div>
-                      <p className="text-gray-500 text-sm mt-4">
-                        Supported formats: .docx, .doc (Word documents work best for ATS optimization)
+                        AI-Powered CV Builder
+                      </h1>
+                      <p className="text-gray-600 mt-2">
+                        Create professional, ATS-optimized CVs that get past applicant tracking systems and land you
+                        interviews.
                       </p>
                     </div>
-                  )}
-
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-4 mb-4">
-                      <div className="h-px bg-gray-300 flex-1"></div>
-                      <span className="text-gray-500 font-medium">OR</span>
-                      <div className="h-px bg-gray-300 flex-1"></div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => setActiveTab("edit")}
-                      className="border-2 border-gray-300 hover:border-blue-400 bg-white hover:bg-blue-50 px-8 py-4 text-lg rounded-2xl transition-all duration-300 group"
-                    >
-                      <Plus className="w-5 h-5 mr-2 group-hover:rotate-90 transition-transform" />
-                      Create CV From Scratch
-                    </Button>
                   </div>
+                </div>
 
-                  {/* Job Description Section */}
-                  <div className="space-y-6">
-                    <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl flex items-center justify-center">
-                          <Lightbulb className="w-6 h-6 text-white" />
-                        </div>
+                {/* Feature Cards - matching My CVs stats cards style */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  <Card className="border-0 shadow-lg bg-gradient-to-r from-emerald-50 to-teal-50">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-semibold text-amber-900 mb-2 text-lg">
-                            Pro Tip: Job Description Analysis
-                          </h3>
-                          <p className="text-amber-800 mb-3">
-                            Adding the job description enables our AI to perform advanced keyword matching, optimize
-                            your CV for specific requirements, and significantly increase your ATS score.
-                          </p>
-                          <div className="bg-white/60 rounded-lg p-3">
-                            <p className="text-amber-900 text-sm font-medium">
-                              ✨ With job description: 85-95% ATS compatibility
-                              <br />📄 Without job description: 60-75% ATS compatibility
-                            </p>
+                          <p className="text-sm font-medium text-emerald-600">AI-Powered Analysis</p>
+                          <p className="text-sm text-emerald-700 mt-1">Advanced algorithms parse and optimize</p>
+                        </div>
+                        <div className="p-3 bg-emerald-100 rounded-2xl">
+                          <Brain className="w-6 h-6 text-emerald-600" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-cyan-50">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-blue-600">Keyword Optimization</p>
+                          <p className="text-sm text-blue-700 mt-1">Match job descriptions with precision</p>
+                        </div>
+                        <div className="p-3 bg-blue-100 rounded-2xl">
+                          <Target className="w-6 h-6 text-blue-600" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-0 shadow-lg bg-gradient-to-r from-purple-50 to-pink-50">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-purple-600">ATS Score Tracking</p>
+                          <p className="text-sm text-purple-700 mt-1">Real-time compatibility scoring</p>
+                        </div>
+                        <div className="p-3 bg-purple-100 rounded-2xl">
+                          <BarChart3 className="w-6 h-6 text-purple-600" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Main Upload Card */}
+                <Card className="border-0 shadow-lg bg-white rounded-3xl overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8">
+                    <CardTitle className="flex items-center text-2xl">
+                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mr-4">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      Upload Your CV for AI Analysis
+                    </CardTitle>
+                    <p className="text-blue-100 mt-2">
+                      Upload your existing CV and let our AI transform it into an ATS-optimized masterpiece
+                    </p>
+                  </CardHeader>
+                  <CardContent className="p-8 space-y-8">
+                    {/* Instructions */}
+                    <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
+                      <CardContent className="p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center">
+                            <Info className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-blue-900 mb-3 text-lg">How It Works</h3>
+                            <div className="space-y-2 text-blue-800">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                  1
+                                </div>
+                                <p className="text-sm">Upload your CV in Word format (.docx or .doc)</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                  2
+                                </div>
+                                <p className="text-sm">Our AI extracts and structures your information</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                  3
+                                </div>
+                                <p className="text-sm">Add job description for targeted optimization</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                  4
+                                </div>
+                                <p className="text-sm">Get ATS-optimized CV with keyword matching</p>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
 
-                    <div className="space-y-4">
-                      <Label
-                        htmlFor="job-description"
-                        className="text-lg font-semibold text-gray-800 flex items-center gap-2"
+                    {loading ? (
+                      <Card className="border-0 shadow-sm">
+                        <CardContent className="p-12 text-center">
+                          <div className="relative mb-6">
+                            <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur-lg opacity-75 animate-pulse"></div>
+                            <div className="relative w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mx-auto flex items-center justify-center">
+                              <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                          </div>
+                          <h3 className="text-2xl font-bold text-blue-900 mb-3">AI Processing Your CV</h3>
+                          <p className="text-blue-700 mb-6 text-lg">
+                            Analyzing content, extracting data, and optimizing for ATS compatibility...
+                          </p>
+                          <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm max-w-md mx-auto">
+                            <CardContent className="p-6">
+                              <div className="flex items-center justify-between text-blue-800 mb-3">
+                                <span className="font-medium">Processing Progress</span>
+                                <span className="font-bold text-lg">{progress}%</span>
+                              </div>
+                              <div className="w-full bg-blue-200 rounded-full h-4 overflow-hidden">
+                                <div
+                                  className="bg-gradient-to-r from-blue-600 to-purple-600 h-4 rounded-full transition-all duration-500 ease-out relative overflow-hidden"
+                                  style={{ width: `${progress}%` }}
+                                >
+                                  <div className="absolute inset-0 bg-white/30 animate-pulse"></div>
+                                </div>
+                              </div>
+                              <div className="mt-3 text-xs text-blue-600">
+                                {progress < 30 && "Uploading and parsing document..."}
+                                {progress >= 30 && progress < 70 && "AI analyzing content structure..."}
+                                {progress >= 70 && progress < 95 && "Optimizing for ATS compatibility..."}
+                                {progress >= 95 && "Finalizing optimization..."}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 group">
+                        <CardContent className="p-12 text-center">
+                          <div className="relative mb-6">
+                            <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur-lg opacity-0 group-hover:opacity-75 transition-opacity duration-300"></div>
+                            <div className="relative w-20 h-20 bg-gradient-to-r from-gray-400 to-blue-400 group-hover:from-blue-600 group-hover:to-purple-600 rounded-2xl mx-auto flex items-center justify-center transition-all duration-300">
+                              <Upload className="w-10 h-10 text-white" />
+                            </div>
+                          </div>
+                          <h3 className="text-2xl font-bold text-gray-900 mb-3">Upload Your CV</h3>
+                          <p className="text-gray-600 mb-6 text-lg">Drag & drop or click to select your CV file</p>
+                          <div className="relative">
+                            <Input
+                              type="file"
+                              accept=".pdf,.doc,.docx"
+                              onChange={handleFileUpload}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                            <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 text-lg rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+                              <Star className="w-5 h-5 mr-2" />
+                              Choose CV File
+                            </Button>
+                          </div>
+                          <p className="text-gray-500 text-sm mt-4">
+                            Supported formats: .docx, .doc (Word documents work best for ATS optimization)
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    <div className="text-center">
+                      <div className="flex items-center justify-center gap-4 mb-4">
+                        <div className="h-px bg-gray-300 flex-1"></div>
+                        <span className="text-gray-500 font-medium">OR</span>
+                        <div className="h-px bg-gray-300 flex-1"></div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => setActiveTab("edit")}
+                        className="border-2 border-gray-300 hover:border-blue-400 bg-white hover:bg-blue-50 px-8 py-4 text-lg rounded-2xl transition-all duration-300 group"
                       >
-                        <Target className="w-5 h-5 text-blue-600" />
-                        Target Job Description (Highly Recommended)
-                      </Label>
-                      <Textarea
-                        id="job-description"
-                        value={jobDescription}
-                        onChange={(e) => setJobDescription(e.target.value)}
-                        placeholder="Paste the complete job description here. Include requirements, responsibilities, and preferred qualifications for best results..."
-                        className="min-h-[200px] border-2 border-gray-200 focus:border-blue-400 rounded-2xl p-4 text-base transition-all duration-300 resize-none"
-                      />
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                          <h4 className="font-medium text-green-900 mb-2 flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4" />
-                            What to Include
-                          </h4>
-                          <ul className="text-green-800 text-sm space-y-1">
-                            <li>• Complete job posting text</li>
-                            <li>• Required skills and qualifications</li>
-                            <li>• Preferred experience levels</li>
-                            <li>• Company culture keywords</li>
-                          </ul>
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                          <h4 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
-                            <Zap className="w-4 h-4" />
-                            AI Will Optimize
-                          </h4>
-                          <ul className="text-blue-800 text-sm space-y-1">
-                            <li>• Keyword density and placement</li>
-                            <li>• Skills section alignment</li>
-                            <li>• Experience descriptions</li>
-                            <li>• ATS-friendly formatting</li>
-                          </ul>
-                        </div>
-                      </div>
+                        <Plus className="w-5 h-5 mr-2 group-hover:rotate-90 transition-transform" />
+                        Create CV From Scratch
+                      </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
 
+                    {/* Job Description Section */}
+                    <Card className="border-0 shadow-sm">
+                      <CardContent className="p-6 space-y-6">
+                        <Card className="border-0 shadow-sm bg-gradient-to-r from-amber-50 to-orange-50">
+                          <CardContent className="p-6">
+                            <div className="flex items-start gap-4">
+                              <div className="w-12 h-12 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl flex items-center justify-center">
+                                <Lightbulb className="w-6 h-6 text-white" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-amber-900 mb-2 text-lg">
+                                  Pro Tip: Job Description Analysis
+                                </h3>
+                                <p className="text-amber-800 mb-3">
+                                  Adding the job description enables our AI to perform advanced keyword matching,
+                                  optimize your CV for specific requirements, and significantly increase your ATS score.
+                                </p>
+                                <Card className="border-0 shadow-sm bg-white/60">
+                                  <CardContent className="p-3">
+                                    <p className="text-amber-900 text-sm font-medium">
+                                      ✨ With job description: 85-95% ATS compatibility
+                                      <br />📄 Without job description: 60-75% ATS compatibility
+                                    </p>
+                                  </CardContent>
+                                </Card>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <div className="space-y-4">
+                          <Label
+                            htmlFor="job-description"
+                            className="text-lg font-semibold text-gray-800 flex items-center gap-2"
+                          >
+                            <Target className="w-5 h-5 text-blue-600" />
+                            Target Job Description (Highly Recommended)
+                          </Label>
+                          <Textarea
+                            id="job-description"
+                            value={jobDescription}
+                            onChange={(e) => setJobDescription(e.target.value)}
+                            placeholder="Paste the complete job description here. Include requirements, responsibilities, and preferred qualifications for best results..."
+                            className="min-h-[200px] border-2 border-gray-200 focus:border-blue-400 rounded-2xl p-4 text-base transition-all duration-300 resize-none"
+                          />
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Card className="border-0 shadow-sm bg-green-50">
+                              <CardContent className="p-4">
+                                <h4 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+                                  <CheckCircle className="w-4 h-4" />
+                                  What to Include
+                                </h4>
+                                <ul className="text-green-800 text-sm space-y-1">
+                                  <li>• Complete job posting text</li>
+                                  <li>• Required skills and qualifications</li>
+                                  <li>• Preferred experience levels</li>
+                                  <li>• Company culture keywords</li>
+                                </ul>
+                              </CardContent>
+                            </Card>
+                            <Card className="border-0 shadow-sm bg-blue-50">
+                              <CardContent className="p-4">
+                                <h4 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+                                  <Zap className="w-4 h-4" />
+                                  AI Will Optimize
+                                </h4>
+                                <ul className="text-blue-800 text-sm space-y-1">
+                                  <li>• Keyword density and placement</li>
+                                  <li>• Skills section alignment</li>
+                                  <li>• Experience descriptions</li>
+                                  <li>• ATS-friendly formatting</li>
+                                </ul>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
             {/* Edit Tab */}
             <TabsContent value="edit" currentValue={activeTab}>
               {viewMode === "edit" ? (
@@ -1905,9 +1989,9 @@ export default function CVBuilderPage() {
                                     AI Recommendation
                                   </h4>
                                   <p className="text-amber-800 text-sm">
-                                    <strong>Pro Tip:</strong> If you have added a job description, our AI will suggest the
-                                    most relevant skills to include based on the requirements. Review the job posting
-                                    and ensure you include skills that match exactly as written in the posting.
+                                    <strong>Pro Tip:</strong> If you have added a job description, our AI will suggest
+                                    the most relevant skills to include based on the requirements. Review the job
+                                    posting and ensure you include skills that match exactly as written in the posting.
                                   </p>
                                 </div>
                               </div>
