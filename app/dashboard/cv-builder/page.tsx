@@ -610,68 +610,7 @@ export default function CVBuilderPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="max-w-7xl mx-auto px-6 py-6">
-        {/* Stunning Header - only show on upload tab */}
-        {activeTab === "upload" && (
-          <div className="mb-10 text-center relative">
-            {/* Background decoration */}
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 via-purple-600/10 to-indigo-600/10 rounded-3xl blur-3xl"></div>
-
-            <div className="relative">
-              <div className="flex items-center justify-center gap-4 mb-6">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur-lg opacity-75 animate-pulse"></div>
-                  <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 p-4 rounded-2xl shadow-xl">
-                    <Rocket className="w-10 h-10 text-white" />
-                  </div>
-                </div>
-                <div>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-purple-900 bg-clip-text text-transparent">
-                    AI-Powered CV Builder
-                  </h1>
-                  <div className="h-1 w-40 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mx-auto mt-2"></div>
-                </div>
-              </div>
-
-              <p className="text-lg text-gray-700 max-w-3xl mx-auto leading-relaxed mb-8">
-                Create professional, ATS-optimized CVs that get past applicant tracking systems and land you interviews.
-                Our advanced AI analyzes job descriptions and optimizes your CV for maximum impact.
-              </p>
-
-              {/* Feature highlights */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 group">
-                  <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Brain className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">AI-Powered Analysis</h3>
-                  <p className="text-gray-600 text-sm">
-                    Advanced algorithms parse and optimize your CV content for maximum ATS compatibility
-                  </p>
-                </div>
-
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 group">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Target className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Keyword Optimization</h3>
-                  <p className="text-gray-600 text-sm">
-                    Match job descriptions with precision keyword analysis and strategic placement
-                  </p>
-                </div>
-
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 group">
-                  <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <BarChart3 className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">ATS Score Tracking</h3>
-                  <p className="text-gray-600 text-sm">
-                    Real-time compatibility scoring to ensure your CV passes automated screening
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        
 
         {/* Enhanced Navigation */}
         {activeTab !== "upload" && (
@@ -834,7 +773,7 @@ export default function CVBuilderPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium text-emerald-600">AI-Powered Analysis</p>
-                          <p className="text-sm text-emerald-700 mt-1">Advanced algorithms parse and optimize</p>
+                          <p className="text-sm text-emerald-700 mt-1">Advanced algorithms parse and optimize your CV content for maximum ATS compatibility</p>
                         </div>
                         <div className="p-3 bg-emerald-100 rounded-2xl">
                           <Brain className="w-6 h-6 text-emerald-600" />
@@ -848,7 +787,7 @@ export default function CVBuilderPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium text-blue-600">Keyword Optimization</p>
-                          <p className="text-sm text-blue-700 mt-1">Match job descriptions with precision</p>
+                          <p className="text-sm text-blue-700 mt-1">Match job descriptions with precision keyword analysis</p>
                         </div>
                         <div className="p-3 bg-blue-100 rounded-2xl">
                           <Target className="w-6 h-6 text-blue-600" />
@@ -862,7 +801,7 @@ export default function CVBuilderPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium text-purple-600">ATS Score Tracking</p>
-                          <p className="text-sm text-purple-700 mt-1">Real-time compatibility scoring</p>
+                          <p className="text-sm text-purple-700 mt-1">Real-time compatibility scoring to ensure your CV passes automated screening</p>
                         </div>
                         <div className="p-3 bg-purple-100 rounded-2xl">
                           <BarChart3 className="w-6 h-6 text-purple-600" />
@@ -1164,7 +1103,7 @@ export default function CVBuilderPage() {
                           </div>
                           <div className="flex-1">
                             <h3 className="font-semibold text-gray-900 mb-2">Profile Photo</h3>
-                            <p className="text-gray-600 text-sm mb-3">Professional headshot (optional)</p>
+                            <p className="text-gray-600 text-sm mb-3">Professional headshot to add to your CV (optional)</p>
                             <div className="flex items-center gap-2 text-xs text-green-600">
                               <ArrowRight className="w-3 h-3" />
                               <span>Upload professional image</span>
