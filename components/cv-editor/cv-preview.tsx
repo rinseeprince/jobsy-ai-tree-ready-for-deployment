@@ -5,25 +5,50 @@ import type { CVData } from "@/lib/cv-templates"
 
 interface CVPreviewProps {
   cvData: CVData
-  templatePreview?: string
+  templateId?: string
 }
 
-export function CVPreview({ cvData, templatePreview }: CVPreviewProps) {
-  if (templatePreview) {
-    return (
-      <Card className="border-0 shadow-2xl bg-white/80 backdrop-blur-xl rounded-3xl overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
-          <CardTitle className="flex items-center text-xl">
-            <Target className="w-6 h-6 mr-3" />
-            Template Preview
-          </CardTitle>
-          <p className="text-blue-100 mt-2">Live preview of your CV with the selected template</p>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div dangerouslySetInnerHTML={{ __html: templatePreview }} />
-        </CardContent>
-      </Card>
-    )
+interface Template {
+  id: string
+  name: string
+  content: string
+}
+
+const getTemplateById = (templateId: string): Template => {
+  return {
+    id: templateId,
+    name: "Sample Template",
+    content: "<div><h1>{{personalInfo.name}}</h1><p>{{personalInfo.title}}</p></div>",
+  }
+}
+
+const renderTemplate = (cvData: CVData, template: Template): string => {
+  let rendered = template.content
+  rendered = rendered.replace("{{personalInfo.name}}", cvData.personalInfo.name || "Your Name")
+  rendered = rendered.replace("{{personalInfo.title}}", cvData.personalInfo.title || "Professional Title")
+  return rendered
+}
+
+export function CVPreview({ cvData, templateId }: CVPreviewProps) {
+  if (templateId) {
+    const template = getTemplateById(templateId)
+    if (template) {
+      const templatePreview = renderTemplate(cvData, template)
+      return (
+        <Card className="border-0 shadow-2xl bg-white/80 backdrop-blur-xl rounded-3xl overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+            <CardTitle className="flex items-center text-xl">
+              <Target className="w-6 h-6 mr-3" />
+              Template Preview
+            </CardTitle>
+            <p className="text-blue-100 mt-2">Live preview of your CV with the selected template</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div dangerouslySetInnerHTML={{ __html: templatePreview }} />
+          </CardContent>
+        </Card>
+      )
+    }
   }
 
   return (

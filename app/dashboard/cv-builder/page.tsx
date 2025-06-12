@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
@@ -41,6 +42,7 @@ import { parseResumeWithAI } from "@/lib/resume-parser"
 import { CV_TEMPLATES, getTemplateById, renderTemplate, type CVData } from "@/lib/cv-templates"
 import CVEditorModals from "@/components/cv-editor/cv-editor-modals"
 import { CVPreview } from "@/components/cv-editor/cv-preview"
+import { ApplicationsService } from "@/lib/supabase"
 
 // Default empty CV data
 const defaultCVData: CVData = {
@@ -91,7 +93,72 @@ const defaultCVData: CVData = {
   ],
 }
 
+// Sample CV data for template previews
+const sampleCVData: CVData = {
+  personalInfo: {
+    name: "John Smith",
+    title: "Senior Software Engineer",
+    email: "john.smith@email.com",
+    phone: "+1 (555) 123-4567",
+    location: "San Francisco, CA",
+    summary:
+      "Experienced software engineer with 8+ years developing scalable web applications and leading cross-functional teams.",
+    linkedin: "linkedin.com/in/johnsmith",
+    website: "johnsmith.dev",
+    profilePhoto: "",
+  },
+  experience: [
+    {
+      id: "exp-1",
+      title: "Senior Software Engineer",
+      company: "Tech Corp",
+      location: "San Francisco, CA",
+      startDate: "2021",
+      endDate: "Present",
+      current: true,
+      description:
+        "Led development of microservices architecture serving 10M+ users. Mentored junior developers and improved deployment efficiency by 40%.",
+    },
+    {
+      id: "exp-2",
+      title: "Software Engineer",
+      company: "StartupXYZ",
+      location: "San Francisco, CA",
+      startDate: "2019",
+      endDate: "2021",
+      current: false,
+      description:
+        "Built full-stack web applications using React and Node.js. Implemented CI/CD pipelines and reduced bug reports by 60%.",
+    },
+  ],
+  education: [
+    {
+      id: "edu-1",
+      degree: "Bachelor of Science in Computer Science",
+      institution: "University of California",
+      location: "Berkeley, CA",
+      startDate: "2015",
+      endDate: "2019",
+      current: false,
+      description: "Graduated Magna Cum Laude. Relevant coursework: Data Structures, Algorithms, Software Engineering.",
+    },
+  ],
+  skills: ["JavaScript", "React", "Node.js", "Python", "AWS", "Docker", "PostgreSQL", "Git"],
+  certifications: [
+    {
+      id: "cert-1",
+      name: "AWS Certified Solutions Architect",
+      issuer: "Amazon Web Services",
+      date: "2022",
+      description: "Professional-level certification demonstrating expertise in designing distributed systems on AWS.",
+    },
+  ],
+}
+
 export default function CVBuilderPage() {
+  const searchParams = useSearchParams()
+  const cvId = searchParams.get("cv")
+
   const [activeTab, setActiveTab] = useState("build")
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const [cvData, setCVData] = useState<CVData>(defaultCVData)
@@ -99,11 +166,42 @@ export default function CVBuilderPage() {
   const [templatePreview, setTemplatePreview] = useState("")
   const [isUploading, setIsUploading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [jobDescription, setJobDescription] = useState("")
   const [isImproving, setIsImproving] = useState(false)
   const [improvementSuggestions, setImprovementSuggestions] = useState("")
+  const [currentCVId, setCurrentCVId] = useState<string | null>(null)
+
+  // Load CV data if editing existing CV
+  useEffect(() => {
+    const loadCVData = async () => {
+      if (cvId) {
+        setIsLoading(true)
+        try {
+          console.log("🔍 Loading CV data for ID:", cvId)
+          const savedCV = await ApplicationsService.getSavedCV(cvId)
+          if (savedCV) {
+            console.log("✅ Loaded CV data:", savedCV)
+            setCVData(savedCV.cv_data)
+            setSelectedTemplate(savedCV.template_id || "modern")
+            setCurrentCVId(savedCV.id)
+            setSuccess("CV loaded successfully!")
+          } else {
+            setError("CV not found")
+          }
+        } catch (error) {
+          console.error("❌ Error loading CV:", error)
+          setError("Failed to load CV data")
+        } finally {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadCVData()
+  }, [cvId])
 
   // Auto-dismiss success message after 3 seconds
   useEffect(() => {
@@ -393,17 +491,42 @@ export default function CVBuilderPage() {
     setError("")
 
     try {
-      const cvText = generateCVText()
-      await CVService.saveCV({
-        title: cvData.personalInfo.name || "Untitled CV",
-        file_name: `${cvData.personalInfo.name || "cv"}.txt`,
-        file_size: cvText.length,
-        parsed_content: cvText,
-        raw_text: cvText,
+      console.log("🔍 Starting CV save process...")
+      console.log("Current CV ID:", currentCVId)
+      console.log("CV Data to save:", {
+        personalInfo: cvData.personalInfo,
+        experienceCount: cvData.experience?.length || 0,
+        educationCount: cvData.education?.length || 0,
+        skillsCount: cvData.skills?.length || 0,
+        certificationsCount: cvData.certifications?.length || 0,
+        selectedTemplate,
       })
-      setSuccess("CV saved successfully!")
+
+      let savedCV
+      if (currentCVId) {
+        // Update existing CV
+        savedCV = await ApplicationsService.updateSavedCV(currentCVId, {
+          title: cvData.personalInfo.name ? `${cvData.personalInfo.name} - CV` : "My CV",
+          cv_data: cvData,
+          template_id: selectedTemplate,
+          status: "draft",
+        })
+        console.log("✅ CV updated successfully:", savedCV)
+        setSuccess("CV updated successfully!")
+      } else {
+        // Create new CV
+        savedCV = await ApplicationsService.saveCVData({
+          title: cvData.personalInfo.name ? `${cvData.personalInfo.name} - CV` : "My CV",
+          cv_data: cvData,
+          template_id: selectedTemplate,
+          status: "draft",
+        })
+        console.log("✅ CV saved successfully:", savedCV)
+        setCurrentCVId(savedCV.id)
+        setSuccess("CV saved successfully! You can find it in 'My CVs'.")
+      }
     } catch (error) {
-      console.error("Error saving CV:", error)
+      console.error("❌ Error saving CV:", error)
       setError("Failed to save CV. Please try again.")
     } finally {
       setIsSaving(false)
@@ -509,6 +632,19 @@ export default function CVBuilderPage() {
     setActiveTab("build")
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-lg">Loading CV data...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="max-w-7xl mx-auto px-6 py-8">
@@ -520,9 +656,11 @@ export default function CVBuilderPage() {
                 <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
                   <Wand2 className="w-6 h-6 text-white" />
                 </div>
-                CV Builder
+                {currentCVId ? "Edit CV" : "CV Builder"}
               </h1>
-              <p className="text-gray-600 mt-2">Create and customize your professional CV</p>
+              <p className="text-gray-600 mt-2">
+                {currentCVId ? "Update your professional CV" : "Create and customize your professional CV"}
+              </p>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right">
@@ -688,7 +826,7 @@ export default function CVBuilderPage() {
                       ) : (
                         <>
                           <FileDown className="w-4 h-4 mr-2" />
-                          Save CV
+                          {currentCVId ? "Update CV" : "Save CV"}
                         </>
                       )}
                     </Button>
@@ -906,69 +1044,85 @@ export default function CVBuilderPage() {
           {/* Templates Tab */}
           <TabsContent value="templates" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {CV_TEMPLATES.map((template) => (
-                <Card
-                  key={template.id}
-                  className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 rounded-3xl overflow-hidden group"
-                >
-                  <div className="aspect-[3/4] bg-gray-100 overflow-hidden">
-                    <div className="w-full h-full flex items-center justify-center">
-                      {/* Template Preview Image */}
-                      <div className="w-full h-full p-4">
-                        <div className="w-full h-full bg-white rounded-lg overflow-hidden shadow-inner">
-                          <div className="p-3">
-                            <div className="h-6 w-1/2 bg-gray-200 rounded mb-2"></div>
-                            <div className="h-4 w-3/4 bg-gray-100 rounded mb-4"></div>
-                            <div className="flex gap-2 mb-4">
-                              <div className="h-3 w-20 bg-gray-100 rounded"></div>
-                              <div className="h-3 w-20 bg-gray-100 rounded"></div>
-                            </div>
-                            <div className="h-5 w-1/3 bg-gray-200 rounded mb-2"></div>
-                            <div className="h-3 w-full bg-gray-100 rounded mb-1"></div>
-                            <div className="h-3 w-full bg-gray-100 rounded mb-1"></div>
-                            <div className="h-3 w-3/4 bg-gray-100 rounded mb-3"></div>
-                            <div className="h-5 w-1/3 bg-gray-200 rounded mb-2"></div>
-                            <div className="h-3 w-full bg-gray-100 rounded mb-1"></div>
-                            <div className="h-3 w-full bg-gray-100 rounded mb-1"></div>
-                            <div className="h-3 w-3/4 bg-gray-100 rounded"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <CardContent className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">{template.name}</h3>
-                    <p className="text-gray-600 mb-4">{template.description}</p>
+              {CV_TEMPLATES.map((template) => {
+                // Use actual CV data if user has entered information, otherwise use sample data
+                const hasUserData =
+                  cvData.personalInfo.name ||
+                  cvData.personalInfo.email ||
+                  cvData.experience.some((exp) => exp.title) ||
+                  cvData.education.some((edu) => edu.degree) ||
+                  cvData.skills.length > 0
+                const dataToUse = hasUserData ? cvData : sampleCVData
+                const templatePreviewHtml = renderTemplate(dataToUse, template)
 
-                    <div className="flex gap-2 mb-4">
-                      <div className="w-6 h-6 bg-blue-500 rounded-full"></div>
-                      <div className="w-6 h-6 bg-gray-500 rounded-full"></div>
-                      <div className="w-6 h-6 bg-gray-800 rounded-full"></div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        className="flex-1 border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 rounded-xl"
-                        onClick={() => {
-                          setSelectedTemplate(template.id)
-                          setActiveTab("preview")
+                return (
+                  <Card
+                    key={template.id}
+                    className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 rounded-3xl overflow-hidden group"
+                  >
+                    <div className="aspect-[3/4] bg-white overflow-hidden relative">
+                      {/* Actual Template Preview */}
+                      <div
+                        className="absolute inset-0 w-full h-full"
+                        style={{
+                          overflow: "hidden",
                         }}
                       >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Preview
-                      </Button>
-                      <Button
-                        className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl"
-                        onClick={() => handleApplyTemplate(template.id)}
-                      >
-                        <Check className="w-4 h-4 mr-2" />
-                        Apply
-                      </Button>
+                        <div
+                          dangerouslySetInnerHTML={{ __html: templatePreviewHtml }}
+                          style={{
+                            transform: "scale(0.65)",
+                            transformOrigin: "top left",
+                            width: "154%",
+                            height: "154%",
+                          }}
+                        />
+                      </div>
+                      {hasUserData && (
+                        <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                          Your Data
+                        </div>
+                      )}
+                      {!hasUserData && (
+                        <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                          Sample
+                        </div>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">{template.name}</h3>
+                      <p className="text-gray-600 mb-4">{template.description}</p>
+
+                      <div className="flex gap-2 mb-4">
+                        <div className="w-6 h-6 bg-blue-500 rounded-full"></div>
+                        <div className="w-6 h-6 bg-gray-500 rounded-full"></div>
+                        <div className="w-6 h-6 bg-gray-800 rounded-full"></div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <Button
+                          variant="outline"
+                          className="flex-1 border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 rounded-xl"
+                          onClick={() => {
+                            setSelectedTemplate(template.id)
+                            setActiveTab("preview")
+                          }}
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          Preview
+                        </Button>
+                        <Button
+                          className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl"
+                          onClick={() => handleApplyTemplate(template.id)}
+                        >
+                          <Check className="w-4 h-4 mr-2" />
+                          Apply
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           </TabsContent>
 
