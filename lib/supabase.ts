@@ -1,47 +1,8 @@
 import { createClient } from "@supabase/supabase-js"
+import type { CVData } from "./cv-templates"
 
-// Define proper types for CV data
-export interface CVData {
-  personalInfo: {
-    name: string
-    title: string
-    email: string
-    phone: string
-    location: string
-    summary: string
-    linkedin: string
-    website: string
-    profilePhoto: string
-  }
-  experience: Array<{
-    id: string
-    title: string
-    company: string
-    location: string
-    startDate: string
-    endDate: string
-    current: boolean
-    description: string
-  }>
-  education: Array<{
-    id: string
-    degree: string
-    institution: string
-    location: string
-    startDate: string
-    endDate: string
-    current: boolean
-    description: string
-  }>
-  skills: string[]
-  certifications: Array<{
-    id: string
-    name: string
-    issuer: string
-    date: string
-    description: string
-  }>
-}
+// Re-export CVData for use in other modules
+export type { CVData } from "./cv-templates"
 
 export type Application = {
   id: string
@@ -825,6 +786,64 @@ export class ApplicationsService {
     return this.saveCVData(duplicateData)
   }
 
+  // Add the missing updateSavedCV method
+  static async updateSavedCV(
+    cvId: string,
+    cvData: {
+      title?: string
+      cv_data?: CVData
+      template_id?: string
+      status?: "draft" | "ready" | "sent"
+    },
+  ): Promise<SavedCV> {
+    console.log("📝 Updating saved CV:", cvId, cvData)
+
+    if (!isSupabaseReady) {
+      console.error("❌ Cannot update CV: Supabase not configured")
+      throw new Error("Supabase not configured")
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        console.error("❌ Cannot update CV: User not authenticated")
+        throw new Error("User not authenticated")
+      }
+
+      const updateData: Record<string, unknown> = {
+        ...cvData,
+        updated_at: new Date().toISOString(),
+      }
+
+      // Calculate word count if cv_data is provided
+      if (cvData.cv_data) {
+        updateData.word_count = this.calculateWordCount(cvData.cv_data)
+      }
+
+      const { data, error } = await supabase
+        .from("saved_cvs")
+        .update(updateData)
+        .eq("id", cvId)
+        .eq("user_id", user.id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error("❌ Supabase update error:", error)
+        throw new Error(`Database error: ${error.message}`)
+      }
+
+      console.log("✅ CV updated successfully:", data)
+      return data as SavedCV
+    } catch (error) {
+      console.error("❌ Error in updateSavedCV:", error)
+      throw error
+    }
+  }
+
   private static calculateWordCount(cvData: CVData): number {
     let wordCount = 0
 
@@ -877,5 +896,3 @@ export class ApplicationsService {
       .filter((word) => word.length > 0).length
   }
 }
-
-// Export the ApplicationsService class

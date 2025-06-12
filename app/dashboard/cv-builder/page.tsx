@@ -163,8 +163,7 @@ export default function CVBuilderPage() {
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const [cvData, setCVData] = useState<CVData>(defaultCVData)
   const [selectedTemplate, setSelectedTemplate] = useState("modern")
-  const [templatePreview, setTemplatePreview] = useState("")
-  const [isUploading, setIsUploading] = useState(false)
+  const [isUploading, setIsUploading] = useState<boolean>(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -232,11 +231,7 @@ export default function CVBuilderPage() {
   // Update template preview when data or template changes
   useEffect(() => {
     if (selectedTemplate && cvData) {
-      const template = getTemplateById(selectedTemplate)
-      if (template) {
-        const preview = renderTemplate(cvData, template)
-        setTemplatePreview(preview)
-      }
+      getTemplateById(selectedTemplate)
     }
   }, [selectedTemplate, cvData])
 
@@ -840,336 +835,555 @@ export default function CVBuilderPage() {
 
               {/* Middle Column - CV Sections */}
               <div className="lg:col-span-2 space-y-6">
-                {/* CV Sections Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Personal Info */}
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-300"
-                    onClick={() => setActiveModal("personal")}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
-                            <User className="w-6 h-6 text-white" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900">Personal Info</h3>
-                            <p className="text-sm text-gray-600">Contact & summary</p>
-                          </div>
-                        </div>
-                        {cvData.personalInfo.name && cvData.personalInfo.email ? (
-                          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                            <Check className="w-4 h-4 text-white" />
-                          </div>
-                        ) : (
-                          <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                            <Plus className="w-4 h-4 text-white" />
-                          </div>
-                        )}
+                {/* Personal Information */}
+                <Card className="border-0 shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="w-5 h-5 text-blue-600" />
+                      Personal Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="name">Full Name *</Label>
+                        <Input
+                          id="name"
+                          value={cvData.personalInfo.name}
+                          onChange={(e) => updatePersonalInfo("name", e.target.value)}
+                          placeholder="John Smith"
+                          className="rounded-xl"
+                        />
                       </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="text-gray-600">
-                          Name: <span className="font-medium">{cvData.personalInfo.name || "Not set"}</span>
-                        </div>
-                        <div className="text-gray-600">
-                          Email: <span className="font-medium">{cvData.personalInfo.email || "Not set"}</span>
-                        </div>
+                      <div>
+                        <Label htmlFor="title">Professional Title *</Label>
+                        <Input
+                          id="title"
+                          value={cvData.personalInfo.title}
+                          onChange={(e) => updatePersonalInfo("title", e.target.value)}
+                          placeholder="Senior Software Engineer"
+                          className="rounded-xl"
+                        />
                       </div>
-                    </CardContent>
-                  </Card>
+                      <div>
+                        <Label htmlFor="email">Email *</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={cvData.personalInfo.email}
+                          onChange={(e) => updatePersonalInfo("email", e.target.value)}
+                          placeholder="john@example.com"
+                          className="rounded-xl"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="phone">Phone</Label>
+                        <Input
+                          id="phone"
+                          value={cvData.personalInfo.phone}
+                          onChange={(e) => updatePersonalInfo("phone", e.target.value)}
+                          placeholder="+1 (555) 123-4567"
+                          className="rounded-xl"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="location">Location</Label>
+                        <Input
+                          id="location"
+                          value={cvData.personalInfo.location}
+                          onChange={(e) => updatePersonalInfo("location", e.target.value)}
+                          placeholder="San Francisco, CA"
+                          className="rounded-xl"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="linkedin">LinkedIn</Label>
+                        <Input
+                          id="linkedin"
+                          value={cvData.personalInfo.linkedin}
+                          onChange={(e) => updatePersonalInfo("linkedin", e.target.value)}
+                          placeholder="linkedin.com/in/johnsmith"
+                          className="rounded-xl"
+                        />
+                      </div>
+                    </div>
 
-                  {/* Photo */}
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-300"
-                    onClick={() => setActiveModal("photo")}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
-                            <User className="w-6 h-6 text-white" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900">Profile Photo</h3>
-                            <p className="text-sm text-gray-600">Optional headshot</p>
-                          </div>
-                        </div>
+                    {/* Profile Photo */}
+                    <div>
+                      <Label>Profile Photo (Optional)</Label>
+                      <div className="flex items-center gap-4 mt-2">
                         {cvData.personalInfo.profilePhoto ? (
-                          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                            <Check className="w-4 h-4 text-white" />
+                          <div className="flex items-center gap-4">
+                            <img
+                              src={cvData.personalInfo.profilePhoto || "/placeholder.svg"}
+                              alt="Profile"
+                              className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                            />
+                            <Button onClick={removePhoto} variant="outline" size="sm">
+                              Remove Photo
+                            </Button>
                           </div>
                         ) : (
-                          <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                            <Plus className="w-4 h-4 text-white" />
+                          <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                              <User className="w-8 h-8 text-gray-400" />
+                            </div>
+                            <Button
+                              onClick={() => document.getElementById("photo-upload")?.click()}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Upload className="w-4 h-4 mr-2" />
+                              Upload Photo
+                            </Button>
+                            <Input
+                              id="photo-upload"
+                              type="file"
+                              accept="image/*"
+                              onChange={handlePhotoUpload}
+                              className="hidden"
+                            />
                           </div>
                         )}
                       </div>
-                      <div className="text-sm text-gray-600">
-                        {cvData.personalInfo.profilePhoto ? "Photo uploaded" : "No photo added"}
-                      </div>
-                    </CardContent>
-                  </Card>
+                    </div>
 
-                  {/* Experience */}
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-300"
-                    onClick={() => setActiveModal("experience")}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-teal-500 rounded-xl flex items-center justify-center">
-                            <Briefcase className="w-6 h-6 text-white" />
+                    {/* Professional Summary */}
+                    <div>
+                      <Label htmlFor="summary">Professional Summary *</Label>
+                      <Textarea
+                        id="summary"
+                        value={cvData.personalInfo.summary}
+                        onChange={(e) => updatePersonalInfo("summary", e.target.value)}
+                        placeholder="Experienced software engineer with 8+ years developing scalable web applications..."
+                        rows={4}
+                        className="rounded-xl"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Experience Section */}
+                <Card className="border-0 shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="w-5 h-5 text-green-600" />
+                        Work Experience
+                      </div>
+                      <Button onClick={addExperience} size="sm" variant="outline" className="rounded-xl">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Experience
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {cvData.experience.map((exp, index) => (
+                      <div key={exp.id} className="p-4 border border-gray-200 rounded-xl space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-gray-900">Experience {index + 1}</h4>
+                          {cvData.experience.length > 1 && (
+                            <Button
+                              onClick={() => removeExperience(exp.id)}
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Job Title</Label>
+                            <Input
+                              value={exp.title}
+                              onChange={(e) => updateExperience(exp.id, "title", e.target.value)}
+                              placeholder="Senior Software Engineer"
+                              className="rounded-xl"
+                            />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-gray-900">Experience</h3>
-                            <p className="text-sm text-gray-600">Work history</p>
-                          </div>
-                        </div>
-                        {cvData.experience.some((exp) => exp.title && exp.company) ? (
-                          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                            <Check className="w-4 h-4 text-white" />
-                          </div>
-                        ) : (
-                          <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                            <Plus className="w-4 h-4 text-white" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {cvData.experience.filter((exp) => exp.title && exp.company).length} positions added
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Education */}
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-300"
-                    onClick={() => setActiveModal("education")}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
-                            <GraduationCap className="w-6 h-6 text-white" />
+                            <Label>Company</Label>
+                            <Input
+                              value={exp.company}
+                              onChange={(e) => updateExperience(exp.id, "company", e.target.value)}
+                              placeholder="Tech Corp"
+                              className="rounded-xl"
+                            />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-gray-900">Education</h3>
-                            <p className="text-sm text-gray-600">Academic background</p>
-                          </div>
-                        </div>
-                        {cvData.education.some((edu) => edu.degree && edu.institution) ? (
-                          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                            <Check className="w-4 h-4 text-white" />
-                          </div>
-                        ) : (
-                          <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                            <Plus className="w-4 h-4 text-white" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {cvData.education.filter((edu) => edu.degree && edu.institution).length} degrees added
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Skills */}
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-300"
-                    onClick={() => setActiveModal("skills")}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                            <Code className="w-6 h-6 text-white" />
+                            <Label>Location</Label>
+                            <Input
+                              value={exp.location}
+                              onChange={(e) => updateExperience(exp.id, "location", e.target.value)}
+                              placeholder="San Francisco, CA"
+                              className="rounded-xl"
+                            />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-gray-900">Skills</h3>
-                            <p className="text-sm text-gray-600">Technical & soft skills</p>
-                          </div>
-                        </div>
-                        {cvData.skills.length > 0 ? (
-                          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                            <Check className="w-4 h-4 text-white" />
-                          </div>
-                        ) : (
-                          <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                            <Plus className="w-4 h-4 text-white" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-600">{cvData.skills.length} skills added</div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Certifications */}
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-300"
-                    onClick={() => setActiveModal("certifications")}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
-                            <Award className="w-6 h-6 text-white" />
+                            <Label>Start Date</Label>
+                            <Input
+                              value={exp.startDate}
+                              onChange={(e) => updateExperience(exp.id, "startDate", e.target.value)}
+                              placeholder="2021"
+                              className="rounded-xl"
+                            />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-gray-900">Certifications</h3>
-                            <p className="text-sm text-gray-600">Professional credentials</p>
+                            <Label>End Date</Label>
+                            <Input
+                              value={exp.endDate}
+                              onChange={(e) => updateExperience(exp.id, "endDate", e.target.value)}
+                              placeholder="Present"
+                              disabled={exp.current}
+                              className="rounded-xl"
+                            />
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={`current-${exp.id}`}
+                              checked={exp.current}
+                              onChange={(e) => updateExperience(exp.id, "current", e.target.checked)}
+                              className="rounded"
+                            />
+                            <Label htmlFor={`current-${exp.id}`}>Currently working here</Label>
                           </div>
                         </div>
-                        {cvData.certifications.some((cert) => cert.name) ? (
-                          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                            <Check className="w-4 h-4 text-white" />
-                          </div>
-                        ) : (
-                          <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                            <Plus className="w-4 h-4 text-white" />
-                          </div>
-                        )}
+                        <div>
+                          <Label>Description</Label>
+                          <Textarea
+                            value={exp.description}
+                            onChange={(e) => updateExperience(exp.id, "description", e.target.value)}
+                            placeholder="Led development of microservices architecture serving 10M+ users..."
+                            rows={3}
+                            className="rounded-xl"
+                          />
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-600">
-                        {cvData.certifications.filter((cert) => cert.name).length} certifications added
+                    ))}
+                  </CardContent>
+                </Card>
+
+                {/* Education Section */}
+                <Card className="border-0 shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="w-5 h-5 text-purple-600" />
+                        Education
                       </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                      <Button onClick={addEducation} size="sm" variant="outline" className="rounded-xl">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Education
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {cvData.education.map((edu, index) => (
+                      <div key={edu.id} className="p-4 border border-gray-200 rounded-xl space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-gray-900">Education {index + 1}</h4>
+                          {cvData.education.length > 1 && (
+                            <Button
+                              onClick={() => removeEducation(edu.id)}
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Degree</Label>
+                            <Input
+                              value={edu.degree}
+                              onChange={(e) => updateEducation(edu.id, "degree", e.target.value)}
+                              placeholder="Bachelor of Science in Computer Science"
+                              className="rounded-xl"
+                            />
+                          </div>
+                          <div>
+                            <Label>Institution</Label>
+                            <Input
+                              value={edu.institution}
+                              onChange={(e) => updateEducation(edu.id, "institution", e.target.value)}
+                              placeholder="University of California"
+                              className="rounded-xl"
+                            />
+                          </div>
+                          <div>
+                            <Label>Location</Label>
+                            <Input
+                              value={edu.location}
+                              onChange={(e) => updateEducation(edu.id, "location", e.target.value)}
+                              placeholder="Berkeley, CA"
+                              className="rounded-xl"
+                            />
+                          </div>
+                          <div>
+                            <Label>Start Date</Label>
+                            <Input
+                              value={edu.startDate}
+                              onChange={(e) => updateEducation(edu.id, "startDate", e.target.value)}
+                              placeholder="2015"
+                              className="rounded-xl"
+                            />
+                          </div>
+                          <div>
+                            <Label>End Date</Label>
+                            <Input
+                              value={edu.endDate}
+                              onChange={(e) => updateEducation(edu.id, "endDate", e.target.value)}
+                              placeholder="2019"
+                              disabled={edu.current}
+                              className="rounded-xl"
+                            />
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={`current-edu-${edu.id}`}
+                              checked={edu.current}
+                              onChange={(e) => updateEducation(edu.id, "current", e.target.checked)}
+                              className="rounded"
+                            />
+                            <Label htmlFor={`current-edu-${edu.id}`}>Currently studying</Label>
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Description</Label>
+                          <Textarea
+                            value={edu.description}
+                            onChange={(e) => updateEducation(edu.id, "description", e.target.value)}
+                            placeholder="Graduated Magna Cum Laude. Relevant coursework: Data Structures, Algorithms..."
+                            rows={2}
+                            className="rounded-xl"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                {/* Skills Section */}
+                <Card className="border-0 shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Code className="w-5 h-5 text-orange-600" />
+                      Skills
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div>
+                      <Label htmlFor="skills">Skills (comma-separated)</Label>
+                      <Textarea
+                        id="skills"
+                        value={cvData.skills.join(", ")}
+                        onChange={(e) => updateSkills(e.target.value)}
+                        placeholder="JavaScript, React, Node.js, Python, AWS, Docker, PostgreSQL, Git"
+                        rows={3}
+                        className="rounded-xl"
+                      />
+                      <p className="text-sm text-gray-500 mt-2">
+                        Separate each skill with a comma. Example: JavaScript, React, Node.js
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Certifications Section */}
+                <Card className="border-0 shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Award className="w-5 h-5 text-yellow-600" />
+                        Certifications
+                      </div>
+                      <Button onClick={addCertification} size="sm" variant="outline" className="rounded-xl">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Certification
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {cvData.certifications.map((cert, index) => (
+                      <div key={cert.id} className="p-4 border border-gray-200 rounded-xl space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-gray-900">Certification {index + 1}</h4>
+                          {cvData.certifications.length > 1 && (
+                            <Button
+                              onClick={() => removeCertification(cert.id)}
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <Label>Certification Name</Label>
+                            <Input
+                              value={cert.name}
+                              onChange={(e) => updateCertification(cert.id, "name", e.target.value)}
+                              placeholder="AWS Certified Solutions Architect"
+                              className="rounded-xl"
+                            />
+                          </div>
+                          <div>
+                            <Label>Issuer</Label>
+                            <Input
+                              value={cert.issuer}
+                              onChange={(e) => updateCertification(cert.id, "issuer", e.target.value)}
+                              placeholder="Amazon Web Services"
+                              className="rounded-xl"
+                            />
+                          </div>
+                          <div>
+                            <Label>Date</Label>
+                            <Input
+                              value={cert.date}
+                              onChange={(e) => updateCertification(cert.id, "date", e.target.value)}
+                              placeholder="2022"
+                              className="rounded-xl"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Description</Label>
+                          <Textarea
+                            value={cert.description}
+                            onChange={(e) => updateCertification(cert.id, "description", e.target.value)}
+                            placeholder="Professional-level certification demonstrating expertise in designing distributed systems..."
+                            rows={2}
+                            className="rounded-xl"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </TabsContent>
 
           {/* Templates Tab */}
           <TabsContent value="templates" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {CV_TEMPLATES.map((template) => {
-                // Use actual CV data if user has entered information, otherwise use sample data
-                const hasUserData =
-                  cvData.personalInfo.name ||
-                  cvData.personalInfo.email ||
-                  cvData.experience.some((exp) => exp.title) ||
-                  cvData.education.some((edu) => edu.degree) ||
-                  cvData.skills.length > 0
-                const dataToUse = hasUserData ? cvData : sampleCVData
-                const templatePreviewHtml = renderTemplate(dataToUse, template)
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Choose Your Template</h2>
+              <p className="text-gray-600">Select a professional template that matches your style</p>
+            </div>
 
-                return (
-                  <Card
-                    key={template.id}
-                    className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 rounded-3xl overflow-hidden group"
-                  >
-                    <div className="aspect-[3/4] bg-white overflow-hidden relative">
-                      {/* Actual Template Preview */}
-                      <div
-                        className="absolute inset-0 w-full h-full"
-                        style={{
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div
-                          dangerouslySetInnerHTML={{ __html: templatePreviewHtml }}
-                          style={{
-                            transform: "scale(0.65)",
-                            transformOrigin: "top left",
-                            width: "154%",
-                            height: "154%",
-                          }}
-                        />
-                      </div>
-                      {hasUserData && (
-                        <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                          Your Data
-                        </div>
-                      )}
-                      {!hasUserData && (
-                        <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-                          Sample
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {CV_TEMPLATES.map((template) => (
+                <Card
+                  key={template.id}
+                  className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                    selectedTemplate === template.id
+                      ? "ring-2 ring-blue-500 border-blue-500 shadow-lg"
+                      : "border-gray-200 hover:border-blue-300"
+                  }`}
+                  onClick={() => handleApplyTemplate(template.id)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{template.name}</CardTitle>
+                      {selectedTemplate === template.id && (
+                        <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                          <Check className="w-4 h-4 text-white" />
                         </div>
                       )}
                     </div>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">{template.name}</h3>
-                      <p className="text-gray-600 mb-4">{template.description}</p>
-
-                      <div className="flex gap-2 mb-4">
-                        <div className="w-6 h-6 bg-blue-500 rounded-full"></div>
-                        <div className="w-6 h-6 bg-gray-500 rounded-full"></div>
-                        <div className="w-6 h-6 bg-gray-800 rounded-full"></div>
-                      </div>
-
-                      <div className="flex gap-3">
-                        <Button
-                          variant="outline"
-                          className="flex-1 border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 rounded-xl"
-                          onClick={() => {
-                            setSelectedTemplate(template.id)
-                            setActiveTab("preview")
-                          }}
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          Preview
-                        </Button>
-                        <Button
-                          className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl"
-                          onClick={() => handleApplyTemplate(template.id)}
-                        >
-                          <Check className="w-4 h-4 mr-2" />
-                          Apply
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
+                    <p className="text-sm text-gray-600">{template.description}</p>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Template Preview */}
+                    <div className="bg-gray-50 rounded-lg p-4 mb-4 h-64 overflow-hidden">
+                      <div
+                        className="text-xs leading-relaxed text-gray-700 transform scale-75 origin-top-left"
+                        dangerouslySetInnerHTML={{
+                          __html: renderTemplate(sampleCVData, template),
+                        }}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {template.features.map((feature: string, index: number) => (
+                        <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                          {feature}
+                        </span>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </TabsContent>
 
           {/* Preview Tab */}
-          <TabsContent value="preview">
-            <CVPreview cvData={cvData} templatePreview={templatePreview} />
+          <TabsContent value="preview" className="space-y-6">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">CV Preview</h2>
+              <p className="text-gray-600">See how your CV will look to employers</p>
+            </div>
+
+            <CVPreview cvData={cvData} templateId={selectedTemplate} />
           </TabsContent>
 
-          {/* Optimize Tab */}
+          {/* AI Optimize Tab */}
           <TabsContent value="optimize" className="space-y-6">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center justify-center gap-2">
+                <Brain className="w-6 h-6 text-purple-600" />
+                AI-Powered CV Optimization
+              </h2>
+              <p className="text-gray-600">Get personalized suggestions to improve your CV for specific job roles</p>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Job Description Input */}
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Target className="w-5 h-5 text-blue-600" />
-                    Job Description Analysis
+                    Job Description
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="job-description">Paste the job description here</Label>
-                    <Textarea
-                      id="job-description"
-                      value={jobDescription}
-                      onChange={(e) => setJobDescription(e.target.value)}
-                      placeholder="Paste the full job description here to get AI-powered optimization suggestions..."
-                      className="min-h-[200px]"
-                    />
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="job-description">Paste the job description you are applying for</Label>
+                      <Textarea
+                        id="job-description"
+                        value={jobDescription}
+                        onChange={(e) => setJobDescription(e.target.value)}
+                        placeholder="Paste the complete job description here..."
+                        rows={12}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleImproveCV}
+                      disabled={isImproving || !jobDescription.trim()}
+                      className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    >
+                      {isImproving ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Analyzing CV...
+                        </>
+                      ) : (
+                        <>
+                          <Lightbulb className="w-4 h-4 mr-2" />
+                          Get AI Suggestions
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  <Button
-                    onClick={handleImproveCV}
-                    disabled={isImproving || !jobDescription.trim()}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                  >
-                    {isImproving ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <Brain className="w-4 h-4 mr-2" />
-                        Analyze & Optimize
-                      </>
-                    )}
-                  </Button>
                 </CardContent>
               </Card>
 
@@ -1177,70 +1391,54 @@ export default function CVBuilderPage() {
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Lightbulb className="w-5 h-5 text-amber-600" />
-                    AI Optimization Suggestions
+                    <TrendingUp className="w-5 h-5 text-green-600" />
+                    AI Suggestions
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {improvementSuggestions ? (
                     <div className="space-y-4">
-                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-3">
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                        <div className="flex items-center gap-2 mb-2">
                           <Star className="w-5 h-5 text-green-600" />
-                          <h4 className="font-semibold text-green-900">Optimization Complete</h4>
+                          <span className="font-semibold text-green-800">AI Analysis Complete</span>
                         </div>
-                        <div className="prose prose-sm max-w-none text-green-800">
-                          <div className="whitespace-pre-wrap">{improvementSuggestions}</div>
-                        </div>
+                        <p className="text-green-700 text-sm">
+                          Your CV has been analyzed against the job requirements. Review the suggestions below.
+                        </p>
+                      </div>
+                      <div className="prose prose-sm max-w-none">
+                        <div
+                          className="text-gray-700 whitespace-pre-wrap"
+                          dangerouslySetInnerHTML={{ __html: improvementSuggestions }}
+                        />
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-gray-100 rounded-2xl mx-auto flex items-center justify-center mb-4">
-                        <Brain className="w-8 h-8 text-gray-400" />
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 bg-purple-100 rounded-2xl mx-auto flex items-center justify-center mb-4">
+                        <Brain className="w-8 h-8 text-purple-600" />
                       </div>
-                      <h3 className="font-semibold text-gray-900 mb-2">Ready for AI Analysis</h3>
-                      <p className="text-gray-600">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready for AI Analysis</h3>
+                      <p className="text-gray-600 mb-4">
                         Add a job description to get personalized suggestions for improving your CV
                       </p>
+                      <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
+                        <div className="flex items-center gap-2">
+                          <Shield className="w-4 h-4" />
+                          ATS Optimization
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Target className="w-4 h-4" />
+                          Keyword Matching
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4" />
+                          Impact Enhancement
+                        </div>
+                      </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* ATS Score and Tips */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6 text-center">
-                  <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl mx-auto flex items-center justify-center mb-4">
-                    <Shield className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">ATS Compatibility</h3>
-                  <div className="text-3xl font-bold text-green-600 mb-2">85%</div>
-                  <p className="text-sm text-gray-600">Your CV is well-optimized for ATS systems</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6 text-center">
-                  <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl mx-auto flex items-center justify-center mb-4">
-                    <TrendingUp className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Keyword Match</h3>
-                  <div className="text-3xl font-bold text-blue-600 mb-2">72%</div>
-                  <p className="text-sm text-gray-600">Good alignment with job requirements</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6 text-center">
-                  <div className="w-16 h-16 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl mx-auto flex items-center justify-center mb-4">
-                    <Star className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Overall Score</h3>
-                  <div className="text-3xl font-bold text-amber-600 mb-2">A-</div>
-                  <p className="text-sm text-gray-600">Excellent CV with room for improvement</p>
                 </CardContent>
               </Card>
             </div>
