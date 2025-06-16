@@ -24,6 +24,8 @@ import {
   Plus,
   X,
   ClipboardList,
+  Search,
+  RefreshCw,
 } from "lucide-react"
 import type { User } from "@supabase/supabase-js"
 import type { Application } from "@/lib/supabase"
@@ -826,6 +828,22 @@ export default function DashboardPage() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filterStatus, setFilterStatus] = useState<
+    | "all"
+    | "applied"
+    | "phone_screen"
+    | "first_interview"
+    | "second_interview"
+    | "third_interview"
+    | "final_interview"
+    | "offer"
+    | "accepted"
+    | "rejected"
+    | "withdrawn"
+    | "ghosted"
+  >("all")
+
   useEffect(() => {
     const getUser = async () => {
       try {
@@ -1045,14 +1063,43 @@ export default function DashboardPage() {
     )
   }
 
+  const filteredApplications = applications.filter((app) => {
+    const matchesSearch =
+      app.job_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.company_name.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesFilter = filterStatus === "all" || app.status === filterStatus
+    return matchesSearch && matchesFilter
+  })
+
   return (
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Welcome back, {userName || user.email?.split("@")[0] || "there"}!
-          </h1>
-          <p className="text-gray-600 mt-2">Track your job applications and career progress</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Welcome back, {userName || user.email?.split("@")[0] || "there"}!
+              </h1>
+              <p className="text-gray-600 mt-2">Track your job applications and career progress</p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                onClick={refreshApplications}
+                variant="outline"
+                className="px-6 py-3 rounded-2xl border-2 border-gray-200 hover:border-blue-400"
+              >
+                <RefreshCw className="w-5 h-5 mr-2" />
+                Refresh
+              </Button>
+              <Button
+                onClick={() => (window.location.href = "/generator")}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                New Application
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -1117,21 +1164,73 @@ export default function DashboardPage() {
           </Card>
         </div>
 
+        {/* Search and Filter */}
+        <Card className="border-0 shadow-lg mb-8">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Input
+                  placeholder="Search applications by job title or company..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 border-2 border-gray-200 focus:border-blue-400 rounded-xl"
+                />
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant={filterStatus === "all" ? "default" : "outline"}
+                  onClick={() => setFilterStatus("all")}
+                  className="rounded-xl"
+                >
+                  All
+                </Button>
+                <Button
+                  variant={filterStatus === "applied" ? "default" : "outline"}
+                  onClick={() => setFilterStatus("applied")}
+                  className="rounded-xl"
+                >
+                  Applied
+                </Button>
+                <Button
+                  variant={filterStatus === "phone_screen" ? "default" : "outline"}
+                  onClick={() => setFilterStatus("phone_screen")}
+                  className="rounded-xl"
+                >
+                  Phone Screen
+                </Button>
+                <Button
+                  variant={filterStatus === "first_interview" ? "default" : "outline"}
+                  onClick={() => setFilterStatus("first_interview")}
+                  className="rounded-xl"
+                >
+                  Interview
+                </Button>
+                <Button
+                  variant={filterStatus === "offer" ? "default" : "outline"}
+                  onClick={() => setFilterStatus("offer")}
+                  className="rounded-xl"
+                >
+                  Offer
+                </Button>
+                <Button
+                  variant={filterStatus === "rejected" ? "default" : "outline"}
+                  onClick={() => setFilterStatus("rejected")}
+                  className="rounded-xl"
+                >
+                  Rejected
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="border-0 shadow-lg">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Your Applications ({applications.length})</CardTitle>
-              <Button
-                onClick={() => (window.location.href = "/generator")}
-                className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Application
-              </Button>
-            </div>
+            <CardTitle>Your Applications ({filteredApplications.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            {applications.length === 0 ? (
+            {filteredApplications.length === 0 ? (
               <div className="text-center py-12">
                 <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No applications yet</h3>
@@ -1148,7 +1247,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {applications.map((app) => (
+                {filteredApplications.map((app) => (
                   <div key={app.id} className="border rounded-lg p-6 hover:bg-gray-50 transition-colors">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-4">
