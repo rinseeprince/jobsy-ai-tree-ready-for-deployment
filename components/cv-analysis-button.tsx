@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -22,8 +22,12 @@ import {
   RefreshCw,
   Check,
   XCircle,
+  Monitor,
+  Edit,
+  MapPin,
 } from "lucide-react"
 import type { CVData } from "@/lib/cv-templates"
+import { CVPreview } from "@/components/cv-editor/cv-preview"
 
 interface CVAnalysisButtonProps {
   cvData: CVData
@@ -33,6 +37,7 @@ interface CVAnalysisButtonProps {
   className?: string
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
   onUpdateCV?: (updatedCV: CVData) => void
+  onCVUpdate?: (updatedCV: CVData) => void
 }
 
 interface AnalysisResults {
@@ -147,14 +152,19 @@ export function CVAnalysisButton({
   className = "",
   onClick,
   onUpdateCV,
+  onCVUpdate,
 }: CVAnalysisButtonProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults | null>(null)
-  const [activeTab, setActiveTab] = useState<"overview" | "details" | "recommendations">("overview")
+  const [activeTab, setActiveTab] = useState<"overview" | "details" | "recommendations" | "preview">("overview")
   const [editableCVData, setEditableCVData] = useState<CVData | undefined>(cvData)
   const [appliedChanges, setAppliedChanges] = useState<string[]>([])
   const [dismissedChanges, setDismissedChanges] = useState<string[]>([])
+  const [successMessage, setSuccessMessage] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
+  const [selectedTemplate] = useState("modern")
+  const cvPreviewRef = useRef<HTMLDivElement>(null)
 
   const handleAnalysis = async (e: React.MouseEvent<HTMLButtonElement>) => {
     if (onClick) {
@@ -202,51 +212,382 @@ export function CVAnalysisButton({
     handleAnalysis({} as React.MouseEvent<HTMLButtonElement>)
   }
 
-  const handleApplyChange = (changeId: string, updatedText: string, section: string, fieldPath: string) => {
-    if (!editableCVData || !onUpdateCV) return
-
-    const newCVData = JSON.parse(JSON.stringify(editableCVData)) as CVData
-
-    if (section === "personalInfo" && newCVData.personalInfo) {
-      const personalInfo = newCVData.personalInfo as Record<string, string>
-      personalInfo[fieldPath] = updatedText
-    } else if (section === "experience") {
-      const match = fieldPath.match(/experience\[(\d+)\]\.(.+)/)
-      if (match && newCVData.experience) {
-        const index = Number.parseInt(match[1])
-        const field = match[2]
-        if (newCVData.experience[index] && field) {
-          const experienceItem = newCVData.experience[index] as Record<string, unknown>
-          experienceItem[field] = updatedText
-        }
-      }
-    } else if (section === "education") {
-      const match = fieldPath.match(/education\[(\d+)\]\.(.+)/)
-      if (match && newCVData.education) {
-        const index = Number.parseInt(match[1])
-        const field = match[2]
-        if (newCVData.education[index] && field) {
-          const educationItem = newCVData.education[index] as Record<string, unknown>
-          educationItem[field] = updatedText
-        }
-      }
-    } else if (section === "certifications") {
-      const match = fieldPath.match(/certifications\[(\d+)\]\.(.+)/)
-      if (match && newCVData.certifications) {
-        const index = Number.parseInt(match[1])
-        const field = match[2]
-        if (newCVData.certifications[index] && field) {
-          const certificationItem = newCVData.certifications[index] as Record<string, unknown>
-          certificationItem[field] = updatedText
-        }
-      }
-    } else if (section === "skills") {
-      newCVData.skills = updatedText.split(",").map((skill) => skill.trim())
+  // Function to highlight and scroll to text in CV preview
+  const highlightTextInCV = (originalText: string, isApplied = false) => {
+    // Switch to preview tab if not already there
+    if (activeTab !== "preview") {
+      setActiveTab("preview")
     }
 
-    setEditableCVData(newCVData)
-    onUpdateCV(newCVData)
-    setAppliedChanges([...appliedChanges, changeId])
+    // Wait for tab switch to complete, then scroll to highlighted text
+    setTimeout(() => {
+      if (cvPreviewRef.current && originalText) {
+        const previewElement = cvPreviewRef.current
+
+        // Clean the original text for better matching
+        const cleanOriginalText = originalText.trim().toLowerCase()
+
+        // Clear any existing highlights first (but keep applied changes)
+        const existingHighlights = previewElement.querySelectorAll("[data-ai-highlight]:not([data-ai-applied])")
+        existingHighlights.forEach((el) => {
+          if (el instanceof HTMLElement) {
+            el.removeAttribute("data-ai-highlight")
+            el.style.backgroundColor = ""
+            el.style.border = ""
+            el.style.borderRadius = ""
+            el.style.padding = ""
+            el.style.boxShadow = ""
+          }
+        })
+
+        // Function to create a highlight span around specific text
+        const highlightTextInElement = (element: Element, searchText: string): boolean => {
+          const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null)
+
+          const textNodes: Text[] = []
+          let node
+          while ((node = walker.nextNode())) {
+            if (node.textContent && node.textContent.trim().length > 0) {
+              textNodes.push(node as Text)
+            }
+          }
+
+          // Try to find exact matches first
+          for (const textNode of textNodes) {
+            const textContent = textNode.textContent?.toLowerCase() || ""
+            const cleanSearchText = searchText.toLowerCase()
+
+            if (textContent.includes(cleanSearchText)) {
+              const parent = textNode.parentElement
+              if (parent && parent instanceof HTMLElement) {
+                // Create a more precise highlight by wrapping just the matching text
+                const originalText = textNode.textContent || ""
+                const lowerOriginal = originalText.toLowerCase()
+                const startIndex = lowerOriginal.indexOf(cleanSearchText)
+
+                if (startIndex !== -1) {
+                  const endIndex = startIndex + cleanSearchText.length
+
+                  // Split the text into three parts: before, match, after
+                  const beforeText = originalText.substring(0, startIndex)
+                  const matchText = originalText.substring(startIndex, endIndex)
+                  const afterText = originalText.substring(endIndex)
+
+                  // Create highlight span with appropriate styling
+                  const highlightSpan = document.createElement("span")
+                  highlightSpan.setAttribute("data-ai-highlight", "true")
+
+                  if (isApplied) {
+                    // Green highlighting for applied changes
+                    highlightSpan.setAttribute("data-ai-applied", "true")
+                    highlightSpan.style.backgroundColor = "#dcfce7"
+                    highlightSpan.style.border = "2px solid #16a34a"
+                    highlightSpan.style.borderRadius = "4px"
+                    highlightSpan.style.padding = "2px 4px"
+                    highlightSpan.style.boxShadow = "0 0 0 2px rgba(22, 163, 74, 0.2)"
+                    highlightSpan.style.transition = "all 0.3s ease"
+                    highlightSpan.title = "✅ Applied change"
+                  } else {
+                    // Orange highlighting for suggestions
+                    highlightSpan.style.backgroundColor = "#fef3c7"
+                    highlightSpan.style.border = "2px solid #f59e0b"
+                    highlightSpan.style.borderRadius = "4px"
+                    highlightSpan.style.padding = "2px 4px"
+                    highlightSpan.style.boxShadow = "0 0 0 2px rgba(245, 158, 11, 0.2)"
+                    highlightSpan.style.transition = "all 0.3s ease"
+                    highlightSpan.title = "💡 Suggested change"
+                  }
+
+                  highlightSpan.textContent = matchText
+
+                  // Create document fragment to replace the text node
+                  const fragment = document.createDocumentFragment()
+                  if (beforeText) fragment.appendChild(document.createTextNode(beforeText))
+                  fragment.appendChild(highlightSpan)
+                  if (afterText) fragment.appendChild(document.createTextNode(afterText))
+
+                  // Replace the original text node
+                  textNode.parentNode?.replaceChild(fragment, textNode)
+
+                  // Scroll to the highlighted element
+                  highlightSpan.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                    inline: "nearest",
+                  })
+
+                  // Only remove highlight after 8 seconds if it's not an applied change
+                  if (!isApplied) {
+                    setTimeout(() => {
+                      if (highlightSpan.parentNode) {
+                        const textContent = highlightSpan.textContent || ""
+                        highlightSpan.parentNode.replaceChild(document.createTextNode(textContent), highlightSpan)
+                      }
+                    }, 8000)
+                  }
+
+                  return true
+                }
+              }
+            }
+          }
+
+          return false
+        }
+
+        // Try to find and highlight the exact text
+        let found = highlightTextInElement(previewElement, cleanOriginalText)
+
+        // If exact match not found, try partial matching with key words
+        if (!found) {
+          const words = cleanOriginalText.split(/\s+/).filter((word) => word.length > 2)
+
+          for (const word of words) {
+            if (highlightTextInElement(previewElement, word)) {
+              found = true
+              break
+            }
+          }
+        }
+
+        if (!found) {
+          console.warn("Could not find matching text in CV preview:", originalText)
+        }
+      }
+    }, 300)
+  }
+
+  // Function to highlight applied changes in green
+  const highlightAppliedChange = (changeId: string, updatedText: string) => {
+    // Find the change details to get the original text for highlighting
+    const weakVerbItem = analysisResults?.results?.contentQuality?.impact?.weakVerbs?.find(
+      (_, index) => changeId === `weak-verb-${index}`,
+    )
+
+    const quantificationItem = analysisResults?.results?.contentQuality?.impact?.missingQuantification?.find(
+      (_, index) => changeId === `quantification-${index}`,
+    )
+
+    // Highlight the updated text in green
+    if (weakVerbItem && typeof weakVerbItem === "object") {
+      // For weak verbs, highlight the improved sentence
+      highlightTextInCV(updatedText, true)
+    } else if (quantificationItem && typeof quantificationItem === "object") {
+      // For quantification, highlight the suggested text
+      highlightTextInCV(updatedText, true)
+    }
+  }
+
+  const handleApplyChange = (changeId: string, updatedText: string, section: string, fieldPath: string) => {
+    if (!editableCVData) return
+
+    // Deep clone the CV data
+    const newCVData = JSON.parse(JSON.stringify(editableCVData)) as CVData
+
+    try {
+      console.log("🔄 Applying change:", { changeId, section, fieldPath, updatedText })
+
+      // Get the original change details for better matching
+      let originalText = ""
+      let targetLocation = ""
+
+      if (changeId.includes("weak-verb")) {
+        const weakVerbItem = analysisResults?.results?.contentQuality?.impact?.weakVerbs?.find(
+          (_, index) => changeId === `weak-verb-${index}`,
+        )
+        if (weakVerbItem && typeof weakVerbItem === "object") {
+          originalText = weakVerbItem.originalSentence || ""
+          targetLocation = weakVerbItem.location || ""
+        }
+      } else if (changeId.includes("quantification")) {
+        const quantificationItem = analysisResults?.results?.contentQuality?.impact?.missingQuantification?.find(
+          (_, index) => changeId === `quantification-${index}`,
+        )
+        if (quantificationItem && typeof quantificationItem === "object") {
+          originalText = quantificationItem.originalText || ""
+          targetLocation = quantificationItem.location || ""
+        }
+      }
+
+      console.log("🎯 Target matching:", { originalText, targetLocation })
+
+      // Enhanced experience matching logic
+      if (newCVData.experience && originalText) {
+        let foundMatch = false
+
+        // First, try to find exact text match in experience descriptions
+        for (let i = 0; i < newCVData.experience.length; i++) {
+          const exp = newCVData.experience[i]
+          const description = exp.description || ""
+
+          // Check if this experience contains the original text
+          if (description.toLowerCase().includes(originalText.toLowerCase())) {
+            console.log(`✅ Found exact match in experience ${i + 1}: ${exp.title} at ${exp.company}`)
+
+            if (changeId.includes("weak-verb")) {
+              // Replace the original sentence with the improved one
+              const updatedDescription = description.replace(originalText, updatedText)
+              newCVData.experience[i].description = updatedDescription
+            } else if (changeId.includes("quantification")) {
+              // Replace the original text with the quantified version
+              const updatedDescription = description.replace(originalText, updatedText)
+              newCVData.experience[i].description = updatedDescription
+            }
+
+            foundMatch = true
+            break
+          }
+        }
+
+        // If no exact match, try partial matching with key phrases
+        if (!foundMatch && originalText.length > 10) {
+          const keyPhrases = originalText
+            .toLowerCase()
+            .split(/[.,;!?]/)
+            .map((phrase) => phrase.trim())
+            .filter((phrase) => phrase.length > 5)
+            .slice(0, 3) // Take first 3 key phrases
+
+          for (let i = 0; i < newCVData.experience.length; i++) {
+            const exp = newCVData.experience[i]
+            const description = exp.description?.toLowerCase() || ""
+
+            // Check if description contains any key phrases
+            const matchingPhrases = keyPhrases.filter((phrase) => description.includes(phrase))
+
+            if (matchingPhrases.length > 0) {
+              console.log(`✅ Found partial match in experience ${i + 1}: ${exp.title} at ${exp.company}`)
+              console.log(`📝 Matching phrases:`, matchingPhrases)
+
+              // Try to replace the most similar sentence
+              const sentences = (exp.description || "").split(/[.!?]+/).filter((s) => s.trim())
+              let bestMatchIndex = -1
+              let bestMatchScore = 0
+
+              sentences.forEach((sentence, idx) => {
+                const sentenceLower = sentence.toLowerCase()
+                const matchScore = keyPhrases.reduce((score, phrase) => {
+                  return score + (sentenceLower.includes(phrase) ? 1 : 0)
+                }, 0)
+
+                if (matchScore > bestMatchScore) {
+                  bestMatchScore = matchScore
+                  bestMatchIndex = idx
+                }
+              })
+
+              if (bestMatchIndex >= 0) {
+                sentences[bestMatchIndex] = " " + updatedText
+                newCVData.experience[i].description = sentences.join(".").trim()
+              } else {
+                // Append if no good sentence match
+                const currentDesc = exp.description || ""
+                newCVData.experience[i].description =
+                  currentDesc + (currentDesc.endsWith(".") ? " " : ". ") + updatedText
+              }
+
+              foundMatch = true
+              break
+            }
+          }
+        }
+
+        // If still no match, try matching by job title or company from location hint
+        if (!foundMatch && targetLocation) {
+          const locationLower = targetLocation.toLowerCase()
+
+          for (let i = 0; i < newCVData.experience.length; i++) {
+            const exp = newCVData.experience[i]
+            const titleMatch =
+              exp.title?.toLowerCase().includes(locationLower) || locationLower.includes(exp.title?.toLowerCase() || "")
+            const companyMatch =
+              exp.company?.toLowerCase().includes(locationLower) ||
+              locationLower.includes(exp.company?.toLowerCase() || "")
+
+            if (titleMatch || companyMatch) {
+              console.log(`✅ Found location match in experience ${i + 1}: ${exp.title} at ${exp.company}`)
+
+              const currentDesc = exp.description || ""
+              newCVData.experience[i].description = currentDesc + (currentDesc.endsWith(".") ? " " : ". ") + updatedText
+              foundMatch = true
+              break
+            }
+          }
+        }
+
+        // Last resort: add to most relevant experience based on content similarity
+        if (!foundMatch && newCVData.experience.length > 0) {
+          console.log("⚠️ No specific match found, using content similarity matching")
+
+          // Find experience with most similar content
+          let bestMatch = 0
+          let bestScore = 0
+
+          const searchTerms = updatedText
+            .toLowerCase()
+            .split(/\s+/)
+            .filter((word) => word.length > 3)
+
+          newCVData.experience.forEach((exp, idx) => {
+            const expText = `${exp.title} ${exp.company} ${exp.description}`.toLowerCase()
+            const score = searchTerms.reduce((acc, term) => acc + (expText.includes(term) ? 1 : 0), 0)
+
+            if (score > bestScore) {
+              bestScore = score
+              bestMatch = idx
+            }
+          })
+
+          console.log(
+            `✅ Applying to most similar experience ${bestMatch + 1}: ${newCVData.experience[bestMatch].title}`,
+          )
+          const currentDesc = newCVData.experience[bestMatch].description || ""
+          newCVData.experience[bestMatch].description =
+            currentDesc + (currentDesc.endsWith(".") ? " " : ". ") + updatedText
+        }
+      } else {
+        // Handle non-experience sections (personal info, skills, etc.)
+        if (section === "personalInfo") {
+          if (fieldPath === "summary" || !fieldPath) {
+            newCVData.personalInfo.summary = updatedText
+          } else {
+            const personalInfo = newCVData.personalInfo as Record<string, string>
+            personalInfo[fieldPath] = updatedText
+          }
+          console.log("✅ Updated personal info")
+        } else if (section === "skills") {
+          newCVData.skills = updatedText.split(",").map((skill) => skill.trim())
+          console.log("✅ Updated skills")
+        }
+      }
+
+      // Update the CV data
+      setEditableCVData(newCVData)
+
+      // Call both possible callback functions for backward compatibility
+      if (onUpdateCV) onUpdateCV(newCVData)
+      if (onCVUpdate) onCVUpdate(newCVData)
+
+      // Mark as applied
+      setAppliedChanges([...appliedChanges, changeId])
+
+      // Show success notification
+      setSuccessMessage(`✅ Change applied successfully! Your CV has been updated.`)
+
+      // Auto-hide success message after 3 seconds
+      setTimeout(() => setSuccessMessage(""), 3000)
+
+      // Highlight the applied change in green after a short delay to allow CV to update
+      setTimeout(() => {
+        highlightAppliedChange(changeId, updatedText)
+      }, 500)
+
+      console.log("✅ Change applied successfully")
+    } catch (error) {
+      console.error("❌ Error applying change:", error)
+      setErrorMessage("❌ Failed to apply change. Please try again.")
+      setTimeout(() => setErrorMessage(""), 3000)
+    }
   }
 
   const handleDismissChange = (changeId: string) => {
@@ -292,6 +633,47 @@ export function CVAnalysisButton({
       default:
         return "text-gray-600 bg-gray-50 border-gray-200"
     }
+  }
+
+  // Helper function to calculate word count locally as backup
+  const calculateLocalWordCount = (cvData: CVData): number => {
+    let text = ""
+
+    // Extract all text content
+    if (cvData.personalInfo) {
+      const personal = cvData.personalInfo
+      text +=
+        [personal.name, personal.title, personal.summary, personal.email, personal.phone, personal.location]
+          .filter(Boolean)
+          .join(" ") + " "
+    }
+
+    if (cvData.experience?.length) {
+      cvData.experience.forEach((exp) => {
+        text += [exp.title, exp.company, exp.location, exp.description].filter(Boolean).join(" ") + " "
+      })
+    }
+
+    if (cvData.education?.length) {
+      cvData.education.forEach((edu) => {
+        text += [edu.degree, edu.institution, edu.location, edu.description].filter(Boolean).join(" ") + " "
+      })
+    }
+
+    if (cvData.skills?.length) {
+      text += cvData.skills.join(" ") + " "
+    }
+
+    if (cvData.certifications?.length) {
+      cvData.certifications.forEach((cert) => {
+        text += [cert.name, cert.issuer, cert.description].filter(Boolean).join(" ") + " "
+      })
+    }
+
+    return text
+      .replace(/[^\w\s]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.trim().length > 0).length
   }
 
   const renderModal = () => {
@@ -353,7 +735,7 @@ export function CVAnalysisButton({
 
     return (
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden">
           <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 text-white">
             <div className="flex items-center justify-between">
               <div>
@@ -409,29 +791,344 @@ export function CVAnalysisButton({
                 <Lightbulb className="w-4 h-4 mr-2 inline" />
                 Recommendations
               </button>
+              <button
+                onClick={() => setActiveTab("preview")}
+                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === "preview"
+                    ? "border-purple-600 text-purple-600 bg-white"
+                    : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-white/50"
+                }`}
+              >
+                <Monitor className="w-4 h-4 mr-2 inline" />
+                Live Preview
+              </button>
             </div>
           </div>
 
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+          {/* Notifications */}
+          {successMessage && (
+            <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <span className="text-green-800 text-sm font-medium">{successMessage}</span>
+            </div>
+          )}
+
+          {errorMessage && (
+            <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <span className="text-red-800 text-sm font-medium">{errorMessage}</span>
+            </div>
+          )}
+
+          <div className="overflow-y-auto max-h-[calc(95vh-200px)]">
+            {/* NEW: Live Preview Tab */}
+            {activeTab === "preview" && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+                {/* Left Side - Quick Apply Recommendations */}
+                <div className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="font-medium text-blue-900 mb-2 flex items-center">
+                      <Edit className="w-5 h-5 mr-2" />
+                      Apply Recommendations
+                    </h3>
+                    <p className="text-sm text-blue-800">
+                      Apply AI recommendations and see changes instantly in the live preview on the right. Click the
+                      location icon to highlight the text in your CV.
+                    </p>
+                    <div className="mt-3 flex items-center gap-4 text-xs">
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-amber-200 border border-amber-400 rounded"></div>
+                        <span className="text-amber-700">Suggested changes</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-green-200 border border-green-400 rounded"></div>
+                        <span className="text-green-700">Applied changes</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Apply Weak Verbs */}
+                  {contentQuality?.impact?.weakVerbs && contentQuality.impact.weakVerbs.length > 0 && (
+                    <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <Zap className="w-5 h-5 mr-2 text-orange-600" />
+                        Replace Weak Verbs
+                      </h3>
+                      <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                        {contentQuality.impact.weakVerbs.map((item, index) => {
+                          if (typeof item === "string") {
+                            return (
+                              <div key={index} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                                <div className="text-sm text-gray-700">{item}</div>
+                              </div>
+                            )
+                          } else {
+                            const changeId = `weak-verb-${index}`
+                            const isApplied = isChangeApplied(changeId)
+                            const isDismissed = isChangeDismissed(changeId)
+
+                            if (isApplied || isDismissed) {
+                              return (
+                                <div
+                                  key={index}
+                                  className={`p-4 rounded-lg border ${
+                                    isApplied ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50 opacity-60"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between mb-2">
+                                    <h4 className="font-medium text-sm">
+                                      Replace weak verb:{" "}
+                                      <span className="text-red-600">&quot;{item.verb || "N/A"}&quot;</span>
+                                    </h4>
+                                    <span
+                                      className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                        isApplied ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                                      }`}
+                                    >
+                                      {isApplied ? "Applied" : "Dismissed"}
+                                    </span>
+                                  </div>
+                                  {isApplied && (
+                                    <div className="text-sm bg-green-100 p-2 rounded border border-green-200">
+                                      {item.improvedSentence || "No improved sentence available"}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <div key={index} className="p-4 rounded-lg border border-orange-200 bg-orange-50">
+                                <div className="flex items-start justify-between mb-2">
+                                  <h4 className="font-medium text-sm flex items-center gap-2">
+                                    Replace weak verb:{" "}
+                                    <span className="text-red-600">&quot;{item.verb || "N/A"}&quot;</span>
+                                    {item.originalSentence && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-100"
+                                        onClick={() => highlightTextInCV(item.originalSentence, false)}
+                                        title="Show in CV"
+                                      >
+                                        <MapPin className="w-3 h-3" />
+                                      </Button>
+                                    )}
+                                  </h4>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-xs border-red-200 hover:bg-red-50"
+                                      onClick={() => handleDismissChange(changeId)}
+                                    >
+                                      <XCircle className="w-3 h-3 mr-1" />
+                                      Dismiss
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-xs border-green-200 hover:bg-green-50"
+                                      onClick={() =>
+                                        handleApplyChange(
+                                          changeId,
+                                          item.improvedSentence || "",
+                                          "experience",
+                                          item.location || "Experience 1",
+                                        )
+                                      }
+                                    >
+                                      <Check className="w-3 h-3 mr-1" />
+                                      Apply
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div className="text-sm bg-red-50 p-2 rounded mb-2 border border-red-100">
+                                  <span className="font-medium">Original: </span>
+                                  {item.originalSentence || "No original sentence available"}
+                                </div>
+                                <div className="text-sm bg-green-50 p-2 rounded border border-green-100">
+                                  <span className="font-medium">Improved: </span>
+                                  {item.improvedSentence || "No improved sentence available"}
+                                </div>
+                                {item.location && (
+                                  <div className="text-xs text-gray-500 mt-2">Location: {item.location}</div>
+                                )}
+                              </div>
+                            )
+                          }
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quick Apply Quantification */}
+                  {contentQuality?.impact?.missingQuantification &&
+                    contentQuality.impact.missingQuantification.length > 0 && (
+                      <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                          <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
+                          Add Quantification
+                        </h3>
+                        <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                          {contentQuality.impact.missingQuantification.map((item, index) => {
+                            if (typeof item === "string") {
+                              return (
+                                <div key={index} className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                                  <div className="text-sm text-gray-700">{item}</div>
+                                </div>
+                              )
+                            } else {
+                              const changeId = `quantification-${index}`
+                              const isApplied = isChangeApplied(changeId)
+                              const isDismissed = isChangeDismissed(changeId)
+
+                              if (isApplied || isDismissed) {
+                                return (
+                                  <div
+                                    key={index}
+                                    className={`p-4 rounded-lg border ${
+                                      isApplied
+                                        ? "border-green-200 bg-green-50"
+                                        : "border-gray-200 bg-gray-50 opacity-60"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between mb-2">
+                                      <h4 className="font-medium text-sm">Add {item.metricType || "metric"} metrics</h4>
+                                      <span
+                                        className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                          isApplied ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                                        }`}
+                                      >
+                                        {isApplied ? "Applied" : "Dismissed"}
+                                      </span>
+                                    </div>
+                                    {isApplied && (
+                                      <div className="text-sm bg-green-100 p-2 rounded border border-green-200">
+                                        {item.suggestedText || "No suggested text available"}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              }
+
+                              return (
+                                <div key={index} className="p-4 rounded-lg border border-yellow-200 bg-yellow-50">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <h4 className="font-medium text-sm flex items-center gap-2">
+                                      Add {item.metricType || "metric"} metrics
+                                      {item.originalText && (
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-100"
+                                          onClick={() => highlightTextInCV(item.originalText, false)}
+                                          title="Show in CV"
+                                        >
+                                          <MapPin className="w-3 h-3" />
+                                        </Button>
+                                      )}
+                                    </h4>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs border-red-200 hover:bg-red-50"
+                                        onClick={() => handleDismissChange(changeId)}
+                                      >
+                                        <XCircle className="w-3 h-3 mr-1" />
+                                        Dismiss
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs border-green-200 hover:bg-green-50"
+                                        onClick={() =>
+                                          handleApplyChange(
+                                            changeId,
+                                            item.suggestedText || "",
+                                            "experience",
+                                            item.location || "Experience 1",
+                                          )
+                                        }
+                                      >
+                                        <Check className="w-3 h-3 mr-1" />
+                                        Apply
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <div className="text-sm bg-red-50 p-2 rounded mb-2 border border-red-100">
+                                    <span className="font-medium">Original: </span>
+                                    {item.originalText || "No original text available"}
+                                  </div>
+                                  <div className="text-sm bg-green-50 p-2 rounded border border-green-100">
+                                    <span className="font-medium">Suggested: </span>
+                                    {item.suggestedText || "No suggested text available"}
+                                  </div>
+                                  {item.location && (
+                                    <div className="text-xs text-gray-500 mt-2">Location: {item.location}</div>
+                                  )}
+                                </div>
+                              )
+                            }
+                          })}
+                        </div>
+                      </div>
+                    )}
+                </div>
+
+                {/* Right Side - Live CV Preview */}
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+                    <h3 className="font-medium text-green-900 mb-2 flex items-center">
+                      <Monitor className="w-5 h-5 mr-2" />
+                      Live CV Preview
+                    </h3>
+                    <p className="text-sm text-green-800">
+                      This preview updates in real-time as you apply recommendations. Click the{" "}
+                      <MapPin className="w-3 h-3 inline mx-1" /> icon to highlight specific text. Applied changes stay
+                      highlighted in green.
+                    </p>
+                  </div>
+
+                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg">
+                    <div className="bg-gray-50 border-b border-gray-200 p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span className="text-sm text-gray-600 ml-2">CV Preview</span>
+                      </div>
+                      <div className="text-xs text-gray-500">Live Updates</div>
+                    </div>
+                    <div ref={cvPreviewRef} className="p-4 max-h-[600px] overflow-y-auto bg-white">
+                      {editableCVData && <CVPreview cvData={editableCVData} templateId={selectedTemplate} />}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* EXISTING: Overview Tab */}
             {activeTab === "overview" && (
-              <div className="space-y-6">
+              <div className="p-6 space-y-6">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h3 className="font-medium text-blue-900 mb-2">📊 Analysis Data Source</h3>
                   <div className="text-sm text-blue-800 space-y-1">
                     <p>
-                      <strong>CV Name:</strong> {cvData.personalInfo?.name || "Not provided"}
+                      <strong>CV Name:</strong> {cvData?.personalInfo?.name || "Not provided"}
                     </p>
                     <p>
-                      <strong>Email:</strong> {cvData.personalInfo?.email || "Not provided"}
+                      <strong>Email:</strong> {cvData?.personalInfo?.email || "Not provided"}
                     </p>
                     <p>
-                      <strong>Experience Entries:</strong> {cvData.experience?.length || 0}
+                      <strong>Experience Entries:</strong> {cvData?.experience?.length || 0}
                     </p>
                     <p>
-                      <strong>Skills:</strong> {cvData.skills?.length || 0}
+                      <strong>Skills:</strong> {cvData?.skills?.length || 0}
                     </p>
                     <p>
-                      <strong>Word Count:</strong> {lengthAnalysis?.wordCount || 0}
+                      <strong>Word Count:</strong> {lengthAnalysis?.wordCount || calculateLocalWordCount(cvData)}
                     </p>
                   </div>
                 </div>
@@ -557,8 +1254,9 @@ export function CVAnalysisButton({
               </div>
             )}
 
+            {/* EXISTING: Details Tab */}
             {activeTab === "details" && (
-              <div className="space-y-6">
+              <div className="p-6 space-y-6">
                 <div className="bg-white rounded-2xl border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <Target className="w-5 h-5 mr-2 text-blue-600" />
@@ -823,8 +1521,9 @@ export function CVAnalysisButton({
               </div>
             )}
 
+            {/* EXISTING: Recommendations Tab */}
             {activeTab === "recommendations" && (
-              <div className="space-y-6">
+              <div className="p-6 space-y-6">
                 {atsScore?.recommendations && atsScore.recommendations.length > 0 && (
                   <div className="bg-white rounded-2xl border border-gray-200 p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -847,7 +1546,6 @@ export function CVAnalysisButton({
                   </div>
                 )}
 
-                {/* Weak Verbs Improvements */}
                 {contentQuality?.impact?.weakVerbs && contentQuality.impact.weakVerbs.length > 0 && (
                   <div className="bg-white rounded-2xl border border-gray-200 p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -908,9 +1606,20 @@ export function CVAnalysisButton({
                           return (
                             <div key={index} className="p-4 rounded-lg border border-orange-200 bg-orange-50">
                               <div className="flex items-start justify-between mb-2">
-                                <h4 className="font-medium text-sm">
+                                <h4 className="font-medium text-sm flex items-center gap-2">
                                   Replace weak verb:{" "}
                                   <span className="text-red-600">&quot;{item.verb || "N/A"}&quot;</span>
+                                  {item.originalSentence && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-100"
+                                      onClick={() => highlightTextInCV(item.originalSentence, false)}
+                                      title="Show in CV"
+                                    >
+                                      <MapPin className="w-3 h-3" />
+                                    </Button>
+                                  )}
                                 </h4>
                                 <div className="flex gap-2">
                                   <Button
@@ -930,8 +1639,8 @@ export function CVAnalysisButton({
                                       handleApplyChange(
                                         changeId,
                                         item.improvedSentence || "",
-                                        item.location?.split(".")[0] || "experience",
-                                        item.location || "",
+                                        "experience",
+                                        item.location || "Experience 1",
                                       )
                                     }
                                   >
@@ -959,7 +1668,6 @@ export function CVAnalysisButton({
                   </div>
                 )}
 
-                {/* Missing Quantification */}
                 {contentQuality?.impact?.missingQuantification &&
                   contentQuality.impact.missingQuantification.length > 0 && (
                     <div className="bg-white rounded-2xl border border-gray-200 p-6">
@@ -1015,7 +1723,20 @@ export function CVAnalysisButton({
                             return (
                               <div key={index} className="p-4 rounded-lg border border-yellow-200 bg-yellow-50">
                                 <div className="flex items-start justify-between mb-2">
-                                  <h4 className="font-medium text-sm">Add {item.metricType || "metric"} metrics</h4>
+                                  <h4 className="font-medium text-sm flex items-center gap-2">
+                                    Add {item.metricType || "metric"} metrics
+                                    {item.originalText && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-100"
+                                        onClick={() => highlightTextInCV(item.originalText, false)}
+                                        title="Show in CV"
+                                      >
+                                        <MapPin className="w-3 h-3" />
+                                      </Button>
+                                    )}
+                                  </h4>
                                   <div className="flex gap-2">
                                     <Button
                                       size="sm"
@@ -1034,8 +1755,8 @@ export function CVAnalysisButton({
                                         handleApplyChange(
                                           changeId,
                                           item.suggestedText || "",
-                                          item.location?.split(".")[0] || "experience",
-                                          item.location || "",
+                                          "experience",
+                                          item.location || "Experience 1",
                                         )
                                       }
                                     >

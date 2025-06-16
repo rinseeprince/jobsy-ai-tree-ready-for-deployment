@@ -16,6 +16,8 @@ interface OpenAIResponse {
   }>
 }
 
+let validatedResults: Record<string, unknown> = {}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     console.log("🔍 AI Analysis API called")
@@ -46,6 +48,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log("📄 Extracted CV text length:", cvText.length)
     console.log("📄 CV text preview:", cvText.substring(0, 200) + "...")
 
+    // Improved word counting
+    const words = cvText
+      .replace(/[^\w\s]/g, " ") // Replace punctuation with spaces
+      .split(/\s+/) // Split on whitespace
+      .filter((word) => word.trim().length > 0) // Filter out empty strings
+
+    console.log("📊 Actual word count:", words.length)
+    console.log("📊 First 10 words:", words.slice(0, 10))
+
     if (!cvText || cvText.trim().length < 50) {
       return NextResponse.json({
         success: false,
@@ -55,7 +66,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Create comprehensive analysis prompt with specific examples
     const analysisPrompt = `
-You are an expert CV/Resume analyst and ATS specialist. Analyze the following CV and provide EXTREMELY DETAILED feedback with SPECIFIC EXAMPLES.
+You are an expert CV/Resume analyst and ATS specialist. Analyze the following CV and provide EXTREMELY COMPREHENSIVE and DETAILED feedback. I want you to find EVERY POSSIBLE improvement across ALL sections.
 
 CV CONTENT:
 ${cvText}
@@ -64,12 +75,22 @@ ${jobDescription ? `JOB DESCRIPTION: ${jobDescription}` : ""}
 
 INDUSTRY: ${industry}
 
-CRITICAL INSTRUCTIONS:
-1. For grammar issues: Quote the EXACT text with the error and provide the EXACT correction
-2. For weak verbs: Quote the EXACT sentence and provide the EXACT replacement sentence
-3. For keywords: List the EXACT words found and EXACT words missing
-4. For quantification: Quote the EXACT sentence that needs metrics and suggest SPECIFIC numbers/percentages
-5. Be extremely specific - no generic advice
+CRITICAL ANALYSIS REQUIREMENTS:
+1. EXAMINE EVERY SINGLE SENTENCE in the professional summary and ALL work experience descriptions
+2. IDENTIFY ALL weak verbs, passive voice, and non-action words throughout the ENTIRE CV
+3. FIND ALL opportunities for quantification (numbers, percentages, timeframes, currency) in EVERY experience entry
+4. ANALYZE ALL industry keywords that should be present vs. what's actually there
+5. CHECK EVERY sentence for grammar, spelling, and punctuation errors
+6. LOOK FOR ALL opportunities to make statements more impactful and specific
+7. Be EXHAUSTIVE - don't miss anything, analyze every word and phrase
+
+COMPREHENSIVE ANALYSIS INSTRUCTIONS:
+- Go through EACH work experience entry individually and find ALL issues
+- Examine the professional summary word by word for improvements
+- Look for weak verbs like: involved, responsible for, worked on, helped, did, made, got, was, had, used, tried, participated, assisted, supported, handled, dealt with, managed (when vague), coordinated, organized, contributed, collaborated
+- Find ALL statements that lack specific metrics, numbers, percentages, timeframes, or results
+- Identify ALL missing industry-specific keywords and technical terms
+- Check for ALL grammar issues including: comma splices, run-on sentences, incorrect punctuation, capitalization errors, subject-verb disagreement, tense inconsistencies
 
 Please provide a comprehensive analysis in the following JSON format:
 
@@ -95,13 +116,13 @@ Please provide a comprehensive analysis in the following JSON format:
       "score": <number 0-100>,
       "issues": [
         {
-          "type": "grammar|spelling|punctuation",
+          "type": "grammar|spelling|punctuation|capitalization|tense",
           "originalText": "EXACT text from CV with the error",
           "correctedText": "EXACT corrected version",
           "message": "Specific description of the error",
           "suggestion": "Exact fix to apply",
           "severity": "high|medium|low",
-          "location": "Which section this appears in"
+          "location": "Exact section name where this appears"
         }
       ]
     },
@@ -110,17 +131,17 @@ Please provide a comprehensive analysis in the following JSON format:
       "weakVerbs": [
         {
           "verb": "exact weak verb found",
-          "originalSentence": "EXACT sentence containing weak verb",
-          "improvedSentence": "EXACT improved sentence with strong action verb",
-          "location": "Which section this appears in"
+          "originalSentence": "EXACT complete sentence containing weak verb",
+          "improvedSentence": "EXACT improved sentence with strong action verb and more impact",
+          "location": "Exact section/job title where this appears"
         }
       ],
       "missingQuantification": [
         {
           "originalText": "EXACT text that needs quantification",
-          "suggestedText": "EXACT suggested text with specific metrics",
-          "location": "Which section this appears in",
-          "metricType": "percentage|number|timeframe|currency"
+          "suggestedText": "EXACT suggested text with specific realistic metrics",
+          "location": "Exact section/job title where this appears",
+          "metricType": "percentage|number|timeframe|currency|volume"
         }
       ],
       "passiveVoiceCount": <number>,
@@ -128,7 +149,7 @@ Please provide a comprehensive analysis in the following JSON format:
         {
           "originalText": "EXACT passive voice sentence",
           "improvedText": "EXACT active voice version",
-          "location": "Which section this appears in"
+          "location": "Exact section where this appears"
         }
       ]
     },
@@ -141,7 +162,7 @@ Please provide a comprehensive analysis in the following JSON format:
           "issue": "Specific clarity issue",
           "originalText": "EXACT problematic text",
           "improvedText": "EXACT improved version",
-          "location": "Which section"
+          "location": "Exact section"
         }
       ]
     }
@@ -168,10 +189,10 @@ Please provide a comprehensive analysis in the following JSON format:
     ],
     "missingKeywords": [
       {
-        "keyword": "exact missing keyword",
-        "importance": "why this keyword is critical",
-        "suggestedPlacement": "where to add it in the CV",
-        "exampleUsage": "exact sentence showing how to use it"
+        "keyword": "exact missing keyword that should be added",
+        "importance": "why this keyword is critical for the industry",
+        "suggestedPlacement": "exact section where to add it",
+        "exampleUsage": "exact sentence showing how to incorporate it naturally"
       }
     ],
     "recommendations": [
@@ -181,23 +202,27 @@ Please provide a comprehensive analysis in the following JSON format:
   }
 }
 
-ANALYSIS REQUIREMENTS:
-1. Count actual words in the CV content accurately
-2. Find and quote EXACT grammar, spelling, and punctuation errors with EXACT corrections
-3. Identify EXACT weak action verbs with EXACT sentence replacements
-4. List EXACT industry keywords found and EXACT keywords missing
-5. Provide EXACT text improvements, not generic advice
-6. Quote actual sentences from the CV, don't make up examples
-7. Be extremely specific and actionable
+EXHAUSTIVE ANALYSIS REQUIREMENTS:
+1. Find AT LEAST 10-15 weak verbs if the CV has multiple experience entries
+2. Identify AT LEAST 5-10 quantification opportunities across all experiences
+3. Find AT LEAST 15-20 missing industry keywords for a comprehensive CV
+4. Identify ALL grammar and punctuation issues, no matter how minor
+5. Provide specific improvements for EVERY work experience description
+6. Analyze the professional summary for ALL possible improvements
+7. Don't be conservative - find every possible enhancement
 
-EXAMPLE OF GOOD ANALYSIS:
-Instead of: "Use stronger verbs"
-Provide: "Replace 'was responsible for managing' with 'Led and optimized' in the sentence 'I was responsible for managing a team of 5 developers' → 'Led and optimized a team of 5 developers, increasing productivity by 25%'"
+EXAMPLE OF COMPREHENSIVE ANALYSIS:
+Instead of finding just 1-2 issues, find ALL issues like:
+- "Responsible for managing" → "Led and optimized"
+- "Worked with clients" → "Collaborated with 50+ enterprise clients"
+- "Helped increase sales" → "Drove 25% increase in quarterly sales revenue"
+- "Managed projects" → "Successfully delivered 15+ projects worth $2M+ in value"
+- Missing keywords: "CRM", "Salesforce", "lead generation", "pipeline management", "revenue optimization", etc.
 
-Be thorough, accurate, and provide EXACT quotes and corrections.
+Be EXTREMELY thorough and comprehensive. Find EVERYTHING that can be improved.
 `
 
-    console.log("🤖 Sending enhanced request to OpenAI...")
+    console.log("🤖 Sending enhanced comprehensive request to OpenAI...")
 
     // Use fetch to call OpenAI API directly
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -212,15 +237,15 @@ Be thorough, accurate, and provide EXACT quotes and corrections.
           {
             role: "system",
             content:
-              "You are an expert CV analyst. Provide extremely detailed, specific analysis with exact quotes and corrections in valid JSON format only. No additional text outside the JSON. Always quote actual text from the CV, never make up examples.",
+              "You are an expert CV analyst who provides EXTREMELY COMPREHENSIVE analysis. Find EVERY possible improvement across ALL sections. Be thorough and exhaustive - analyze every sentence, every word choice, every opportunity for enhancement. Provide detailed, specific analysis with exact quotes and corrections in valid JSON format only. Always quote actual text from the CV, never make up examples. Find ALL weak verbs, ALL quantification opportunities, ALL missing keywords, ALL grammar issues.",
           },
           {
             role: "user",
             content: analysisPrompt,
           },
         ],
-        temperature: 0.2, // Lower temperature for more precise analysis
-        max_tokens: 3000, // Increased for more detailed response
+        temperature: 0.1, // Very low temperature for consistent, thorough analysis
+        max_tokens: 4000, // Increased for comprehensive response
       }),
     })
 
@@ -244,22 +269,58 @@ Be thorough, accurate, and provide EXACT quotes and corrections.
       // Clean the response to ensure it's valid JSON
       const cleanedResponse = analysisText.replace(/```json\n?|\n?```/g, "").trim()
       analysisResults = JSON.parse(cleanedResponse)
-      console.log("✅ Successfully parsed OpenAI analysis")
+      console.log("✅ Successfully parsed comprehensive OpenAI analysis")
     } catch (parseError) {
       console.error("❌ Failed to parse OpenAI response:", parseError)
       console.log("Raw response:", analysisText)
       throw new Error("Failed to parse analysis results")
     }
 
-    // Validate and ensure all required fields are present
-    const validatedResults = validateAnalysisResults(analysisResults)
+    // Calculate actual word count from our extracted text
+    const wordCount = cvText
+      .replace(/[^\w\s]/g, " ") // Replace punctuation with spaces
+      .split(/\s+/) // Split on whitespace
+      .filter((word) => word.trim().length > 0).length // Filter out empty strings
 
-    console.log("📊 Enhanced analysis completed successfully:", {
+    console.log("📊 Calculated word count:", wordCount)
+
+    // Override the word count in the analysis results with our accurate calculation
+    if (analysisResults.lengthAnalysis) {
+      const lengthAnalysis = analysisResults.lengthAnalysis as Record<string, unknown>
+      lengthAnalysis.wordCount = wordCount
+      lengthAnalysis.pageEstimate = Math.ceil(wordCount / 250) // Estimate pages (250 words per page)
+      lengthAnalysis.isOptimal = wordCount >= 200 && wordCount <= 600
+
+      // Update recommendation based on actual word count
+      if (wordCount < 200) {
+        lengthAnalysis.recommendation = "Your CV is too short. Add more details to reach 200-600 words."
+      } else if (wordCount > 600) {
+        lengthAnalysis.recommendation =
+          "Your CV is quite long. Consider condensing to 400-600 words for optimal impact."
+      } else {
+        lengthAnalysis.recommendation = "Your CV length is optimal for most positions."
+      }
+    }
+
+    // Also override in the validated results to be sure
+    validatedResults = validateAnalysisResults(analysisResults)
+    if (validatedResults.lengthAnalysis) {
+      const lengthAnalysis = validatedResults.lengthAnalysis as Record<string, unknown>
+      lengthAnalysis.wordCount = wordCount
+      lengthAnalysis.pageEstimate = Math.ceil(wordCount / 250)
+    }
+
+    console.log("📊 Comprehensive analysis completed successfully:", {
       atsScore: (validatedResults.atsScore as Record<string, unknown>)?.overall,
       contentQuality: (validatedResults.contentQuality as Record<string, unknown>)?.overall,
       wordCount: (validatedResults.lengthAnalysis as Record<string, unknown>)?.wordCount,
       grammarIssues: ((validatedResults.contentQuality as Record<string, unknown>)?.grammar as Record<string, unknown>)
         ?.issues as unknown[],
+      weakVerbs: ((validatedResults.contentQuality as Record<string, unknown>)?.impact as Record<string, unknown>)
+        ?.weakVerbs as unknown[],
+      quantificationOpportunities: (
+        (validatedResults.contentQuality as Record<string, unknown>)?.impact as Record<string, unknown>
+      )?.missingQuantification as unknown[],
       matchedKeywords: (validatedResults.industryFit as Record<string, unknown>)?.matchedKeywords as unknown[],
       missingKeywords: (validatedResults.industryFit as Record<string, unknown>)?.missingKeywords as unknown[],
     })
@@ -286,68 +347,68 @@ Be thorough, accurate, and provide EXACT quotes and corrections.
 function extractCVText(cvData: CVData): string {
   let text = ""
 
-  // Personal info
+  // Personal information
   if (cvData.personalInfo) {
     const personal = cvData.personalInfo
-    if (personal.name) text += `${personal.name}\n`
-    if (personal.title) text += `${personal.title}\n`
-    if (personal.email) text += `Email: ${personal.email}\n`
-    if (personal.phone) text += `Phone: ${personal.phone}\n`
-    if (personal.location) text += `Location: ${personal.location}\n`
-    if (personal.linkedin) text += `LinkedIn: ${personal.linkedin}\n`
-    if (personal.website) text += `Website: ${personal.website}\n`
-    if (personal.summary) text += `\nPROFESSIONAL SUMMARY:\n${personal.summary}\n`
+    if (personal.name) text += `${personal.name} `
+    if (personal.title) text += `${personal.title} `
+    if (personal.email) text += `${personal.email} `
+    if (personal.phone) text += `${personal.phone} `
+    if (personal.location) text += `${personal.location} `
+    if (personal.summary) text += `PROFESSIONAL SUMMARY: ${personal.summary} `
+    if (personal.linkedin) text += `${personal.linkedin} `
+    if (personal.website) text += `${personal.website} `
   }
 
-  // Experience
-  if (cvData.experience && cvData.experience.length > 0) {
+  // Experience - with clear section markers
+  if (cvData.experience && Array.isArray(cvData.experience)) {
     text += "\nWORK EXPERIENCE:\n"
-    cvData.experience.forEach((exp) => {
-      if (exp.title || exp.company) {
-        text += `\n${exp.title || "Position"} at ${exp.company || "Company"}\n`
-        if (exp.location) text += `Location: ${exp.location}\n`
-        if (exp.startDate || exp.endDate) {
-          text += `Duration: ${exp.startDate || "Start"} - ${exp.current ? "Present" : exp.endDate || "End"}\n`
-        }
-        if (exp.description) text += `${exp.description}\n`
+    cvData.experience.forEach((exp, index) => {
+      text += `\nEXPERIENCE ${index + 1}: `
+      if (exp.title) text += `${exp.title} `
+      if (exp.company) text += `at ${exp.company} `
+      if (exp.location) text += `(${exp.location}) `
+      if (exp.startDate || exp.endDate) {
+        text += `${exp.startDate || "Start"} - ${exp.current ? "Present" : exp.endDate || "End"} `
       }
+      if (exp.description) text += `DESCRIPTION: ${exp.description} `
     })
   }
 
   // Education
-  if (cvData.education && cvData.education.length > 0) {
+  if (cvData.education && Array.isArray(cvData.education)) {
     text += "\nEDUCATION:\n"
-    cvData.education.forEach((edu) => {
-      if (edu.degree || edu.institution) {
-        text += `\n${edu.degree || "Degree"} from ${edu.institution || "Institution"}\n`
-        if (edu.location) text += `Location: ${edu.location}\n`
-        if (edu.startDate || edu.endDate) {
-          text += `Duration: ${edu.startDate || "Start"} - ${edu.current ? "Present" : edu.endDate || "End"}\n`
-        }
-        if (edu.description) text += `${edu.description}\n`
+    cvData.education.forEach((edu, index) => {
+      text += `\nEDUCATION ${index + 1}: `
+      if (edu.degree) text += `${edu.degree} `
+      if (edu.institution) text += `from ${edu.institution} `
+      if (edu.location) text += `(${edu.location}) `
+      if (edu.startDate || edu.endDate) {
+        text += `${edu.startDate || "Start"} - ${edu.current ? "Present" : edu.endDate || "End"} `
       }
+      if (edu.description) text += `DESCRIPTION: ${edu.description} `
     })
   }
 
   // Skills
-  if (cvData.skills && cvData.skills.length > 0) {
-    text += "\nSKILLS:\n"
-    text += cvData.skills.join(", ") + "\n"
+  if (cvData.skills && Array.isArray(cvData.skills)) {
+    text += "\nSKILLS: " + cvData.skills.join(", ") + " "
   }
 
   // Certifications
-  if (cvData.certifications && cvData.certifications.length > 0) {
+  if (cvData.certifications && Array.isArray(cvData.certifications)) {
     text += "\nCERTIFICATIONS:\n"
-    cvData.certifications.forEach((cert) => {
-      if (cert.name) {
-        text += `\n${cert.name}`
-        if (cert.issuer) text += ` - ${cert.issuer}`
-        if (cert.date) text += ` (${cert.date})`
-        text += "\n"
-        if (cert.description) text += `${cert.description}\n`
-      }
+    cvData.certifications.forEach((cert, index) => {
+      text += `\nCERTIFICATION ${index + 1}: `
+      if (cert.name) text += `${cert.name} `
+      if (cert.issuer) text += `by ${cert.issuer} `
+      if (cert.date) text += `(${cert.date}) `
+      if (cert.description) text += `DESCRIPTION: ${cert.description} `
     })
   }
+
+  console.log("📄 Extracted CV text with sections:", text.substring(0, 500) + "...")
+  console.log("📊 Total text length:", text.length)
 
   return text.trim()
 }

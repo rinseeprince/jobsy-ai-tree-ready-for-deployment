@@ -566,6 +566,13 @@ export default function CVBuilderPage() {
     }
   }
 
+  // Add a function to handle CV updates from analysis
+  const handleCVUpdateFromAnalysis = (updatedCVData: CVData) => {
+    console.log("🔄 Updating CV data from analysis:", updatedCVData)
+    setCVData(updatedCVData)
+    setSuccess("CV updated with AI recommendations!")
+  }
+
   const completion = calculateCompletion()
 
   // Apply template handler
@@ -810,7 +817,12 @@ export default function CVBuilderPage() {
                         <Save className="w-4 h-4 mr-2" />
                         {currentCVId ? "Update CV" : "Save CV"}
                       </Button>
-                      <CVAnalysisButton cvData={cvData} className="w-full" variant="outline" />
+                      <CVAnalysisButton
+                        cvData={cvData}
+                        className="w-full"
+                        variant="outline"
+                        onCVUpdate={handleCVUpdateFromAnalysis}
+                      />
                       <Button onClick={handleDownload} className="w-full" variant="outline">
                         <Download className="w-4 h-4 mr-2" />
                         Download
