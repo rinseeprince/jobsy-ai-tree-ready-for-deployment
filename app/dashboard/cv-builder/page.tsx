@@ -39,6 +39,7 @@ import { CV_TEMPLATES, getTemplateById, renderTemplate, type CVData } from "@/li
 import CVEditorModals from "@/components/cv-editor/cv-editor-modals"
 import { CVPreview } from "@/components/cv-editor/cv-preview"
 import { ApplicationsService } from "@/lib/supabase"
+import { CVAnalysisButton } from "@/components/cv-analysis-button"
 
 // Default empty CV data
 const defaultCVData: CVData = {
@@ -809,6 +810,7 @@ export default function CVBuilderPage() {
                         <Save className="w-4 h-4 mr-2" />
                         {currentCVId ? "Update CV" : "Save CV"}
                       </Button>
+                      <CVAnalysisButton cvData={cvData} className="w-full" variant="outline" />
                       <Button onClick={handleDownload} className="w-full" variant="outline">
                         <Download className="w-4 h-4 mr-2" />
                         Download

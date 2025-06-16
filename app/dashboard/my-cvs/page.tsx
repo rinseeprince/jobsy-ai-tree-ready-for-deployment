@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -24,6 +26,7 @@ import { ApplicationsService, type SavedCV, type CVData } from "@/lib/supabase"
 import { supabase } from "@/lib/supabase"
 import type { User } from "@supabase/supabase-js"
 import { renderTemplate, getTemplateById } from "@/lib/cv-templates"
+import { CVAnalysisButton } from "@/components/cv-analysis-button"
 
 export default function MyCVsPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -576,6 +579,13 @@ export default function MyCVsPage() {
                       <Download className="w-4 h-4 mr-1" />
                       PDF
                     </Button>
+                    <CVAnalysisButton
+                      cvData={cv.cv_data}
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50 col-span-2"
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => e.stopPropagation()}
+                    />
                     <Button
                       variant="outline"
                       size="sm"
