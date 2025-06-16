@@ -13,7 +13,6 @@ import {
   Download,
   Check,
   AlertCircle,
-  FileDown,
   User,
   Briefcase,
   GraduationCap,
@@ -31,6 +30,7 @@ import {
   Layout,
   ChevronRight,
   Edit3,
+  Save,
 } from "lucide-react"
 
 import { CVService } from "@/lib/cv-service"
@@ -89,68 +89,6 @@ const defaultCVData: CVData = {
   ],
 }
 
-// Sample CV data for template previews
-const sampleCVData: CVData = {
-  personalInfo: {
-    name: "John Smith",
-    title: "Senior Software Engineer",
-    email: "john.smith@email.com",
-    phone: "+1 (555) 123-4567",
-    location: "San Francisco, CA",
-    summary:
-      "Experienced software engineer with 8+ years developing scalable web applications and leading cross-functional teams.",
-    linkedin: "linkedin.com/in/johnsmith",
-    website: "johnsmith.dev",
-    profilePhoto: "",
-  },
-  experience: [
-    {
-      id: "exp-1",
-      title: "Senior Software Engineer",
-      company: "Tech Corp",
-      location: "San Francisco, CA",
-      startDate: "2021",
-      endDate: "Present",
-      current: true,
-      description:
-        "Led development of microservices architecture serving 10M+ users. Mentored junior developers and improved deployment efficiency by 40%.",
-    },
-    {
-      id: "exp-2",
-      title: "Software Engineer",
-      company: "StartupXYZ",
-      location: "San Francisco, CA",
-      startDate: "2019",
-      endDate: "2021",
-      current: false,
-      description:
-        "Built full-stack web applications using React and Node.js. Implemented CI/CD pipelines and reduced bug reports by 60%.",
-    },
-  ],
-  education: [
-    {
-      id: "edu-1",
-      degree: "Bachelor of Science in Computer Science",
-      institution: "University of California",
-      location: "Berkeley, CA",
-      startDate: "2015",
-      endDate: "2019",
-      current: false,
-      description: "Graduated Magna Cum Laude. Relevant coursework: Data Structures, Algorithms, Software Engineering.",
-    },
-  ],
-  skills: ["JavaScript", "React", "Node.js", "Python", "AWS", "Docker", "PostgreSQL", "Git"],
-  certifications: [
-    {
-      id: "cert-1",
-      name: "AWS Certified Solutions Architect",
-      issuer: "Amazon Web Services",
-      date: "2022",
-      description: "Professional-level certification demonstrating expertise in designing distributed systems on AWS.",
-    },
-  ],
-}
-
 export default function CVBuilderPage() {
   const searchParams = useSearchParams()
   const cvId = searchParams.get("cv")
@@ -168,6 +106,8 @@ export default function CVBuilderPage() {
   const [isImproving, setIsImproving] = useState(false)
   const [improvementSuggestions, setImprovementSuggestions] = useState("")
   const [currentCVId, setCurrentCVId] = useState<string | null>(null)
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [cvTitle, setCvTitle] = useState("")
 
   // Load CV data if editing existing CV
   useEffect(() => {
@@ -182,6 +122,7 @@ export default function CVBuilderPage() {
             setCVData(savedCV.cv_data)
             setSelectedTemplate(savedCV.template_id || "modern")
             setCurrentCVId(savedCV.id)
+            setCvTitle(savedCV.title)
             setSuccess("CV loaded successfully!")
           } else {
             setError("CV not found")
@@ -476,28 +417,36 @@ export default function CVBuilderPage() {
     }
   }
 
+  // Show save modal
+  const handleSaveClick = () => {
+    // Generate a default title if none exists
+    if (!cvTitle) {
+      const defaultTitle = cvData.personalInfo.name ? `${cvData.personalInfo.name} - CV` : "My CV"
+      setCvTitle(defaultTitle)
+    }
+    setShowSaveModal(true)
+  }
+
   // Save CV
   const handleSave = async () => {
+    if (!cvTitle.trim()) {
+      setError("Please enter a title for your CV")
+      return
+    }
+
     setIsSaving(true)
     setError("")
 
     try {
       console.log("🔍 Starting CV save process...")
       console.log("Current CV ID:", currentCVId)
-      console.log("CV Data to save:", {
-        personalInfo: cvData.personalInfo,
-        experienceCount: cvData.experience?.length || 0,
-        educationCount: cvData.education?.length || 0,
-        skillsCount: cvData.skills?.length || 0,
-        certificationsCount: cvData.certifications?.length || 0,
-        selectedTemplate,
-      })
+      console.log("CV Title:", cvTitle)
 
       let savedCV
       if (currentCVId) {
         // Update existing CV
         savedCV = await ApplicationsService.updateSavedCV(currentCVId, {
-          title: cvData.personalInfo.name ? `${cvData.personalInfo.name} - CV` : "My CV",
+          title: cvTitle.trim(),
           cv_data: cvData,
           template_id: selectedTemplate,
           status: "draft",
@@ -507,7 +456,7 @@ export default function CVBuilderPage() {
       } else {
         // Create new CV
         savedCV = await ApplicationsService.saveCVData({
-          title: cvData.personalInfo.name ? `${cvData.personalInfo.name} - CV` : "My CV",
+          title: cvTitle.trim(),
           cv_data: cvData,
           template_id: selectedTemplate,
           status: "draft",
@@ -516,6 +465,8 @@ export default function CVBuilderPage() {
         setCurrentCVId(savedCV.id)
         setSuccess("CV saved successfully! You can find it in 'My CVs'.")
       }
+
+      setShowSaveModal(false)
     } catch (error) {
       console.error("❌ Error saving CV:", error)
       setError("Failed to save CV. Please try again.")
@@ -628,6 +579,8 @@ export default function CVBuilderPage() {
     switch (section) {
       case "personal":
         return cvData.personalInfo.name && cvData.personalInfo.email && cvData.personalInfo.summary
+      case "photo":
+        return !!cvData.personalInfo.profilePhoto
       case "experience":
         return cvData.experience.some((exp) => exp.title && exp.company)
       case "education":
@@ -646,6 +599,8 @@ export default function CVBuilderPage() {
     switch (section) {
       case "personal":
         return cvData.personalInfo.name || "Add your personal information"
+      case "photo":
+        return cvData.personalInfo.profilePhoto ? "Professional photo uploaded" : "Add a professional headshot"
       case "experience":
         const firstExp = cvData.experience[0]
         return firstExp?.title && firstExp?.company
@@ -846,18 +801,13 @@ export default function CVBuilderPage() {
                       Actions
                     </h3>
                     <div className="space-y-3">
-                      <Button onClick={handleSave} disabled={isSaving} className="w-full bg-blue-600 hover:bg-blue-700">
-                        {isSaving ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <FileDown className="w-4 h-4 mr-2" />
-                            {currentCVId ? "Update CV" : "Save CV"}
-                          </>
-                        )}
+                      <Button
+                        onClick={handleSaveClick}
+                        disabled={isSaving}
+                        className="w-full bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        {currentCVId ? "Update CV" : "Save CV"}
                       </Button>
                       <Button onClick={handleDownload} className="w-full" variant="outline">
                         <Download className="w-4 h-4 mr-2" />
@@ -886,6 +836,37 @@ export default function CVBuilderPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         {getSectionStatus("personal") && (
+                          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                        <Edit3 className="w-4 h-4 text-gray-400" />
+                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Profile Photo Section */}
+                  <div
+                    className="border rounded-lg p-4 cursor-pointer hover:border-blue-300 hover:bg-blue-50/50 transition-all shadow-md bg-white"
+                    onClick={() => setActiveModal("photo")}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <User className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900">Profile Photo</h3>
+                          <p className="text-sm text-gray-600">
+                            {cvData.personalInfo.profilePhoto
+                              ? "Professional photo uploaded"
+                              : "Add a professional headshot (optional)"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {cvData.personalInfo.profilePhoto && (
                           <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
                             <Check className="w-4 h-4 text-white" />
                           </div>
@@ -1039,11 +1020,15 @@ export default function CVBuilderPage() {
                       <p className="text-sm text-gray-600 mb-4">{template.description}</p>
 
                       {/* Template Preview */}
-                      <div className="bg-gray-50 rounded-lg p-4 mb-4 h-64 overflow-hidden">
+                      <div className="bg-gray-50 rounded-lg p-2 mb-4 h-64 overflow-hidden relative">
                         <div
-                          className="text-xs leading-relaxed text-gray-700 transform scale-75 origin-top-left"
+                          className="text-xs leading-tight text-gray-700 transform scale-50 origin-top-left w-[200%] h-[200%]"
+                          style={{
+                            fontSize: "6px",
+                            lineHeight: "1.2",
+                          }}
                           dangerouslySetInnerHTML={{
-                            __html: renderTemplate(sampleCVData, template),
+                            __html: renderTemplate(cvData, template),
                           }}
                         />
                       </div>
@@ -1191,6 +1176,77 @@ export default function CVBuilderPage() {
             </div>
           )}
         </div>
+
+        {/* Save CV Modal */}
+        {showSaveModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full">
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white rounded-t-3xl">
+                <h2 className="text-xl font-bold flex items-center">
+                  <Save className="w-6 h-6 mr-3" />
+                  {currentCVId ? "Update CV" : "Save CV"}
+                </h2>
+                <p className="text-blue-100 mt-2">Give your CV a descriptive name</p>
+              </div>
+
+              <div className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="cv-title" className="text-sm font-medium text-gray-700 mb-2 block">
+                      CV Title *
+                    </Label>
+                    <Input
+                      id="cv-title"
+                      value={cvTitle}
+                      onChange={(e) => setCvTitle(e.target.value)}
+                      placeholder="e.g., Software Engineer CV - Tech Companies"
+                      className="border-2 border-gray-200 focus:border-blue-400 rounded-xl p-3"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-blue-800 text-sm">
+                      {"💡 "}
+                      <strong>Tip:</strong>
+                      {
+                        ' Use descriptive names like "Marketing Manager CV - Healthcare" or "Data Scientist CV - Startups" to easily find your CVs later.'
+                      }
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSaveModal(false)}
+                    className="px-6 py-2 rounded-xl"
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSave}
+                    disabled={isSaving || !cvTitle.trim()}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-2 rounded-xl"
+                  >
+                    {isSaving ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        {currentCVId ? "Update CV" : "Save CV"}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modals */}
         <CVEditorModals

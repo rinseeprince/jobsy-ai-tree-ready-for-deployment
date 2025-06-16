@@ -1,7 +1,6 @@
 "use client"
 import { Target } from "lucide-react"
-import { CV_TEMPLATES, type CVData } from "@/lib/cv-templates"
-import { renderTemplate } from "@/lib/template-renderer"
+import { CV_TEMPLATES, type CVData, renderTemplate } from "@/lib/cv-templates"
 
 interface CVPreviewProps {
   cvData: CVData
