@@ -16,11 +16,25 @@ interface OpenAIResponse {
   }>
 }
 
+interface ExperienceSection {
+  index: number
+  title: string
+  company: string
+  location: string
+  startDate: string
+  endDate: string
+  current: boolean
+  description: string
+  sentences: string[]
+  achievements: string[]
+  nonAchievements: string[]
+}
+
 let validatedResults: Record<string, unknown> = {}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    console.log("🔍 AI Analysis API called")
+    console.log("🔍 Enhanced AI Analysis API called")
 
     // Check if OpenAI is configured
     if (!process.env.OPENAI_API_KEY) {
@@ -37,194 +51,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const body: AnalysisRequest = await request.json()
     const { cvData, jobDescription, industry = "technology" } = body
 
-    console.log("📋 Received CV data for analysis:", {
+    console.log("📋 Received CV data for enhanced analysis:", {
       name: cvData.personalInfo?.name,
       experienceCount: cvData.experience?.length,
       skillsCount: cvData.skills?.length,
     })
 
-    // Extract all text from CV
-    const cvText = extractCVText(cvData)
-    console.log("📄 Extracted CV text length:", cvText.length)
-    console.log("📄 CV text preview:", cvText.substring(0, 200) + "...")
+    // Parse ALL experience sections comprehensively
+    const allExperienceSections = parseAllExperienceSections(cvData)
+    console.log("📄 Parsed ALL experience sections:", {
+      totalSections: allExperienceSections.length,
+      totalSentences: allExperienceSections.reduce((sum, exp) => sum + exp.sentences.length, 0),
+      totalAchievements: allExperienceSections.reduce((sum, exp) => sum + exp.achievements.length, 0),
+      totalNonAchievements: allExperienceSections.reduce((sum, exp) => sum + exp.nonAchievements.length, 0),
+    })
 
-    // Improved word counting
-    const words = cvText
-      .replace(/[^\w\s]/g, " ") // Replace punctuation with spaces
-      .split(/\s+/) // Split on whitespace
-      .filter((word) => word.trim().length > 0) // Filter out empty strings
-
-    console.log("📊 Actual word count:", words.length)
-    console.log("📊 First 10 words:", words.slice(0, 10))
-
-    if (!cvText || cvText.trim().length < 50) {
+    if (allExperienceSections.length === 0) {
       return NextResponse.json({
         success: false,
         error: "CV content is too short for meaningful analysis. Please add more details to your CV.",
       })
     }
 
-    // Create comprehensive analysis prompt with specific examples
-    const analysisPrompt = `
-You are an expert CV/Resume analyst and ATS specialist. Analyze the following CV and provide EXTREMELY COMPREHENSIVE and DETAILED feedback. I want you to find EVERY POSSIBLE improvement across ALL sections.
+    // Enhanced analysis prompt covering ALL experiences
+    const analysisPrompt = createComprehensiveAnalysisPrompt(allExperienceSections, cvData, jobDescription, industry)
 
-CV CONTENT:
-${cvText}
+    console.log("🤖 Sending comprehensive request to OpenAI GPT-4o...")
 
-${jobDescription ? `JOB DESCRIPTION: ${jobDescription}` : ""}
-
-INDUSTRY: ${industry}
-
-CRITICAL ANALYSIS REQUIREMENTS:
-1. EXAMINE EVERY SINGLE SENTENCE in the professional summary and ALL work experience descriptions
-2. IDENTIFY ALL weak verbs, passive voice, and non-action words throughout the ENTIRE CV
-3. FIND ALL opportunities for quantification (numbers, percentages, timeframes, currency) in EVERY experience entry
-4. ANALYZE ALL industry keywords that should be present vs. what's actually there
-5. CHECK EVERY sentence for grammar, spelling, and punctuation errors
-6. LOOK FOR ALL opportunities to make statements more impactful and specific
-7. Be EXHAUSTIVE - don't miss anything, analyze every word and phrase
-
-COMPREHENSIVE ANALYSIS INSTRUCTIONS:
-- Go through EACH work experience entry individually and find ALL issues
-- Examine the professional summary word by word for improvements
-- Look for weak verbs like: involved, responsible for, worked on, helped, did, made, got, was, had, used, tried, participated, assisted, supported, handled, dealt with, managed (when vague), coordinated, organized, contributed, collaborated
-- Find ALL statements that lack specific metrics, numbers, percentages, timeframes, or results
-- Identify ALL missing industry-specific keywords and technical terms
-- Check for ALL grammar issues including: comma splices, run-on sentences, incorrect punctuation, capitalization errors, subject-verb disagreement, tense inconsistencies
-
-Please provide a comprehensive analysis in the following JSON format:
-
-{
-  "atsScore": {
-    "overall": <number 0-100>,
-    "breakdown": {
-      "formatting": <number 0-100>,
-      "keywords": <number 0-100>,
-      "structure": <number 0-100>,
-      "readability": <number 0-100>,
-      "fileFormat": <number 0-100>
-    },
-    "recommendations": [
-      "SPECIFIC ATS improvement with exact changes needed",
-      "Another specific recommendation with exact action"
-    ],
-    "passRate": "<High|Medium|Low>"
-  },
-  "contentQuality": {
-    "overall": <number 0-100>,
-    "grammar": {
-      "score": <number 0-100>,
-      "issues": [
-        {
-          "type": "grammar|spelling|punctuation|capitalization|tense",
-          "originalText": "EXACT text from CV with the error",
-          "correctedText": "EXACT corrected version",
-          "message": "Specific description of the error",
-          "suggestion": "Exact fix to apply",
-          "severity": "high|medium|low",
-          "location": "Exact section name where this appears"
-        }
-      ]
-    },
-    "impact": {
-      "score": <number 0-100>,
-      "weakVerbs": [
-        {
-          "verb": "exact weak verb found",
-          "originalSentence": "EXACT complete sentence containing weak verb",
-          "improvedSentence": "EXACT improved sentence with strong action verb and more impact",
-          "location": "Exact section/job title where this appears"
-        }
-      ],
-      "missingQuantification": [
-        {
-          "originalText": "EXACT text that needs quantification",
-          "suggestedText": "EXACT suggested text with specific realistic metrics",
-          "location": "Exact section/job title where this appears",
-          "metricType": "percentage|number|timeframe|currency|volume"
-        }
-      ],
-      "passiveVoiceCount": <number>,
-      "passiveVoiceExamples": [
-        {
-          "originalText": "EXACT passive voice sentence",
-          "improvedText": "EXACT active voice version",
-          "location": "Exact section where this appears"
-        }
-      ]
-    },
-    "clarity": {
-      "score": <number 0-100>,
-      "avgSentenceLength": <number>,
-      "readabilityScore": <number>,
-      "improvementSuggestions": [
-        {
-          "issue": "Specific clarity issue",
-          "originalText": "EXACT problematic text",
-          "improvedText": "EXACT improved version",
-          "location": "Exact section"
-        }
-      ]
-    }
-  },
-  "lengthAnalysis": {
-    "wordCount": <actual word count>,
-    "pageEstimate": <estimated pages>,
-    "recommendation": "<specific length recommendation>",
-    "isOptimal": <boolean>,
-    "sectionsAnalysis": {
-      "tooLong": ["sections that are too verbose"],
-      "tooShort": ["sections that need more detail"],
-      "suggestions": ["specific suggestions for each section"]
-    }
-  },
-  "industryFit": {
-    "score": <number 0-100>,
-    "matchedKeywords": [
-      {
-        "keyword": "exact keyword found",
-        "context": "exact sentence where it appears",
-        "relevance": "why this keyword is important for the industry"
-      }
-    ],
-    "missingKeywords": [
-      {
-        "keyword": "exact missing keyword that should be added",
-        "importance": "why this keyword is critical for the industry",
-        "suggestedPlacement": "exact section where to add it",
-        "exampleUsage": "exact sentence showing how to incorporate it naturally"
-      }
-    ],
-    "recommendations": [
-      "SPECIFIC industry improvement with exact changes",
-      "Another specific recommendation with exact keywords to add"
-    ]
-  }
-}
-
-EXHAUSTIVE ANALYSIS REQUIREMENTS:
-1. Find AT LEAST 10-15 weak verbs if the CV has multiple experience entries
-2. Identify AT LEAST 5-10 quantification opportunities across all experiences
-3. Find AT LEAST 15-20 missing industry keywords for a comprehensive CV
-4. Identify ALL grammar and punctuation issues, no matter how minor
-5. Provide specific improvements for EVERY work experience description
-6. Analyze the professional summary for ALL possible improvements
-7. Don't be conservative - find every possible enhancement
-
-EXAMPLE OF COMPREHENSIVE ANALYSIS:
-Instead of finding just 1-2 issues, find ALL issues like:
-- "Responsible for managing" → "Led and optimized"
-- "Worked with clients" → "Collaborated with 50+ enterprise clients"
-- "Helped increase sales" → "Drove 25% increase in quarterly sales revenue"
-- "Managed projects" → "Successfully delivered 15+ projects worth $2M+ in value"
-- Missing keywords: "CRM", "Salesforce", "lead generation", "pipeline management", "revenue optimization", etc.
-
-Be EXTREMELY thorough and comprehensive. Find EVERYTHING that can be improved.
-`
-
-    console.log("🤖 Sending enhanced comprehensive request to OpenAI...")
-
-    // Use fetch to call OpenAI API directly
+    // Use GPT-4o for better context understanding with increased token limit
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -232,20 +86,32 @@ Be EXTREMELY thorough and comprehensive. Find EVERYTHING that can be improved.
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content:
-              "You are an expert CV analyst who provides EXTREMELY COMPREHENSIVE analysis. Find EVERY possible improvement across ALL sections. Be thorough and exhaustive - analyze every sentence, every word choice, every opportunity for enhancement. Provide detailed, specific analysis with exact quotes and corrections in valid JSON format only. Always quote actual text from the CV, never make up examples. Find ALL weak verbs, ALL quantification opportunities, ALL missing keywords, ALL grammar issues.",
+            content: `You are a senior executive recruiter and ATS optimization expert with 15+ years of experience. 
+
+CRITICAL ANALYSIS REQUIREMENTS:
+1. ANALYZE ALL WORK EXPERIENCE SECTIONS - not just the first one
+2. Provide recommendations for EVERY experience that has improvement opportunities
+3. Focus on ATS scoring improvements across ALL sections
+4. Identify keyword gaps across ALL experiences
+5. Ensure contextual relevance for each specific role
+6. Maintain variety - no repetitive recommendations across experiences
+7. NEVER suggest changes that make language more repetitive or boring
+8. Preserve all quantified achievements (numbers, percentages, revenue figures)
+9. Provide unlimited recommendations as long as they genuinely improve ATS scores
+
+You must analyze EVERY experience section and return comprehensive recommendations.`,
           },
           {
             role: "user",
             content: analysisPrompt,
           },
         ],
-        temperature: 0.1, // Very low temperature for consistent, thorough analysis
-        max_tokens: 4000, // Increased for comprehensive response
+        temperature: 0.15, // Very low for consistent analysis
+        max_tokens: 8000, // Increased significantly for comprehensive analysis
       }),
     })
 
@@ -266,7 +132,6 @@ Be EXTREMELY thorough and comprehensive. Find EVERYTHING that can be improved.
     // Parse the JSON response
     let analysisResults: Record<string, unknown>
     try {
-      // Clean the response to ensure it's valid JSON
       const cleanedResponse = analysisText.replace(/```json\n?|\n?```/g, "").trim()
       analysisResults = JSON.parse(cleanedResponse)
       console.log("✅ Successfully parsed comprehensive OpenAI analysis")
@@ -276,19 +141,14 @@ Be EXTREMELY thorough and comprehensive. Find EVERYTHING that can be improved.
       throw new Error("Failed to parse analysis results")
     }
 
-    // Calculate actual word count from our extracted text
-    const wordCount = cvText
-      .replace(/[^\w\s]/g, " ") // Replace punctuation with spaces
-      .split(/\s+/) // Split on whitespace
-      .filter((word) => word.trim().length > 0).length // Filter out empty strings
+    // Calculate accurate word count
+    const wordCount = calculateAccurateWordCount(cvData)
 
-    console.log("📊 Calculated word count:", wordCount)
-
-    // Override the word count in the analysis results with our accurate calculation
+    // Override word count in results
     if (analysisResults.lengthAnalysis) {
       const lengthAnalysis = analysisResults.lengthAnalysis as Record<string, unknown>
       lengthAnalysis.wordCount = wordCount
-      lengthAnalysis.pageEstimate = Math.ceil(wordCount / 250) // Estimate pages (250 words per page)
+      lengthAnalysis.pageEstimate = Math.ceil(wordCount / 250)
       lengthAnalysis.isOptimal = wordCount >= 200 && wordCount <= 600
 
       // Update recommendation based on actual word count
@@ -302,8 +162,10 @@ Be EXTREMELY thorough and comprehensive. Find EVERYTHING that can be improved.
       }
     }
 
+    // Apply quality control to filter out poor suggestions while preserving comprehensive analysis
+    validatedResults = validateAndEnhanceComprehensiveResults(analysisResults, allExperienceSections)
+
     // Also override in the validated results to be sure
-    validatedResults = validateAnalysisResults(analysisResults)
     if (validatedResults.lengthAnalysis) {
       const lengthAnalysis = validatedResults.lengthAnalysis as Record<string, unknown>
       lengthAnalysis.wordCount = wordCount
@@ -314,15 +176,13 @@ Be EXTREMELY thorough and comprehensive. Find EVERYTHING that can be improved.
       atsScore: (validatedResults.atsScore as Record<string, unknown>)?.overall,
       contentQuality: (validatedResults.contentQuality as Record<string, unknown>)?.overall,
       wordCount: (validatedResults.lengthAnalysis as Record<string, unknown>)?.wordCount,
-      grammarIssues: ((validatedResults.contentQuality as Record<string, unknown>)?.grammar as Record<string, unknown>)
-        ?.issues as unknown[],
-      weakVerbs: ((validatedResults.contentQuality as Record<string, unknown>)?.impact as Record<string, unknown>)
+      totalWeakVerbs: ((validatedResults.contentQuality as Record<string, unknown>)?.impact as Record<string, unknown>)
         ?.weakVerbs as unknown[],
-      quantificationOpportunities: (
+      totalQuantificationOpportunities: (
         (validatedResults.contentQuality as Record<string, unknown>)?.impact as Record<string, unknown>
       )?.missingQuantification as unknown[],
-      matchedKeywords: (validatedResults.industryFit as Record<string, unknown>)?.matchedKeywords as unknown[],
-      missingKeywords: (validatedResults.industryFit as Record<string, unknown>)?.missingKeywords as unknown[],
+      totalMissingKeywords: (validatedResults.industryFit as Record<string, unknown>)?.missingKeywords as unknown[],
+      experienceSectionsAnalyzed: allExperienceSections.length,
     })
 
     return NextResponse.json({
@@ -330,10 +190,8 @@ Be EXTREMELY thorough and comprehensive. Find EVERYTHING that can be improved.
       results: validatedResults,
     })
   } catch (error) {
-    console.error("❌ Analysis error:", error)
-
+    console.error("❌ Comprehensive analysis error:", error)
     const errorMessage = error instanceof Error ? error.message : "Analysis failed"
-
     return NextResponse.json(
       {
         success: false,
@@ -344,76 +202,432 @@ Be EXTREMELY thorough and comprehensive. Find EVERYTHING that can be improved.
   }
 }
 
-function extractCVText(cvData: CVData): string {
+function parseAllExperienceSections(cvData: CVData): ExperienceSection[] {
+  const experienceSections: ExperienceSection[] = []
+
+  console.log("🔍 Parsing ALL experience sections comprehensively...")
+
+  cvData.experience?.forEach((exp, expIndex) => {
+    if (exp.description && exp.description.trim().length > 0) {
+      const description = exp.description.trim()
+
+      // Split into sentences more accurately
+      const sentences = description
+        .split(/(?<=[.!?])\s+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 10)
+
+      // Categorize sentences as achievements vs non-achievements
+      const achievements: string[] = []
+      const nonAchievements: string[] = []
+
+      sentences.forEach((sentence) => {
+        // More comprehensive achievement detection
+        const isAchievement =
+          /(\d+%|\$\d+|£\d+|€\d+|\d+k|\d+m|\d+\+|\d+ months?|\d+ years?|increased|improved|achieved|generated|saved|reduced|grew|exceeded|delivered|drove|led to|resulted in|boosted|enhanced|optimized|streamlined|accelerated)/i.test(
+            sentence,
+          )
+
+        if (isAchievement) {
+          achievements.push(sentence)
+        } else {
+          nonAchievements.push(sentence)
+        }
+      })
+
+      experienceSections.push({
+        index: expIndex,
+        title: exp.title || "",
+        company: exp.company || "",
+        location: exp.location || "",
+        startDate: exp.startDate || "",
+        endDate: exp.endDate || "",
+        current: exp.current || false,
+        description,
+        sentences,
+        achievements,
+        nonAchievements,
+      })
+
+      console.log(`📊 Experience ${expIndex + 1} (${exp.title} at ${exp.company}):`)
+      console.log(`   - Total sentences: ${sentences.length}`)
+      console.log(`   - Achievements: ${achievements.length}`)
+      console.log(`   - Non-achievements: ${nonAchievements.length}`)
+    }
+  })
+
+  return experienceSections
+}
+
+function createComprehensiveAnalysisPrompt(
+  allExperiences: ExperienceSection[],
+  cvData: CVData,
+  jobDescription?: string,
+  industry = "technology",
+) {
+  // Build detailed analysis for each experience section
+  const experienceAnalysis = allExperiences
+    .map(
+      (exp, index) => `
+EXPERIENCE SECTION ${index + 1}:
+Position: ${exp.title}
+Company: ${exp.company}
+Duration: ${exp.startDate} - ${exp.current ? "Present" : exp.endDate}
+
+ACHIEVEMENT SENTENCES (PRESERVE THESE - ALREADY STRONG):
+${exp.achievements.map((achievement) => `- ${achievement}`).join("\n")}
+
+NON-ACHIEVEMENT SENTENCES (ANALYZE FOR IMPROVEMENTS):
+${exp.nonAchievements.map((sentence) => `- ${sentence}`).join("\n")}
+
+FULL DESCRIPTION:
+${exp.description}
+`,
+    )
+    .join("\n" + "=".repeat(80) + "\n")
+
+  const professionalSummary = cvData.personalInfo?.summary || ""
+  const skills = cvData.skills?.join(", ") || ""
+
+  return `
+COMPREHENSIVE CV ANALYSIS - ALL EXPERIENCE SECTIONS
+
+PROFESSIONAL SUMMARY:
+${professionalSummary}
+
+SKILLS:
+${skills}
+
+${experienceAnalysis}
+
+${jobDescription ? `TARGET JOB DESCRIPTION: ${jobDescription}` : ""}
+INDUSTRY: ${industry}
+
+COMPREHENSIVE ANALYSIS REQUIREMENTS:
+
+1. ATS SCORING IMPROVEMENTS:
+   - Analyze EVERY experience section for ATS optimization opportunities
+   - Identify missing industry keywords across ALL experiences
+   - Suggest improvements to increase keyword density and relevance
+   - Ensure proper formatting and structure recommendations
+
+2. KEYWORD TARGETING:
+   - Identify missing keywords specific to each role and the target industry
+   - Suggest natural integration of relevant keywords
+   - Ensure keyword variety across different experience sections
+   - Match keywords to the target job description if provided
+
+3. CONTEXTUAL RELEVANCE:
+   - Provide role-specific improvements for each experience
+   - Ensure suggestions are relevant to the specific position and company
+   - Consider career progression and skill development
+   - Maintain consistency with overall professional narrative
+
+4. VARIETY AND NON-REPETITION:
+   - Use different action verbs across experiences
+   - Vary sentence structures and improvement approaches
+   - Ensure each experience section has unique, tailored recommendations
+   - Avoid repetitive language patterns
+
+ANALYSIS INSTRUCTIONS:
+1. ANALYZE ALL ${allExperiences.length} EXPERIENCE SECTIONS - provide recommendations for each one that needs improvement
+2. For each experience, identify specific weak verbs and improvement opportunities
+3. Suggest missing quantification opportunities across all experiences
+4. Identify industry keywords missing from each relevant experience
+5. Provide grammar and clarity improvements where needed
+6. Ensure recommendations are unlimited but high-quality
+7. Focus on genuine ATS score improvements
+8. Maintain professional variety and engagement
+
+Provide comprehensive analysis in this EXACT JSON format:
+
+{
+  "atsScore": {
+    "overall": <number 0-100>,
+    "breakdown": {
+      "formatting": <number 0-100>,
+      "keywords": <number 0-100>,
+      "structure": <number 0-100>,
+      "readability": <number 0-100>,
+      "fileFormat": 85
+    },
+    "recommendations": [
+      "Comprehensive ATS improvement recommendations covering all experiences"
+    ],
+    "passRate": "<High|Medium|Low>"
+  },
+  "contentQuality": {
+    "overall": <number 0-100>,
+    "grammar": {
+      "score": <number 0-100>,
+      "issues": [
+        {
+          "type": "grammar|spelling|punctuation",
+          "originalText": "EXACT text with error",
+          "correctedText": "EXACT corrected version",
+          "message": "Description of error",
+          "suggestion": "How to fix",
+          "severity": "high|medium|low",
+          "location": "Specific experience section and company"
+        }
+      ]
+    },
+    "impact": {
+      "score": <number 0-100>,
+      "weakVerbs": [
+        {
+          "verb": "exact weak verb found",
+          "originalSentence": "COMPLETE EXACT sentence from specific experience",
+          "improvedSentence": "COMPLETE improved sentence with strong, unique action verb",
+          "location": "EXACT job title and company where found",
+          "improvementReason": "Why this change increases ATS score and impact",
+          "experienceIndex": <number indicating which experience section>
+        }
+      ],
+      "missingQuantification": [
+        {
+          "originalText": "EXACT text needing quantification",
+          "suggestedText": "EXACT suggested quantified version with realistic metrics",
+          "location": "EXACT job title and company",
+          "metricType": "percentage|number|timeframe|currency|volume",
+          "experienceIndex": <number indicating which experience section>
+        }
+      ],
+      "passiveVoiceCount": <number>,
+      "passiveVoiceExamples": [
+        {
+          "originalText": "EXACT passive voice sentence",
+          "improvedText": "EXACT active voice version",
+          "location": "Specific experience section",
+          "experienceIndex": <number>
+        }
+      ]
+    },
+    "clarity": {
+      "score": <number 0-100>,
+      "avgSentenceLength": <number>,
+      "readabilityScore": <number>,
+      "improvementSuggestions": [
+        {
+          "issue": "Specific clarity issue",
+          "originalText": "EXACT problematic text",
+          "improvedText": "EXACT improved version",
+          "location": "Specific experience section",
+          "experienceIndex": <number>
+        }
+      ]
+    }
+  },
+  "lengthAnalysis": {
+    "wordCount": 0,
+    "pageEstimate": 0,
+    "recommendation": "Length recommendation",
+    "isOptimal": false,
+    "sectionsAnalysis": {
+      "tooLong": ["specific experience sections that are too verbose"],
+      "tooShort": ["specific experience sections that need more detail"],
+      "suggestions": ["specific suggestions for each experience section"]
+    }
+  },
+  "industryFit": {
+    "score": <number 0-100>,
+    "matchedKeywords": [
+      {
+        "keyword": "found keyword",
+        "context": "where it appears in which experience",
+        "relevance": "why it's valuable for ATS",
+        "experienceIndex": <number>
+      }
+    ],
+    "missingKeywords": [
+      {
+        "keyword": "missing keyword critical for ATS",
+        "importance": "why important for industry and ATS scoring",
+        "suggestedPlacement": "which specific experience section to add to",
+        "exampleUsage": "how to integrate naturally into that experience",
+        "experienceIndex": <number indicating suggested placement>
+      }
+    ],
+    "recommendations": [
+      "Industry-specific recommendations for each relevant experience section"
+    ]
+  }
+}
+
+CRITICAL REQUIREMENTS:
+1. Analyze ALL ${allExperiences.length} experience sections - not just the first one
+2. Provide unlimited recommendations as long as they genuinely improve ATS scores
+3. Ensure each experience section gets appropriate analysis and recommendations
+4. Maintain variety across recommendations - no repetitive patterns
+5. Focus on contextual relevance for each specific role
+6. Preserve all quantified achievements
+7. Include experienceIndex in all recommendations to identify which section they apply to
+`
+}
+
+function calculateAccurateWordCount(cvData: CVData): number {
   let text = ""
 
-  // Personal information
+  // Extract all meaningful text
   if (cvData.personalInfo) {
     const personal = cvData.personalInfo
-    if (personal.name) text += `${personal.name} `
-    if (personal.title) text += `${personal.title} `
-    if (personal.email) text += `${personal.email} `
-    if (personal.phone) text += `${personal.phone} `
-    if (personal.location) text += `${personal.location} `
-    if (personal.summary) text += `PROFESSIONAL SUMMARY: ${personal.summary} `
-    if (personal.linkedin) text += `${personal.linkedin} `
-    if (personal.website) text += `${personal.website} `
+    text +=
+      [personal.name, personal.title, personal.summary, personal.email, personal.phone, personal.location]
+        .filter(Boolean)
+        .join(" ") + " "
   }
 
-  // Experience - with clear section markers
-  if (cvData.experience && Array.isArray(cvData.experience)) {
-    text += "\nWORK EXPERIENCE:\n"
-    cvData.experience.forEach((exp, index) => {
-      text += `\nEXPERIENCE ${index + 1}: `
-      if (exp.title) text += `${exp.title} `
-      if (exp.company) text += `at ${exp.company} `
-      if (exp.location) text += `(${exp.location}) `
-      if (exp.startDate || exp.endDate) {
-        text += `${exp.startDate || "Start"} - ${exp.current ? "Present" : exp.endDate || "End"} `
-      }
-      if (exp.description) text += `DESCRIPTION: ${exp.description} `
+  if (cvData.experience?.length) {
+    cvData.experience.forEach((exp) => {
+      text += [exp.title, exp.company, exp.location, exp.description].filter(Boolean).join(" ") + " "
     })
   }
 
-  // Education
-  if (cvData.education && Array.isArray(cvData.education)) {
-    text += "\nEDUCATION:\n"
-    cvData.education.forEach((edu, index) => {
-      text += `\nEDUCATION ${index + 1}: `
-      if (edu.degree) text += `${edu.degree} `
-      if (edu.institution) text += `from ${edu.institution} `
-      if (edu.location) text += `(${edu.location}) `
-      if (edu.startDate || edu.endDate) {
-        text += `${edu.startDate || "Start"} - ${edu.current ? "Present" : edu.endDate || "End"} `
-      }
-      if (edu.description) text += `DESCRIPTION: ${edu.description} `
+  if (cvData.education?.length) {
+    cvData.education.forEach((edu) => {
+      text += [edu.degree, edu.institution, edu.location, edu.description].filter(Boolean).join(" ") + " "
     })
   }
 
-  // Skills
-  if (cvData.skills && Array.isArray(cvData.skills)) {
-    text += "\nSKILLS: " + cvData.skills.join(", ") + " "
+  if (cvData.skills?.length) {
+    text += cvData.skills.join(" ") + " "
   }
 
-  // Certifications
-  if (cvData.certifications && Array.isArray(cvData.certifications)) {
-    text += "\nCERTIFICATIONS:\n"
-    cvData.certifications.forEach((cert, index) => {
-      text += `\nCERTIFICATION ${index + 1}: `
-      if (cert.name) text += `${cert.name} `
-      if (cert.issuer) text += `by ${cert.issuer} `
-      if (cert.date) text += `(${cert.date}) `
-      if (cert.description) text += `DESCRIPTION: ${cert.description} `
+  if (cvData.certifications?.length) {
+    cvData.certifications.forEach((cert) => {
+      text += [cert.name, cert.issuer, cert.description].filter(Boolean).join(" ") + " "
     })
   }
 
   console.log("📄 Extracted CV text with sections:", text.substring(0, 500) + "...")
   console.log("📊 Total text length:", text.length)
 
-  return text.trim()
+  return text
+    .replace(/[^\w\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.trim().length > 0).length
 }
 
-function validateAnalysisResults(results: Record<string, unknown>): Record<string, unknown> {
+function validateAndEnhanceComprehensiveResults(
+  results: Record<string, unknown>,
+  allExperiences: ExperienceSection[],
+): Record<string, unknown> {
+  // Enhanced validation for comprehensive analysis
+  if (results.contentQuality && typeof results.contentQuality === "object") {
+    const contentQuality = results.contentQuality as Record<string, unknown>
+    if (contentQuality.impact && typeof contentQuality.impact === "object") {
+      const impact = contentQuality.impact as Record<string, unknown>
+
+      // Validate weak verbs against ALL experience sections
+      if (Array.isArray(impact.weakVerbs)) {
+        // Track used verbs per experience to prevent repetition within each section
+        const usedVerbsByExperience = new Map<number, Set<string>>()
+
+        // Filter and enhance weak verb suggestions
+        impact.weakVerbs = impact.weakVerbs
+          .filter((item: unknown) => {
+            if (typeof item === "object" && item !== null) {
+              const weakVerb = item as Record<string, unknown>
+              const originalSentence = weakVerb.originalSentence as string
+              const improvedSentence = weakVerb.improvedSentence as string
+              const experienceIndex = (weakVerb.experienceIndex as number) || 0
+
+              // Initialize tracking for this experience if needed
+              if (!usedVerbsByExperience.has(experienceIndex)) {
+                usedVerbsByExperience.set(experienceIndex, new Set<string>())
+              }
+
+              const usedVerbs = usedVerbsByExperience.get(experienceIndex)!
+
+              // Check if this sentence exists in the specified experience and is not an achievement
+              const targetExperience = allExperiences[experienceIndex]
+              if (!targetExperience) return false
+
+              const foundInAchievements = targetExperience.achievements.some((achievement) =>
+                achievement.toLowerCase().includes(originalSentence?.toLowerCase() || ""),
+              )
+
+              // Skip if it's a strong achievement
+              if (foundInAchievements) return false
+
+              // Extract the main verb from the improved sentence
+              const mainVerbMatch = improvedSentence?.match(/(?:I |^)(\w+)/) || []
+              const mainVerb = mainVerbMatch[1]?.toLowerCase()
+
+              // Allow some repetition across different experiences, but limit within same experience
+              if (mainVerb && usedVerbs.has(mainVerb)) {
+                // Allow if it's a different experience and the verb is commonly needed
+                const commonVerbs = ["led", "managed", "developed", "implemented", "created", "improved"]
+                if (!commonVerbs.includes(mainVerb)) {
+                  return false
+                }
+              }
+
+              // Skip if the improvement is minimal
+              if (
+                originalSentence &&
+                improvedSentence &&
+                originalSentence.replace(/(?:I |^)\w+/, "").trim() ===
+                  improvedSentence.replace(/(?:I |^)\w+/, "").trim()
+              ) {
+                return false
+              }
+
+              // Add the verb to our tracking set for this experience
+              if (mainVerb) usedVerbs.add(mainVerb)
+
+              return true
+            }
+            return false
+          })
+          .map((item: unknown) => {
+            // Add improvement reason if missing
+            if (typeof item === "object" && item !== null) {
+              const weakVerb = item as Record<string, unknown>
+              if (!weakVerb.improvementReason) {
+                weakVerb.improvementReason = "Replaces generic language with more impactful, ATS-optimized action verb"
+              }
+            }
+            return item
+          })
+      }
+
+      // Validate missing quantification opportunities
+      if (Array.isArray(impact.missingQuantification)) {
+        impact.missingQuantification = impact.missingQuantification.filter((item: unknown) => {
+          if (typeof item === "object" && item !== null) {
+            const quantItem = item as Record<string, unknown>
+            const experienceIndex = (quantItem.experienceIndex as number) || 0
+            const targetExperience = allExperiences[experienceIndex]
+
+            // Ensure the suggestion is for a valid experience
+            return targetExperience !== undefined
+          }
+          return false
+        })
+      }
+    }
+  }
+
+  // Validate industry fit recommendations
+  if (results.industryFit && typeof results.industryFit === "object") {
+    const industryFit = results.industryFit as Record<string, unknown>
+
+    if (Array.isArray(industryFit.missingKeywords)) {
+      industryFit.missingKeywords = industryFit.missingKeywords.filter((item: unknown) => {
+        if (typeof item === "object" && item !== null) {
+          const keywordItem = item as Record<string, unknown>
+          const experienceIndex = (keywordItem.experienceIndex as number) || 0
+          const targetExperience = allExperiences[experienceIndex]
+
+          // Ensure the suggestion is for a valid experience
+          return targetExperience !== undefined
+        }
+        return false
+      })
+    }
+  }
+
   // Provide defaults for any missing fields
   return {
     atsScore: {
@@ -471,7 +685,11 @@ function validateAnalysisResults(results: Record<string, unknown>): Record<strin
       recommendation:
         (results.lengthAnalysis as Record<string, unknown>)?.recommendation || "Add more content to your CV",
       isOptimal: (results.lengthAnalysis as Record<string, unknown>)?.isOptimal || false,
-      sectionsAnalysis: (results.lengthAnalysis as Record<string, unknown>)?.sectionsAnalysis || {},
+      sectionsAnalysis: (results.lengthAnalysis as Record<string, unknown>)?.sectionsAnalysis || {
+        tooLong: [],
+        tooShort: [],
+        suggestions: [],
+      },
     },
     industryFit: {
       score: (results.industryFit as Record<string, unknown>)?.score || 0,

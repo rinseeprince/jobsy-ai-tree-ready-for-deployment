@@ -165,6 +165,9 @@ export function CVAnalysisButton({
   const [errorMessage, setErrorMessage] = useState("")
   const [selectedTemplate] = useState("modern")
   const cvPreviewRef = useRef<HTMLDivElement>(null)
+  const [appliedChangesHistory, setAppliedChangesHistory] = useState<
+    Record<string, { originalText: string; section: string; fieldPath: string }>
+  >({})
 
   const handleAnalysis = async (e: React.MouseEvent<HTMLButtonElement>) => {
     if (onClick) {
@@ -411,6 +414,9 @@ export function CVAnalysisButton({
 
       console.log("🎯 Target matching:", { originalText, targetLocation })
 
+      // Store the original value before making changes
+      let currentValue = ""
+
       // Enhanced experience matching logic
       if (newCVData.experience && originalText) {
         let foundMatch = false
@@ -423,6 +429,9 @@ export function CVAnalysisButton({
           // Check if this experience contains the original text
           if (description.toLowerCase().includes(originalText.toLowerCase())) {
             console.log(`✅ Found exact match in experience ${i + 1}: ${exp.title} at ${exp.company}`)
+
+            // Store current value for undo
+            currentValue = description
 
             if (changeId.includes("weak-verb")) {
               // Replace the original sentence with the improved one
@@ -458,6 +467,9 @@ export function CVAnalysisButton({
             if (matchingPhrases.length > 0) {
               console.log(`✅ Found partial match in experience ${i + 1}: ${exp.title} at ${exp.company}`)
               console.log(`📝 Matching phrases:`, matchingPhrases)
+
+              // Store current value for undo
+              currentValue = exp.description || ""
 
               // Try to replace the most similar sentence
               const sentences = (exp.description || "").split(/[.!?]+/).filter((s) => s.trim())
@@ -507,6 +519,9 @@ export function CVAnalysisButton({
             if (titleMatch || companyMatch) {
               console.log(`✅ Found location match in experience ${i + 1}: ${exp.title} at ${exp.company}`)
 
+              // Store current value for undo
+              currentValue = exp.description || ""
+
               const currentDesc = exp.description || ""
               newCVData.experience[i].description = currentDesc + (currentDesc.endsWith(".") ? " " : ". ") + updatedText
               foundMatch = true
@@ -541,6 +556,10 @@ export function CVAnalysisButton({
           console.log(
             `✅ Applying to most similar experience ${bestMatch + 1}: ${newCVData.experience[bestMatch].title}`,
           )
+
+          // Store current value for undo
+          currentValue = newCVData.experience[bestMatch].description || ""
+
           const currentDesc = newCVData.experience[bestMatch].description || ""
           newCVData.experience[bestMatch].description =
             currentDesc + (currentDesc.endsWith(".") ? " " : ". ") + updatedText
@@ -549,17 +568,30 @@ export function CVAnalysisButton({
         // Handle non-experience sections (personal info, skills, etc.)
         if (section === "personalInfo") {
           if (fieldPath === "summary" || !fieldPath) {
+            currentValue = newCVData.personalInfo.summary
             newCVData.personalInfo.summary = updatedText
           } else {
             const personalInfo = newCVData.personalInfo as Record<string, string>
+            currentValue = personalInfo[fieldPath] || ""
             personalInfo[fieldPath] = updatedText
           }
           console.log("✅ Updated personal info")
         } else if (section === "skills") {
+          currentValue = newCVData.skills.join(", ")
           newCVData.skills = updatedText.split(",").map((skill) => skill.trim())
           console.log("✅ Updated skills")
         }
       }
+
+      // Store the original value for undo functionality
+      setAppliedChangesHistory((prev) => ({
+        ...prev,
+        [changeId]: {
+          originalText: currentValue,
+          section,
+          fieldPath,
+        },
+      }))
 
       // Update the CV data
       setEditableCVData(newCVData)
@@ -674,6 +706,105 @@ export function CVAnalysisButton({
       .replace(/[^\w\s]/g, " ")
       .split(/\s+/)
       .filter((word) => word.trim().length > 0).length
+  }
+
+  const handleUndoChange = (changeId: string) => {
+    if (!editableCVData || !appliedChangesHistory[changeId]) return
+
+    const { originalText, section, fieldPath } = appliedChangesHistory[changeId]
+
+    // Deep clone the CV data
+    const newCVData = JSON.parse(JSON.stringify(editableCVData)) as CVData
+
+    try {
+      console.log("↩️ Undoing change:", { changeId, section, fieldPath, originalText })
+
+      // Restore the original value based on section and field path
+      if (section === "personalInfo") {
+        if (fieldPath === "summary" || !fieldPath) {
+          newCVData.personalInfo.summary = originalText
+        } else {
+          const personalInfo = newCVData.personalInfo as Record<string, string>
+          personalInfo[fieldPath] = originalText
+        }
+      } else if (section === "skills") {
+        newCVData.skills = originalText
+          .split(",")
+          .map((skill) => skill.trim())
+          .filter((skill) => skill.length > 0)
+      } else if (section === "experience") {
+        // For experience, we need to find the right experience entry and restore the description
+        // This is more complex since we need to identify which experience was modified
+
+        // Get the original change details to find the right experience
+        let targetLocation = ""
+        if (changeId.includes("weak-verb")) {
+          const weakVerbItem = analysisResults?.results?.contentQuality?.impact?.weakVerbs?.find(
+            (_, index) => changeId === `weak-verb-${index}`,
+          )
+          if (weakVerbItem && typeof weakVerbItem === "object") {
+            targetLocation = weakVerbItem.location || ""
+          }
+        } else if (changeId.includes("quantification")) {
+          const quantificationItem = analysisResults?.results?.contentQuality?.impact?.missingQuantification?.find(
+            (_, index) => changeId === `quantification-${index}`,
+          )
+          if (quantificationItem && typeof quantificationItem === "object") {
+            targetLocation = quantificationItem.location || ""
+          }
+        }
+
+        // Find the experience that was modified and restore it
+        if (targetLocation) {
+          const locationLower = targetLocation.toLowerCase()
+          for (let i = 0; i < newCVData.experience.length; i++) {
+            const exp = newCVData.experience[i]
+            const titleMatch =
+              exp.title?.toLowerCase().includes(locationLower) || locationLower.includes(exp.title?.toLowerCase() || "")
+            const companyMatch =
+              exp.company?.toLowerCase().includes(locationLower) ||
+              locationLower.includes(exp.company?.toLowerCase() || "")
+
+            if (titleMatch || companyMatch) {
+              newCVData.experience[i].description = originalText
+              break
+            }
+          }
+        } else {
+          // Fallback: restore the first experience entry (this is a limitation)
+          if (newCVData.experience.length > 0) {
+            newCVData.experience[0].description = originalText
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error during undo operation:", error)
+    }
+
+    // Update the CV data
+    setEditableCVData(newCVData)
+
+    // Call both possible callback functions for backward compatibility
+    if (onUpdateCV) onUpdateCV(newCVData)
+    if (onCVUpdate) onCVUpdate(newCVData)
+
+    // Remove from applied changes
+    setAppliedChanges((prev) => prev.filter((id) => id !== changeId))
+
+    // Remove from history
+    setAppliedChangesHistory((prev) => {
+      const newHistory = { ...prev }
+      delete newHistory[changeId]
+      return newHistory
+    })
+
+    // Show success notification
+    setSuccessMessage(`↩️ Change undone successfully! Your CV has been restored.`)
+
+    // Auto-hide success message after 3 seconds
+    setTimeout(() => setSuccessMessage(""), 3000)
+
+    console.log("✅ Change undone successfully")
   }
 
   const renderModal = () => {
@@ -880,17 +1011,35 @@ export function CVAnalysisButton({
                                       Replace weak verb:{" "}
                                       <span className="text-red-600">&quot;{item.verb || "N/A"}&quot;</span>
                                     </h4>
-                                    <span
-                                      className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                        isApplied ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                                      }`}
-                                    >
-                                      {isApplied ? "Applied" : "Dismissed"}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                          isApplied ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                                        }`}
+                                      >
+                                        {isApplied ? "Applied" : "Dismissed"}
+                                      </span>
+                                      {isApplied && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7 px-2 text-xs border-orange-200 hover:bg-orange-50"
+                                          onClick={() => handleUndoChange(changeId)}
+                                        >
+                                          <RefreshCw className="w-3 h-3 mr-1" />
+                                          Undo
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
                                   {isApplied && (
                                     <div className="text-sm bg-green-100 p-2 rounded border border-green-200">
                                       {item.improvedSentence || "No improved sentence available"}
+                                    </div>
+                                  )}
+                                  {isDismissed && (
+                                    <div className="text-sm bg-gray-100 p-2 rounded border border-gray-200 line-through opacity-70">
+                                      {item.originalSentence || "No original sentence available"}
                                     </div>
                                   )}
                                 </div>
@@ -995,17 +1144,35 @@ export function CVAnalysisButton({
                                   >
                                     <div className="flex items-center justify-between mb-2">
                                       <h4 className="font-medium text-sm">Add {item.metricType || "metric"} metrics</h4>
-                                      <span
-                                        className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                          isApplied ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                                        }`}
-                                      >
-                                        {isApplied ? "Applied" : "Dismissed"}
-                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                            isApplied ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                                          }`}
+                                        >
+                                          {isApplied ? "Applied" : "Dismissed"}
+                                        </span>
+                                        {isApplied && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 px-2 text-xs border-orange-200 hover:bg-orange-50"
+                                            onClick={() => handleUndoChange(changeId)}
+                                          >
+                                            <RefreshCw className="w-3 h-3 mr-1" />
+                                            Undo
+                                          </Button>
+                                        )}
+                                      </div>
                                     </div>
                                     {isApplied && (
                                       <div className="text-sm bg-green-100 p-2 rounded border border-green-200">
                                         {item.suggestedText || "No suggested text available"}
+                                      </div>
+                                    )}
+                                    {isDismissed && (
+                                      <div className="text-sm bg-gray-100 p-2 rounded border border-gray-200 line-through opacity-70">
+                                        {item.originalText || "No original text available"}
                                       </div>
                                     )}
                                   </div>
@@ -1581,13 +1748,26 @@ export function CVAnalysisButton({
                                     Replace weak verb:{" "}
                                     <span className="text-red-600">&quot;{item.verb || "N/A"}&quot;</span>
                                   </h4>
-                                  <span
-                                    className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                      isApplied ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    {isApplied ? "Applied" : "Dismissed"}
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                        isApplied ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                                      }`}
+                                    >
+                                      {isApplied ? "Applied" : "Dismissed"}
+                                    </span>
+                                    {isApplied && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs border-orange-200 hover:bg-orange-50"
+                                        onClick={() => handleUndoChange(changeId)}
+                                      >
+                                        <RefreshCw className="w-3 h-3 mr-1" />
+                                        Undo
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
                                 {isApplied && (
                                   <div className="text-sm bg-green-100 p-2 rounded border border-green-200">
@@ -1698,13 +1878,26 @@ export function CVAnalysisButton({
                                 >
                                   <div className="flex items-center justify-between mb-2">
                                     <h4 className="font-medium text-sm">Add {item.metricType || "metric"} metrics</h4>
-                                    <span
-                                      className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                        isApplied ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                                      }`}
-                                    >
-                                      {isApplied ? "Applied" : "Dismissed"}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                          isApplied ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                                        }`}
+                                      >
+                                        {isApplied ? "Applied" : "Dismissed"}
+                                      </span>
+                                      {isApplied && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7 px-2 text-xs border-orange-200 hover:bg-orange-50"
+                                          onClick={() => handleUndoChange(changeId)}
+                                        >
+                                          <RefreshCw className="w-3 h-3 mr-1" />
+                                          Undo
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
                                   {isApplied && (
                                     <div className="text-sm bg-green-100 p-2 rounded border border-green-200">
