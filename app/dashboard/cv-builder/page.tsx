@@ -31,6 +31,7 @@ import {
   ChevronRight,
   Edit3,
   Save,
+  Copy,
 } from "lucide-react"
 
 import { CVService } from "@/lib/cv-service"
@@ -109,6 +110,8 @@ export default function CVBuilderPage() {
   const [currentCVId, setCurrentCVId] = useState<string | null>(null)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [cvTitle, setCvTitle] = useState("")
+  const [copySuccess, setCopySuccess] = useState("")
+  const [isCopied, setIsCopied] = useState(false)
 
   // Load CV data if editing existing CV
   useEffect(() => {
@@ -573,6 +576,43 @@ export default function CVBuilderPage() {
     setSuccess("CV updated with AI recommendations!")
   }
 
+  // Copy recommendations to clipboard
+  const handleCopyRecommendations = async () => {
+    if (!improvementSuggestions) return
+
+    try {
+      // Create a clean text version of the recommendations
+      const cleanText = improvementSuggestions
+        .replace(/<[^>]*>/g, "") // Remove HTML tags
+        .replace(/&nbsp;/g, " ") // Replace HTML entities
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .trim()
+
+      await navigator.clipboard.writeText(cleanText)
+      setIsCopied(true)
+      setCopySuccess("Recommendations copied to clipboard!")
+
+      // Reset animation state after 2 seconds
+      setTimeout(() => {
+        setIsCopied(false)
+      }, 2000)
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setCopySuccess("")
+      }, 3000)
+    } catch (error) {
+      console.error("Failed to copy:", error)
+      setCopySuccess("Failed to copy recommendations")
+      setTimeout(() => {
+        setCopySuccess("")
+      }, 3000)
+    }
+  }
+
   const completion = calculateCompletion()
 
   // Apply template handler
@@ -679,6 +719,13 @@ export default function CVBuilderPage() {
           <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
             <Check className="w-5 h-5 text-green-600" />
             <span className="text-green-800">{success}</span>
+          </div>
+        )}
+
+        {copySuccess && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
+            <Copy className="w-5 h-5 text-blue-600" />
+            <span className="text-blue-800">{copySuccess}</span>
           </div>
         )}
 
@@ -1183,10 +1230,34 @@ export default function CVBuilderPage() {
 
                 {/* AI Suggestions */}
                 <div className="border rounded-lg p-6 shadow-md bg-white">
-                  <h3 className="text-lg font-medium flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5 text-purple-600" />
-                    Job-Specific Recommendations
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-purple-600" />
+                      Job-Specific Recommendations
+                    </h3>
+                    {improvementSuggestions && (
+                      <Button
+                        onClick={handleCopyRecommendations}
+                        variant="outline"
+                        size="sm"
+                        className={`flex items-center gap-2 text-sm transition-all duration-200 ${
+                          isCopied ? "bg-green-50 border-green-300 text-green-700 scale-95" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        {isCopied ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                   {improvementSuggestions ? (
                     <div className="space-y-4">
                       <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
