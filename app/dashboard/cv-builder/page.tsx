@@ -546,7 +546,7 @@ export default function CVBuilderPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          cvText,
+          cvContent: cvText,
           jobDescription,
         }),
       })
@@ -556,7 +556,7 @@ export default function CVBuilderPage() {
       }
 
       const data = await response.json()
-      setImprovementSuggestions(data.suggestions)
+      setImprovementSuggestions(data.improvedCV)
       setSuccess("AI analysis complete! Review the suggestions below.")
     } catch (error) {
       console.error("Error improving CV:", error)
@@ -720,6 +720,7 @@ export default function CVBuilderPage() {
               </button>
               <button
                 onClick={() => setActiveTab("optimize")}
+                data-tab="optimize"
                 className={`py-2 px-4 rounded-lg font-medium text-sm ${
                   activeTab === "optimize"
                     ? "bg-gray-900 text-white"
@@ -822,7 +823,10 @@ export default function CVBuilderPage() {
                         className="w-full"
                         variant="outline"
                         onCVUpdate={handleCVUpdateFromAnalysis}
-                      />
+                      >
+                        <Brain className="w-4 h-4 mr-2" />
+                        Quick CV Check
+                      </CVAnalysisButton>
                       <Button onClick={handleDownload} className="w-full" variant="outline">
                         <Download className="w-4 h-4 mr-2" />
                         Download
@@ -1091,9 +1095,31 @@ export default function CVBuilderPage() {
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center justify-center gap-2">
                   <Brain className="w-6 h-6 text-blue-600" />
-                  AI-Powered CV Optimization
+                  Job-Specific CV Optimization
                 </h2>
-                <p className="text-gray-600">Get personalized suggestions to improve your CV for specific job roles</p>
+                <p className="text-gray-600 mb-4">
+                  Get targeted recommendations to maximize your chances for specific job applications
+                </p>
+                <div className="flex items-center justify-center gap-6 text-sm text-gray-500 mb-6">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-green-600" />
+                    <span>ATS Optimization</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-blue-600" />
+                    <span>Keyword Matching</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 text-purple-600" />
+                    <span>Impact Enhancement</span>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center justify-center gap-2 text-green-800 font-medium">
+                    <Rocket className="w-5 h-5" />
+                    <span>Increase interview chances by up to 40% with job-specific optimization</span>
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1101,56 +1127,76 @@ export default function CVBuilderPage() {
                 <div className="border rounded-lg p-6 shadow-md bg-white">
                   <h3 className="text-lg font-medium flex items-center gap-2 mb-4">
                     <Target className="w-5 h-5 text-blue-600" />
-                    Job Description
+                    Target Job Description
                   </h3>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="job-description" className="mb-1 block">
-                        Paste the job description you are applying for
+                      <Label htmlFor="job-description" className="mb-1 block font-medium">
+                        Paste the complete job posting you are applying for
                       </Label>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Include job title, requirements, responsibilities, and company information for best results
+                      </p>
                       <Textarea
                         id="job-description"
                         value={jobDescription}
                         onChange={(e) => setJobDescription(e.target.value)}
                         placeholder="Paste the complete job description here..."
                         rows={12}
+                        className="border-2 border-gray-200 focus:border-blue-500 transition-colors"
                       />
                     </div>
                     <Button
                       onClick={handleImproveCV}
                       disabled={isImproving || !jobDescription.trim()}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg py-6 shadow-lg"
+                      size="lg"
                     >
                       {isImproving ? (
                         <>
                           <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Analyzing CV...
+                          Analyzing & Optimizing...
                         </>
                       ) : (
                         <>
-                          <Lightbulb className="w-4 h-4 mr-2" />
-                          Get AI Suggestions
+                          <Wand2 className="w-4 h-4 mr-2" />
+                          Get Job-Specific Recommendations
                         </>
                       )}
                     </Button>
+
+                    {/* Quick Check Upgrade Prompt */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                      <div className="flex items-start gap-3">
+                        <Lightbulb className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm">
+                          <p className="font-medium text-blue-900 mb-1">💡 Pro Tip</p>
+                          <p className="text-blue-800">
+                            Already ran a Quick CV Check? Great! Now optimize your improved CV for this specific job to
+                            maximize your application success.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 {/* AI Suggestions */}
                 <div className="border rounded-lg p-6 shadow-md bg-white">
                   <h3 className="text-lg font-medium flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5 text-blue-600" />
-                    AI Suggestions
+                    <TrendingUp className="w-5 h-5 text-purple-600" />
+                    Job-Specific Recommendations
                   </h3>
                   {improvementSuggestions ? (
                     <div className="space-y-4">
-                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
                         <div className="flex items-center gap-2 mb-2">
                           <Star className="w-5 h-5 text-green-600" />
-                          <span className="font-medium text-green-800">AI Analysis Complete</span>
+                          <span className="font-medium text-green-800">Job-Specific Analysis Complete</span>
                         </div>
                         <p className="text-green-700 text-sm">
-                          Your CV has been analyzed against the job requirements. Review the suggestions below.
+                          Your CV has been analyzed against this specific jobs requirements. These recommendations are
+                          tailored to help you pass ATS screening and impress hiring managers.
                         </p>
                       </div>
                       <div className="prose prose-sm max-w-none">
@@ -1162,25 +1208,26 @@ export default function CVBuilderPage() {
                     </div>
                   ) : (
                     <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-blue-100 rounded-full mx-auto flex items-center justify-center mb-4">
-                        <Brain className="w-8 h-8 text-blue-600" />
+                      <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full mx-auto flex items-center justify-center mb-4">
+                        <Target className="w-8 h-8 text-blue-600" />
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Ready for AI Analysis</h3>
-                      <p className="text-gray-600 mb-4">
-                        Add a job description to get personalized suggestions for improving your CV
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Ready for Job-Specific Optimization</h3>
+                      <p className="text-gray-600 mb-6">
+                        Add a job description to get personalized recommendations that match the specific requirements
+                        and keywords employers are looking for.
                       </p>
-                      <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
-                        <div className="flex items-center gap-2">
+                      <div className="grid grid-cols-1 gap-4 text-sm">
+                        <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 rounded-lg p-3">
                           <Shield className="w-4 h-4" />
-                          ATS Optimization
+                          <span>ATS Keyword Optimization</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2 text-green-600 bg-green-50 rounded-lg p-3">
                           <Target className="w-4 h-4" />
-                          Keyword Matching
+                          <span>Role-Specific Tailoring</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2 text-purple-600 bg-purple-50 rounded-lg p-3">
                           <TrendingUp className="w-4 h-4" />
-                          Impact Enhancement
+                          <span>Impact Enhancement</span>
                         </div>
                       </div>
                     </div>
