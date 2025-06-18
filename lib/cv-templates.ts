@@ -175,7 +175,7 @@ export const renderATSOptimizedTemplate = (cvData: CVData, template: CVTemplate)
         personalInfo.summary
           ? `
         <div style="margin-bottom: 20px;">
-          <p style="margin: 0; line-height: 1.6;">${personalInfo.summary}</p>
+          <p style="margin: 0; line-height: 1.6; font-size: 14px;">${personalInfo.summary}</p>
         </div>
       `
           : ""
@@ -196,7 +196,7 @@ export const renderATSOptimizedTemplate = (cvData: CVData, template: CVTemplate)
                 <span style="font-size: 12px; color: ${template.colors.secondary};">${exp.startDate} - ${exp.current ? "Present" : exp.endDate}</span>
               </div>
               <div style="font-size: 13px; font-style: italic; color: ${template.colors.secondary}; margin-bottom: 4px;">${exp.company}, ${exp.location}</div>
-              <div style="font-size: 12px; line-height: 1.5; white-space: pre-line;">${exp.description}</div>
+              <div style="font-size: 14px; line-height: 1.5; white-space: pre-line;">${exp.description}</div>
             </div>
           `,
             )
@@ -221,7 +221,7 @@ export const renderATSOptimizedTemplate = (cvData: CVData, template: CVTemplate)
                 <span style="font-size: 12px; color: ${template.colors.secondary};">${edu.startDate} - ${edu.current ? "Present" : edu.endDate}</span>
               </div>
               <div style="font-size: 13px; font-style: italic; color: ${template.colors.secondary}; margin-bottom: 4px;">${edu.institution}, ${edu.location}</div>
-              ${edu.description ? `<div style="font-size: 12px; line-height: 1.5; white-space: pre-line;">${edu.description}</div>` : ""}
+              ${edu.description ? `<div style="font-size: 14px; line-height: 1.5; white-space: pre-line;">${edu.description}</div>` : ""}
             </div>
           `,
             )
@@ -260,7 +260,7 @@ export const renderATSOptimizedTemplate = (cvData: CVData, template: CVTemplate)
                 <span style="font-size: 12px; color: ${template.colors.secondary};">${cert.date}</span>
               </div>
               <div style="font-size: 13px; font-style: italic; color: ${template.colors.secondary}; margin-bottom: 4px;">${cert.issuer}</div>
-              ${cert.description ? `<div style="font-size: 12px; line-height: 1.5; white-space: pre-line;">${cert.description}</div>` : ""}
+              ${cert.description ? `<div style="font-size: 14px; line-height: 1.5; white-space: pre-line;">${cert.description}</div>` : ""}
             </div>
           `,
             )
@@ -460,7 +460,7 @@ export const renderModernTemplate = (cvData: CVData, template: CVTemplate): stri
                 <span style="font-size: 12px; color: ${template.colors.secondary}; background: #f8fafc; padding: 4px 8px; border-radius: 12px;">${exp.startDate} - ${exp.current ? "Present" : exp.endDate}</span>
               </div>
               <div style="font-size: 14px; color: ${template.colors.secondary}; margin-bottom: 8px; font-weight: 500;">${exp.company} • ${exp.location}</div>
-              <div style="font-size: 13px; line-height: 1.6; white-space: pre-line; color: ${template.colors.text};">${exp.description}</div>
+              <div style="font-size: 14px; line-height: 1.6; white-space: pre-line; color: ${template.colors.text};">${exp.description}</div>
             </div>
           `,
             )
@@ -488,7 +488,7 @@ export const renderModernTemplate = (cvData: CVData, template: CVTemplate): stri
                 <span style="font-size: 12px; color: ${template.colors.secondary}; background: #f8fafc; padding: 4px 8px; border-radius: 12px;">${edu.startDate} - ${edu.current ? "Present" : edu.endDate}</span>
               </div>
               <div style="font-size: 14px; color: ${template.colors.secondary}; margin-bottom: 8px; font-weight: 500;">${edu.institution} • ${edu.location}</div>
-              ${edu.description ? `<div style="font-size: 13px; line-height: 1.6; white-space: pre-line; color: ${template.colors.text};">${edu.description}</div>` : ""}
+              ${edu.description ? `<div style="font-size: 14px; line-height: 1.6; white-space: pre-line; color: ${template.colors.text};">${edu.description}</div>` : ""}
             </div>
           `,
             )
@@ -533,7 +533,7 @@ export const renderModernTemplate = (cvData: CVData, template: CVTemplate): stri
                 <span style="font-size: 12px; color: ${template.colors.secondary}; background: #f8fafc; padding: 4px 8px; border-radius: 12px;">${cert.date}</span>
               </div>
               <div style="font-size: 14px; color: ${template.colors.secondary}; margin-bottom: 8px; font-weight: 500;">${cert.issuer}</div>
-              ${cert.description ? `<div style="font-size: 13px; line-height: 1.6; white-space: pre-line; color: ${template.colors.text};">${cert.description}</div>` : ""}
+              ${cert.description ? `<div style="font-size: 14px; line-height: 1.6; white-space: pre-line; color: ${template.colors.text};">${cert.description}</div>` : ""}
             </div>
           `,
             )

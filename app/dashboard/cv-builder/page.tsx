@@ -675,7 +675,7 @@ export default function CVBuilderPage() {
     <meta charset="utf-8">
     <style>
       @page { 
-        margin: 0.75in 0.6in; 
+        margin: 0.5in; 
         size: A4; 
         /* Remove headers and footers */
         @top-left { content: ""; }
@@ -694,7 +694,7 @@ export default function CVBuilderPage() {
           color-adjust: exact !important;
           print-color-adjust: exact !important;
         } 
-        .no-print { display: none !important; }
+        .no-print { display: none; }
         
         /* Force colors to print */
         * {
@@ -702,101 +702,16 @@ export default function CVBuilderPage() {
           color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        
-        /* Better page breaks */
-        .page-break-before { page-break-before: always; }
-        .page-break-after { page-break-after: always; }
-        .page-break-avoid { page-break-inside: avoid; }
-        
-        /* Avoid breaking these elements */
-        h1, h2, h3, h4, h5, h6 { 
-          page-break-after: avoid; 
-          page-break-inside: avoid;
-        }
-        
-        /* Keep job entries together */
-        .job-entry, .education-entry, .cert-entry { 
-          page-break-inside: avoid; 
-          margin-bottom: 1.5rem;
-        }
-        
-        /* Ensure proper spacing */
-        .section { 
-          margin-bottom: 1.5rem; 
-        }
-        
-        /* Better handling of two-column layouts */
-        .two-column { 
-          display: flex; 
-          gap: 1.5rem; 
-          page-break-inside: avoid;
-        }
-        
-        .column { 
-          flex: 1; 
-        }
       }
-      
-@media screen {
-  body {
-    max-width: 8.5in;
-    margin: 0 auto;
-    padding: 0.75in 0.6in;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    background: white;
-    display: flex;
-    justify-content: center;
-    min-height: 100vh;
-  }
-}
-
-body { 
-  font-family: Arial, sans-serif; 
-  line-height: 1.5; 
-  margin: 0;
-  padding: 0;
-  -webkit-print-color-adjust: exact !important;
-  color-adjust: exact !important;
-  print-color-adjust: exact !important;
-  font-size: 11pt;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-height: 100vh;
-}
-
-/* Ensure proper margins for content */
-.cv-content {
-  padding: 0;
-  margin: 0 auto;
-  max-width: 8.5in;
-  width: 100%;
-  background: white;
-}
-
-@media print {
-  body {
-    display: block !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-  }
-  
-  .cv-content {
-    margin: 0 auto !important;
-    max-width: none !important;
-    width: 100% !important;
-  }
-}
       
       body { 
         font-family: Arial, sans-serif; 
-        line-height: 1.5; 
+        line-height: 1.6; 
         margin: 0;
         padding: 0;
         -webkit-print-color-adjust: exact !important;
         color-adjust: exact !important;
         print-color-adjust: exact !important;
-        font-size: 11pt;
       }
       
       /* Ensure template styles are preserved and colors print */
@@ -820,66 +735,13 @@ body {
         color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
-      
-      /* Better spacing for readability */
-      h1 { font-size: 18pt; margin: 0 0 8pt 0; }
-      h2 { font-size: 14pt; margin: 12pt 0 8pt 0; }
-      h3 { font-size: 12pt; margin: 8pt 0 4pt 0; }
-      p { margin: 0 0 6pt 0; }
-      
-      /* Improve list spacing */
-      ul, ol { margin: 0 0 8pt 0; padding-left: 16pt; }
-      li { margin-bottom: 2pt; }
-      
-      /* Better table formatting if any */
-      table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; }
-      td, th { padding: 4pt 8pt; vertical-align: top; }
-      
-      /* Ensure proper margins for content */
-      .cv-content {
-        padding: 0;
-        margin: 0;
-      }
-      
-      /* Fix any overflow issues */
-      * {
-        max-width: 100%;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-      }
-      
-      /* Improve spacing in template content */
-      .cv-content > div {
-        margin-bottom: 1rem;
-      }
-      
-      /* Better handling of skills and other inline elements */
-      .skills-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4pt;
-        margin-bottom: 8pt;
-      }
-      
-      .skill-tag {
-        display: inline-block;
-        padding: 2pt 6pt;
-        margin: 1pt;
-        border-radius: 3pt;
-        font-size: 9pt;
-      }
     </style>
   </head>
   <body>
-    <div class="no-print" style="position: fixed; top: 10px; right: 10px; background: #007bff; color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-      <strong>💡 PDF Tips:</strong><br>
-      • Uncheck "Headers and footers"<br>
-      • Set margins to "Minimum"<br>
-      • Enable "Background graphics"
+    <div class="no-print" style="position: fixed; top: 10px; right: 10px; background: #007bff; color: white; padding: 10px 15px; border-radius: 5px; font-size: 14px; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+      <strong>💡 Tip:</strong> Uncheck "Headers and footers" in print options for a clean PDF
     </div>
-    <div class="cv-content">
-      ${renderedHTML}
-    </div>
+    ${renderedHTML}
     <script>
       window.onload = function() {
         setTimeout(function() {
