@@ -41,6 +41,7 @@ import CVEditorModals from "@/components/cv-editor/cv-editor-modals"
 import { CVPreview } from "@/components/cv-editor/cv-preview"
 import { ApplicationsService } from "@/lib/supabase"
 import { CVAnalysisButton } from "@/components/cv-analysis-button"
+import { openPrintableVersion } from "@/lib/pdf-generator"
 
 // Default empty CV data
 const defaultCVData: CVData = {
@@ -91,6 +92,112 @@ const defaultCVData: CVData = {
   ],
 }
 
+// Function to extract skills from text using simple pattern matching as fallback
+const extractSkillsFromText = (text: string): string[] => {
+  const skillKeywords = [
+    // Programming languages
+    "JavaScript",
+    "TypeScript",
+    "Python",
+    "Java",
+    "C++",
+    "C#",
+    "PHP",
+    "Ruby",
+    "Go",
+    "Rust",
+    "Swift",
+    "Kotlin",
+    // Web technologies
+    "React",
+    "Vue",
+    "Angular",
+    "Node.js",
+    "Express",
+    "Next.js",
+    "HTML",
+    "CSS",
+    "SASS",
+    "SCSS",
+    // Databases
+    "MySQL",
+    "PostgreSQL",
+    "MongoDB",
+    "Redis",
+    "SQLite",
+    "Oracle",
+    "SQL Server",
+    // Cloud & DevOps
+    "AWS",
+    "Azure",
+    "Google Cloud",
+    "Docker",
+    "Kubernetes",
+    "Jenkins",
+    "Git",
+    "GitHub",
+    "GitLab",
+    // Tools & Software
+    "Salesforce",
+    "HubSpot",
+    "Slack",
+    "Jira",
+    "Confluence",
+    "Figma",
+    "Adobe",
+    "Photoshop",
+    "Illustrator",
+    // Business skills
+    "Project Management",
+    "Leadership",
+    "Communication",
+    "Team Management",
+    "Strategic Planning",
+    "Data Analysis",
+    "Problem Solving",
+    "Customer Service",
+    "Sales",
+    "Marketing",
+    "SEO",
+    "SEM",
+    // Analytics
+    "Google Analytics",
+    "Google Ads",
+    "Facebook Ads",
+    "LinkedIn Ads",
+    "Excel",
+    "PowerBI",
+    "Tableau",
+  ]
+
+  const foundSkills: string[] = []
+  const textLower = text.toLowerCase()
+
+  skillKeywords.forEach((skill) => {
+    if (textLower.includes(skill.toLowerCase())) {
+      foundSkills.push(skill)
+    }
+  })
+
+  // Also look for skills sections and extract from there
+  const skillsSectionMatch = text.match(/(?:skills?|competencies|technologies|tools)[\s\S]*?(?:\n\n|\n[A-Z]|$)/gi)
+  if (skillsSectionMatch) {
+    skillsSectionMatch.forEach((section) => {
+      // Extract comma-separated items
+      const items = section
+        .split(/[,\n•·-]/)
+        .map((item) => item.trim())
+        .filter(
+          (item) => item.length > 2 && item.length < 30 && !item.match(/^(skills?|competencies|technologies|tools)$/i),
+        )
+      foundSkills.push(...items)
+    })
+  }
+
+  // Remove duplicates and return
+  return [...new Set(foundSkills)].slice(0, 20) // Limit to 20 skills
+}
+
 export default function CVBuilderPage() {
   const searchParams = useSearchParams()
   const cvId = searchParams.get("cv")
@@ -112,6 +219,7 @@ export default function CVBuilderPage() {
   const [cvTitle, setCvTitle] = useState("")
   const [copySuccess, setCopySuccess] = useState("")
   const [isCopied, setIsCopied] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
 
   // Load CV data if editing existing CV
   useEffect(() => {
@@ -338,6 +446,7 @@ export default function CVBuilderPage() {
       }
 
       const data = await response.json()
+      console.log("📄 Parsed CV text:", data.text)
 
       const savedCV = await CVService.saveCV({
         title: file.name.replace(/\.[^/.]+$/, ""),
@@ -349,10 +458,21 @@ export default function CVBuilderPage() {
 
       console.log("CV saved to database:", savedCV)
 
+      // Try AI parsing first
       const aiParsedData = await parseResumeWithAI(data.text)
+      console.log("🤖 AI parsed data:", aiParsedData)
 
       if (aiParsedData) {
-        console.log("AI successfully parsed the CV:", aiParsedData)
+        console.log("✅ AI successfully parsed the CV")
+        console.log("🔍 AI extracted skills:", aiParsedData.skills)
+
+        // If AI didn't extract skills, try fallback method
+        let finalSkills = aiParsedData.skills || []
+        if (!finalSkills || finalSkills.length === 0) {
+          console.log("⚠️ AI didn't extract skills, trying fallback method...")
+          finalSkills = extractSkillsFromText(data.text)
+          console.log("🔧 Fallback extracted skills:", finalSkills)
+        }
 
         setCVData({
           personalInfo: {
@@ -392,7 +512,8 @@ export default function CVBuilderPage() {
                   description: edu.description || "",
                 }))
               : defaultCVData.education,
-          skills: aiParsedData.skills || [],
+          // Use final skills (AI + fallback)
+          skills: finalSkills.filter((skill) => skill && skill.trim().length > 0),
           certifications:
             aiParsedData.certifications.length > 0
               ? aiParsedData.certifications.map((cert, index) => ({
@@ -405,9 +526,22 @@ export default function CVBuilderPage() {
               : defaultCVData.certifications,
         })
 
-        setSuccess(`CV "${file.name}" uploaded, parsed, and optimized for ATS compatibility!`)
+        setSuccess(`CV "${file.name}" uploaded and parsed successfully! ${finalSkills.length} skills extracted.`)
       } else {
-        setSuccess(`CV "${file.name}" uploaded and saved successfully! (Basic parsing used)`)
+        console.log("⚠️ AI parsing failed, using fallback for skills only...")
+        // If AI parsing completely fails, at least try to extract skills
+        const fallbackSkills = extractSkillsFromText(data.text)
+        console.log("🔧 Fallback skills:", fallbackSkills)
+
+        if (fallbackSkills.length > 0) {
+          setCVData((prev) => ({
+            ...prev,
+            skills: fallbackSkills,
+          }))
+          setSuccess(`CV "${file.name}" uploaded! ${fallbackSkills.length} skills extracted using pattern matching.`)
+        } else {
+          setSuccess(`CV "${file.name}" uploaded and saved successfully! Please add your skills manually.`)
+        }
       }
     } catch (err) {
       console.error("Error uploading CV:", err)
@@ -516,19 +650,320 @@ export default function CVBuilderPage() {
     return text
   }
 
-  // Download CV
-  const handleDownload = () => {
-    const cvText = generateCVText()
-    const blob = new Blob([cvText], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${cvData.personalInfo.name || "cv"}.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    setSuccess("CV downloaded successfully!")
+  // Replace the existing handleDownload function with this:
+  const downloadCVAsPDF = () => {
+    try {
+      const printWindow = window.open("", "_blank")
+      if (!printWindow) return
+
+      // Get the template and render with proper styling
+      const template = getTemplateById(selectedTemplate)
+      let renderedHTML = ""
+
+      if (template) {
+        renderedHTML = renderTemplate(cvData, template)
+      } else {
+        // Fallback to simple rendering if template not found
+        renderedHTML = renderSimpleCV(cvData)
+      }
+
+      const htmlContent = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>${cvData.personalInfo.name || "CV"}</title>
+    <meta charset="utf-8">
+    <style>
+      @page { 
+        margin: 0.75in 0.6in; 
+        size: A4; 
+        /* Remove headers and footers */
+        @top-left { content: ""; }
+        @top-center { content: ""; }
+        @top-right { content: ""; }
+        @bottom-left { content: ""; }
+        @bottom-center { content: ""; }
+        @bottom-right { content: ""; }
+      }
+      
+      @media print { 
+        body { 
+          margin: 0; 
+          padding: 0; 
+          -webkit-print-color-adjust: exact !important;
+          color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        } 
+        .no-print { display: none !important; }
+        
+        /* Force colors to print */
+        * {
+          -webkit-print-color-adjust: exact !important;
+          color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        
+        /* Better page breaks */
+        .page-break-before { page-break-before: always; }
+        .page-break-after { page-break-after: always; }
+        .page-break-avoid { page-break-inside: avoid; }
+        
+        /* Avoid breaking these elements */
+        h1, h2, h3, h4, h5, h6 { 
+          page-break-after: avoid; 
+          page-break-inside: avoid;
+        }
+        
+        /* Keep job entries together */
+        .job-entry, .education-entry, .cert-entry { 
+          page-break-inside: avoid; 
+          margin-bottom: 1.5rem;
+        }
+        
+        /* Ensure proper spacing */
+        .section { 
+          margin-bottom: 1.5rem; 
+        }
+        
+        /* Better handling of two-column layouts */
+        .two-column { 
+          display: flex; 
+          gap: 1.5rem; 
+          page-break-inside: avoid;
+        }
+        
+        .column { 
+          flex: 1; 
+        }
+      }
+      
+@media screen {
+  body {
+    max-width: 8.5in;
+    margin: 0 auto;
+    padding: 0.75in 0.6in;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    background: white;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+}
+
+body { 
+  font-family: Arial, sans-serif; 
+  line-height: 1.5; 
+  margin: 0;
+  padding: 0;
+  -webkit-print-color-adjust: exact !important;
+  color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  font-size: 11pt;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+/* Ensure proper margins for content */
+.cv-content {
+  padding: 0;
+  margin: 0 auto;
+  max-width: 8.5in;
+  width: 100%;
+  background: white;
+}
+
+@media print {
+  body {
+    display: block !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+  
+  .cv-content {
+    margin: 0 auto !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+}
+      
+      body { 
+        font-family: Arial, sans-serif; 
+        line-height: 1.5; 
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        font-size: 11pt;
+      }
+      
+      /* Ensure template styles are preserved and colors print */
+      * { 
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      /* Force background colors to print */
+      div, span, section, header, footer, article, aside, nav {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      /* Ensure gradients print */
+      [style*="background"] {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      /* Better spacing for readability */
+      h1 { font-size: 18pt; margin: 0 0 8pt 0; }
+      h2 { font-size: 14pt; margin: 12pt 0 8pt 0; }
+      h3 { font-size: 12pt; margin: 8pt 0 4pt 0; }
+      p { margin: 0 0 6pt 0; }
+      
+      /* Improve list spacing */
+      ul, ol { margin: 0 0 8pt 0; padding-left: 16pt; }
+      li { margin-bottom: 2pt; }
+      
+      /* Better table formatting if any */
+      table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; }
+      td, th { padding: 4pt 8pt; vertical-align: top; }
+      
+      /* Ensure proper margins for content */
+      .cv-content {
+        padding: 0;
+        margin: 0;
+      }
+      
+      /* Fix any overflow issues */
+      * {
+        max-width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+      }
+      
+      /* Improve spacing in template content */
+      .cv-content > div {
+        margin-bottom: 1rem;
+      }
+      
+      /* Better handling of skills and other inline elements */
+      .skills-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4pt;
+        margin-bottom: 8pt;
+      }
+      
+      .skill-tag {
+        display: inline-block;
+        padding: 2pt 6pt;
+        margin: 1pt;
+        border-radius: 3pt;
+        font-size: 9pt;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="no-print" style="position: fixed; top: 10px; right: 10px; background: #007bff; color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+      <strong>💡 PDF Tips:</strong><br>
+      • Uncheck "Headers and footers"<br>
+      • Set margins to "Minimum"<br>
+      • Enable "Background graphics"
+    </div>
+    <div class="cv-content">
+      ${renderedHTML}
+    </div>
+    <script>
+      window.onload = function() {
+        setTimeout(function() {
+          window.print();
+        }, 1000);
+      }
+    </script>
+  </body>
+</html>
+`
+
+      printWindow.document.write(htmlContent)
+      printWindow.document.close()
+      setSuccess("CV opened for PDF download! Follow the tips in the blue box for best results.")
+    } catch (error) {
+      console.error("Error downloading CV as PDF:", error)
+      setError("Error generating PDF. Please try again.")
+    }
+  }
+
+  // Add the renderSimpleCV helper function
+  const renderSimpleCV = (cvData: CVData): string => {
+    try {
+      let html = ""
+
+      // Personal Info
+      if (cvData.personalInfo) {
+        const p = cvData.personalInfo
+        html += `<div class="section">
+        <h1>${p.name || ""}</h1>
+        <p>${p.title || ""}</p>
+        <p>${p.email || ""} | ${p.phone || ""} | ${p.location || ""}</p>
+        ${p.linkedin ? `<p>LinkedIn: ${p.linkedin}</p>` : ""}
+        ${p.website ? `<p>Website: ${p.website}</p>` : ""}
+        <p>${p.summary || ""}</p>
+      </div>`
+      }
+
+      // Experience
+      if (cvData.experience && cvData.experience.length > 0) {
+        html += `<h2>Experience</h2>`
+        cvData.experience.forEach((exp) => {
+          html += `<div class="section">
+          <h3>${exp.title || ""} | ${exp.company || ""}</h3>
+          <p>${exp.startDate || ""} - ${exp.current ? "Present" : exp.endDate || ""} | ${exp.location || ""}</p>
+          <p>${exp.description || ""}</p>
+        </div>`
+        })
+      }
+
+      // Education
+      if (cvData.education && cvData.education.length > 0) {
+        html += `<h2>Education</h2>`
+        cvData.education.forEach((edu) => {
+          html += `<div class="section">
+          <h3>${edu.degree || ""} | ${edu.institution || ""}</h3>
+          <p>${edu.startDate || ""} - ${edu.current ? "Present" : edu.endDate || ""} | ${edu.location || ""}</p>
+          <p>${edu.description || ""}</p>
+        </div>`
+        })
+      }
+
+      // Skills
+      if (cvData.skills && cvData.skills.length > 0) {
+        html += `<h2>Skills</h2><p>${cvData.skills.join(", ")}</p>`
+      }
+
+      // Certifications
+      if (cvData.certifications && cvData.certifications.length > 0) {
+        html += `<h2>Certifications</h2>`
+        cvData.certifications.forEach((cert) => {
+          html += `<div class="section">
+          <h3>${cert.name || ""} | ${cert.issuer || ""}</h3>
+          <p>${cert.date || ""}</p>
+          ${cert.description ? `<p>${cert.description}</p>` : ""}
+        </div>`
+        })
+      }
+
+      return html
+    } catch (error) {
+      console.error("Error rendering CV:", error)
+      return "<p>Error rendering CV</p>"
+    }
   }
 
   // Improve CV with AI
@@ -613,6 +1048,71 @@ export default function CVBuilderPage() {
     }
   }
 
+  const handleExportJobReport = () => {
+    if (!improvementSuggestions || !jobDescription) return
+
+    try {
+      // Generate comprehensive job-specific optimization report
+      const reportContent = `
+JOB-SPECIFIC CV OPTIMIZATION REPORT
+Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+
+CANDIDATE INFORMATION
+Name: ${cvData?.personalInfo?.name || "Not provided"}
+Email: ${cvData?.personalInfo?.email || "Not provided"}
+Title: ${cvData?.personalInfo?.title || "Not provided"}
+
+EXECUTIVE SUMMARY
+This job-specific CV optimization analysis was performed using advanced AI algorithms to evaluate your resume against the specific requirements of your target position. The recommendations below are tailored to maximize your chances of passing ATS screening and impressing hiring managers for this particular role.
+
+TARGET JOB ANALYSIS
+${jobDescription.substring(0, 1000)}${jobDescription.length > 1000 ? "..." : ""}
+
+OPTIMIZATION RECOMMENDATIONS
+${improvementSuggestions
+  .replace(/<[^>]*>/g, "") // Remove HTML tags
+  .replace(/&nbsp;/g, " ") // Replace HTML entities
+  .replace(/&amp;/g, "&")
+  .replace(/&lt;/g, "<")
+  .replace(/&gt;/g, ">")
+  .replace(/&quot;/g, '"')
+  .trim()}
+
+IMPLEMENTATION STRATEGY
+1. Review each recommendation carefully and prioritize high-impact changes
+2. Update your CV content to incorporate suggested keywords and phrases
+3. Ensure all recommendations align with your actual experience and skills
+4. Test your updated CV against ATS systems before submitting
+5. Customize your cover letter to complement these CV optimizations
+
+NEXT STEPS
+1. Implement the high-priority recommendations first
+2. Update your CV with job-specific keywords and phrases
+3. Ensure consistency between your CV and the job requirements
+4. Consider creating multiple CV versions for different types of roles
+5. Track your application success rate to measure improvement
+
+ABOUT THIS REPORT
+This analysis was generated using JobsyAI's advanced job-specific optimization engine, which combines natural language processing, ATS simulation, and industry best practices to provide targeted recommendations for your specific job application.
+
+For questions about this report or to get additional career advice, visit JobsyAI.com
+
+Report ID: ${Date.now()}
+Analysis Date: ${new Date().toISOString()}
+Target Position: ${jobDescription.split("\n")[0] || "Position details in job description"}
+    `.trim()
+
+      openPrintableVersion(
+        reportContent,
+        `Job-Specific CV Optimization Report - ${cvData?.personalInfo?.name || "Candidate"} - ${new Date().toLocaleDateString()}`,
+      )
+    } catch (error) {
+      console.error("Error generating job-specific report:", error)
+      setErrorMessage("❌ Failed to generate report. Please try again.")
+      setTimeout(() => setErrorMessage(""), 3000)
+    }
+  }
+
   const completion = calculateCompletion()
 
   // Apply template handler
@@ -660,7 +1160,9 @@ export default function CVBuilderPage() {
           ? `${firstEdu.degree} from ${firstEdu.institution}`
           : "Add your education"
       case "skills":
-        return cvData.skills.length > 0 ? `${cvData.skills.length} skills added` : "Add your skills"
+        return cvData.skills.length > 0
+          ? `${cvData.skills.length} skills: ${cvData.skills.slice(0, 3).join(", ")}${cvData.skills.length > 3 ? "..." : ""}`
+          : "Add your skills"
       case "certifications":
         const firstCert = cvData.certifications[0]
         return firstCert?.name ? firstCert.name : "Add your certifications"
@@ -726,6 +1228,13 @@ export default function CVBuilderPage() {
           <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
             <Copy className="w-5 h-5 text-blue-600" />
             <span className="text-blue-800">{copySuccess}</span>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <span className="text-red-800">{errorMessage}</span>
           </div>
         )}
 
@@ -871,9 +1380,10 @@ export default function CVBuilderPage() {
                         variant="outline"
                         onCVUpdate={handleCVUpdateFromAnalysis}
                       />
-                      <Button onClick={handleDownload} className="w-full" variant="outline">
+                      {/* In the Actions section, change the Download button onClick from handleDownload to downloadCVAsPDF: */}
+                      <Button onClick={downloadCVAsPDF} className="w-full" variant="outline">
                         <Download className="w-4 h-4 mr-2" />
-                        Download
+                        Download PDF
                       </Button>
                     </div>
                   </div>
@@ -1233,26 +1743,36 @@ export default function CVBuilderPage() {
                       Job-Specific Recommendations
                     </h3>
                     {improvementSuggestions && (
-                      <Button
-                        onClick={handleCopyRecommendations}
-                        variant="outline"
-                        size="sm"
-                        className={`flex items-center gap-2 text-sm transition-all duration-200 ${
-                          isCopied ? "bg-green-50 border-green-300 text-green-700 scale-95" : "hover:bg-gray-50"
-                        }`}
-                      >
-                        {isCopied ? (
-                          <>
-                            <Check className="w-4 h-4" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4" />
-                            Copy
-                          </>
-                        )}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          onClick={handleExportJobReport}
+                          size="sm"
+                          className="flex items-center gap-2 text-sm bg-green-600 hover:bg-green-700 text-white border-0"
+                        >
+                          <Download className="w-4 h-4" />
+                          Export Report
+                        </Button>
+                        <Button
+                          onClick={handleCopyRecommendations}
+                          variant="outline"
+                          size="sm"
+                          className={`flex items-center gap-2 text-sm transition-all duration-200 ${
+                            isCopied ? "bg-green-50 border-green-300 text-green-700 scale-95" : "hover:bg-gray-50"
+                          }`}
+                        >
+                          {isCopied ? (
+                            <>
+                              <Check className="w-4 h-4" />
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     )}
                   </div>
                   {improvementSuggestions ? (

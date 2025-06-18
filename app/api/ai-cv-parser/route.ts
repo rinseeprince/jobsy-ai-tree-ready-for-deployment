@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { generateText } from "ai"
-import { openai } from "@ai-sdk/openai"
+import OpenAI from "openai"
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,112 +13,153 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "CV text is required" }, { status: 400 })
     }
 
-    const prompt = `You are a CV/Resume parser. Your job is to extract the EXACT text content from the provided CV and structure it into JSON format. DO NOT rewrite, improve, or generate new content - only extract what is already there.
+    console.log("🤖 Starting AI CV parsing...")
+    console.log("📄 CV text length:", cvText.length)
 
-CRITICAL FORMATTING RULES:
-1. Extract text EXACTLY as written - preserve ALL original formatting, spacing, and structure
-2. For work experience descriptions: PRESERVE paragraph breaks, bullet points, and line spacing using \\n\\n for paragraph breaks and \\n for line breaks
-3. For professional summary: Copy the exact text with original paragraph structure
-4. Maintain original bullet points, dashes, or numbering exactly as they appear
-5. Preserve spacing between sentences and paragraphs
-6. If information is missing, leave fields empty - do not generate placeholder content
-7. Do not combine separate paragraphs into one block of text
-8. Keep the original voice, tone, and writing style exactly as written
+    const prompt = `
+You are an expert resume parser. Extract structured information from the following resume text and return it as a JSON object.
 
-PARAGRAPH PRESERVATION EXAMPLES:
-- If the original has multiple paragraphs, separate them with \\n\\n
-- If the original has bullet points, keep them as bullet points
-- If there are line breaks between achievements, preserve them with \\n
+IMPORTANT: Return ONLY valid JSON, no additional text or formatting.
 
-CV Content to parse:
-${cvText}
+For SKILLS extraction, be very specific and only include:
+- Technical skills (programming languages, software, tools, frameworks)
+- Professional skills (project management, data analysis, etc.)
+- Soft skills (leadership, communication, problem-solving, etc.)
+- Industry-specific skills and competencies
 
-Extract and return ONLY the exact content in this JSON format:
+DO NOT include:
+- Company names
+- Location names (cities, countries)
+- Dates or time periods
+- Job titles or positions
+- Educational institutions
+- Sentence fragments or incomplete phrases
+- Common words that aren't skills
+
+Extract the following information:
+- Personal information (name, email, phone, location, job title, professional summary)
+- Work experience (job titles, companies, dates, descriptions)
+- Education (degrees, institutions, dates)
+- Skills (ONLY actual skills, competencies, and technologies)
+- Certifications (professional certifications, licenses)
+
+Return the data in this exact JSON structure:
 {
   "personal": {
-    "firstName": "exact first name from CV",
-    "lastName": "exact last name from CV", 
-    "jobTitle": "exact job title/professional title from CV",
-    "email": "exact email from CV",
-    "phone": "exact phone number from CV",
-    "location": "exact location/address from CV",
-    "website": "exact website URL from CV",
-    "linkedin": "exact LinkedIn URL from CV",
-    "github": "exact GitHub URL from CV", 
-    "twitter": "exact Twitter handle from CV",
-    "summary": "EXACT professional summary/objective text from CV - preserve all paragraph breaks with \\n\\n and line breaks with \\n"
+    "firstName": "string",
+    "lastName": "string", 
+    "email": "string",
+    "phone": "string",
+    "location": "string",
+    "jobTitle": "string",
+    "summary": "string",
+    "linkedin": "string (optional)",
+    "website": "string (optional)"
   },
   "experience": [
     {
-      "title": "exact job title from CV",
-      "company": "exact company name from CV", 
-      "location": "exact job location from CV",
-      "startDate": "exact start date from CV",
-      "endDate": "exact end date from CV or empty if current",
-      "current": boolean if currently employed,
-      "description": "EXACT job description from CV - preserve ALL paragraph breaks with \\n\\n, line breaks with \\n, bullet points, achievements sections, and original formatting structure exactly as written"
+      "title": "string",
+      "company": "string", 
+      "location": "string",
+      "startDate": "string",
+      "endDate": "string",
+      "current": boolean,
+      "description": "string"
     }
   ],
   "education": [
     {
-      "degree": "exact degree name from CV",
-      "institution": "exact school/university name from CV",
-      "location": "exact education location from CV", 
-      "startDate": "exact start date from CV",
-      "endDate": "exact end date from CV",
-      "current": boolean if currently studying,
-      "description": "exact additional education details from CV with preserved formatting using \\n\\n for paragraphs and \\n for line breaks"
+      "degree": "string",
+      "institution": "string",
+      "location": "string", 
+      "startDate": "string",
+      "endDate": "string",
+      "current": boolean,
+      "description": "string"
     }
   ],
-  "skills": ["exact skill 1 from CV", "exact skill 2 from CV"],
+  "skills": ["skill1", "skill2", "skill3"],
   "certifications": [
     {
-      "name": "exact certification name from CV",
-      "issuer": "exact issuing organization from CV",
-      "date": "exact certification date from CV", 
-      "description": "exact certification description from CV with preserved formatting"
+      "name": "string",
+      "issuer": "string",
+      "date": "string",
+      "description": "string"
     }
   ]
 }
 
-REMEMBER: 
-- Use \\n\\n to separate paragraphs
-- Use \\n for single line breaks
-- Preserve bullet points, achievements sections, and all original structure
-- Do NOT combine separate paragraphs or sections into one block
-- Extract EXACTLY - do not improve, rephrase, or generate new content`
+Resume text:
+${cvText}
+`
 
-    const { text } = await generateText({
-      model: openai("gpt-4o"),
-      prompt,
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert resume parser that extracts structured data from resumes. 
+          
+          For skills extraction, be extremely careful to only include actual skills, not:
+          - Company names (like "adMarketplace", "SevenRooms")
+          - Locations (like "London", "UK")  
+          - Dates (like "06/2024", "01/2023")
+          - Sentence fragments (like "level blue", "engaging key decision")
+          - Job titles or positions
+          - Educational institutions
+          
+          Only include legitimate technical skills, soft skills, tools, technologies, and professional competencies.
+          
+          Always return valid JSON only.`,
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
       temperature: 0.1,
+      max_tokens: 4000,
     })
 
-    // Extract JSON from markdown code blocks if present
-    let jsonText = text.trim()
-
-    // Remove markdown code block formatting if present
-    if (jsonText.startsWith("```json")) {
-      jsonText = jsonText.replace(/^```json\s*/, "").replace(/\s*```$/, "")
-    } else if (jsonText.startsWith("```")) {
-      jsonText = jsonText.replace(/^```\s*/, "").replace(/\s*```$/, "")
+    const content = response.choices[0]?.message?.content
+    if (!content) {
+      console.error("❌ No content received from OpenAI")
+      return NextResponse.json({ error: "No response from AI" }, { status: 500 })
     }
 
-    // Parse the JSON response
-    let parsedCV
-    try {
-      parsedCV = JSON.parse(jsonText)
-    } catch (parseError) {
-      console.error("Failed to parse AI response as JSON:", parseError)
-      console.error("Cleaned JSON text:", jsonText)
-      console.error("Original AI Response:", text)
-      return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 })
+    console.log("🤖 Raw AI response:", content)
+
+    // Clean the response to extract JSON
+    let jsonString = content.trim()
+
+    // Remove markdown code blocks if present
+    if (jsonString.startsWith("```json")) {
+      jsonString = jsonString.replace(/^```json\s*/, "").replace(/\s*```$/, "")
+    } else if (jsonString.startsWith("```")) {
+      jsonString = jsonString.replace(/^```\s*/, "").replace(/\s*```$/, "")
     }
 
-    return NextResponse.json({ parsedCV })
-  } catch (error: unknown) {
-    console.error("Error in AI CV parser:", error)
-    const errorMessage = error instanceof Error ? error.message : "Failed to parse CV with AI"
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    // Parse the JSON
+    const parsedData = JSON.parse(jsonString)
+
+    console.log("✅ Successfully parsed CV data:", {
+      personalInfo: !!parsedData.personal,
+      experienceCount: parsedData.experience?.length || 0,
+      educationCount: parsedData.education?.length || 0,
+      skillsCount: parsedData.skills?.length || 0,
+      certificationsCount: parsedData.certifications?.length || 0,
+      extractedSkills: parsedData.skills,
+    })
+
+    // Validate that we have the required structure
+    if (!parsedData.personal || !Array.isArray(parsedData.experience) || !Array.isArray(parsedData.skills)) {
+      console.error("❌ Invalid parsed data structure")
+      return NextResponse.json({ error: "Invalid data structure from AI" }, { status: 500 })
+    }
+
+    return NextResponse.json({ parsedCV: parsedData })
+  } catch (error) {
+    console.error("❌ Error in AI CV parser:", error)
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to parse CV" }, { status: 500 })
   }
 }

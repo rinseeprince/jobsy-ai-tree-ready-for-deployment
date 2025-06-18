@@ -208,6 +208,9 @@ export async function parseResumeFromFile(file: File): Promise<ParsedResumeData>
 // NEW: AI parsing function that calls the API endpoint
 export async function parseResumeWithAI(cvText: string): Promise<ParsedResumeData | null> {
   try {
+    console.log("🤖 Starting AI resume parsing...")
+    console.log("📄 Resume text length:", cvText.length)
+
     const response = await fetch("/api/ai-cv-parser", {
       method: "POST",
       headers: {
@@ -217,20 +220,233 @@ export async function parseResumeWithAI(cvText: string): Promise<ParsedResumeDat
     })
 
     if (!response.ok) {
+      console.error(`❌ AI parsing API error: ${response.status}`)
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
     const data = await response.json()
+    console.log("🤖 Raw AI response:", data)
 
     if (data.error) {
+      console.error("❌ AI parsing error:", data.error)
       throw new Error(data.error)
     }
 
-    return data.parsedCV
+    if (data.parsedCV) {
+      console.log("✅ AI parsing successful")
+      console.log("🔍 Extracted skills:", data.parsedCV.skills)
+      console.log("📊 Skills count:", data.parsedCV.skills?.length || 0)
+      return data.parsedCV
+    }
+
+    console.warn("⚠️ No parsed CV data in response")
+    return null
   } catch (error) {
-    console.error("Error parsing resume with AI:", error)
+    console.error("❌ Error parsing resume with AI:", error)
     return null
   }
+}
+
+// Function to extract skills from text using simple pattern matching as fallback
+export const extractSkillsFromText = (text: string): string[] => {
+  const skillKeywords = [
+    // Programming languages
+    "JavaScript",
+    "TypeScript",
+    "Python",
+    "Java",
+    "C++",
+    "C#",
+    "PHP",
+    "Ruby",
+    "Go",
+    "Rust",
+    "Swift",
+    "Kotlin",
+    "Scala",
+    "R",
+    "MATLAB",
+    // Web technologies
+    "React",
+    "Vue",
+    "Angular",
+    "Node.js",
+    "Express",
+    "Next.js",
+    "Nuxt.js",
+    "HTML",
+    "CSS",
+    "SASS",
+    "SCSS",
+    "Bootstrap",
+    "Tailwind",
+    "jQuery",
+    // Databases
+    "MySQL",
+    "PostgreSQL",
+    "MongoDB",
+    "Redis",
+    "SQLite",
+    "Oracle",
+    "SQL Server",
+    "Cassandra",
+    "DynamoDB",
+    "Firebase",
+    // Cloud & DevOps
+    "AWS",
+    "Azure",
+    "Google Cloud",
+    "GCP",
+    "Docker",
+    "Kubernetes",
+    "Jenkins",
+    "Git",
+    "GitHub",
+    "GitLab",
+    "CI/CD",
+    "Terraform",
+    "Ansible",
+    // Tools & Software
+    "Salesforce",
+    "HubSpot",
+    "Slack",
+    "Jira",
+    "Confluence",
+    "Figma",
+    "Adobe",
+    "Photoshop",
+    "Illustrator",
+    "InDesign",
+    "Sketch",
+    "Canva",
+    // Business skills
+    "Project Management",
+    "Leadership",
+    "Communication",
+    "Team Management",
+    "Strategic Planning",
+    "Data Analysis",
+    "Problem Solving",
+    "Customer Service",
+    "Sales",
+    "Marketing",
+    "SEO",
+    "SEM",
+    "Content Marketing",
+    "Social Media Marketing",
+    "Email Marketing",
+    // Analytics
+    "Google Analytics",
+    "Google Ads",
+    "Facebook Ads",
+    "LinkedIn Ads",
+    "Excel",
+    "PowerBI",
+    "Tableau",
+    "Looker",
+    "Mixpanel",
+    // Mobile Development
+    "iOS",
+    "Android",
+    "React Native",
+    "Flutter",
+    "Xamarin",
+    // Data Science & AI
+    "Machine Learning",
+    "Deep Learning",
+    "TensorFlow",
+    "PyTorch",
+    "Pandas",
+    "NumPy",
+    "Scikit-learn",
+    "Data Mining",
+    "Statistics",
+    // Design
+    "UI/UX",
+    "User Experience",
+    "User Interface",
+    "Wireframing",
+    "Prototyping",
+    "Design Thinking",
+    // Methodologies
+    "Agile",
+    "Scrum",
+    "Kanban",
+    "Waterfall",
+    "Lean",
+    "Six Sigma",
+    // Soft Skills
+    "Critical Thinking",
+    "Creativity",
+    "Adaptability",
+    "Time Management",
+    "Multitasking",
+    "Attention to Detail",
+    "Public Speaking",
+    "Presentation",
+    "Negotiation",
+    "Conflict Resolution",
+  ]
+
+  const foundSkills: string[] = []
+  const textLower = text.toLowerCase()
+
+  // Look for exact skill matches
+  skillKeywords.forEach((skill) => {
+    if (textLower.includes(skill.toLowerCase())) {
+      foundSkills.push(skill)
+    }
+  })
+
+  // Also look for skills sections and extract from there
+  const skillsSectionRegex =
+    /(?:skills?|competencies|technologies|tools|technical skills|core competencies)[\s\S]*?(?:\n\n|\n[A-Z][A-Z\s]+\n|$)/gi
+  const skillsSectionMatch = text.match(skillsSectionRegex)
+
+  if (skillsSectionMatch) {
+    skillsSectionMatch.forEach((section) => {
+      console.log("🔍 Found skills section:", section.substring(0, 100) + "...")
+
+      // Extract comma-separated items and bullet points
+      const items = section
+        .split(/[,\n•·-]/)
+        .map((item) => item.trim())
+        .filter(
+          (item) =>
+            item.length > 2 &&
+            item.length < 30 &&
+            !item.match(/^(skills?|competencies|technologies|tools|technical skills|core competencies)$/i) &&
+            !item.match(/^\d+$/) && // Remove numbers
+            !item.match(/^[^\w\s]+$/), // Remove special characters only
+        )
+
+      console.log("🔧 Extracted items from skills section:", items)
+      foundSkills.push(...items)
+    })
+  }
+
+  // Look for programming languages pattern
+  const programmingPattern = /(?:programming languages?|languages?|coding)[\s:]*([^\n]+)/gi
+  const programmingMatch = text.match(programmingPattern)
+  if (programmingMatch) {
+    programmingMatch.forEach((match) => {
+      const languages = match
+        .replace(/(?:programming languages?|languages?|coding)[\s:]*/gi, "")
+        .split(/[,&]/)
+        .map((lang) => lang.trim())
+        .filter((lang) => lang.length > 1 && lang.length < 20)
+      foundSkills.push(...languages)
+    })
+  }
+
+  // Remove duplicates and clean up
+  const uniqueSkills = [...new Set(foundSkills)]
+    .filter((skill) => skill && skill.trim().length > 0)
+    .map((skill) => skill.trim())
+    .slice(0, 25) // Limit to 25 skills
+
+  console.log("🎯 Final extracted skills:", uniqueSkills)
+  return uniqueSkills
 }
 
 // Basic fallback parser (existing functionality)
@@ -252,7 +468,7 @@ export function parseBasicResume(text: string) {
     },
     experience: [],
     education: [],
-    skills: [],
+    skills: extractSkillsFromText(text),
     certifications: [],
   }
 }
@@ -264,7 +480,7 @@ function extractEmail(text: string): string | null {
 }
 
 function extractPhone(text: string): string | null {
-  const phoneRegex = /(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/
+  const phoneRegex = /(\+?1[-.\s]?)?\(?([0-9]{3})\(?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/
   const match = text.match(phoneRegex)
   return match ? match[0] : null
 }

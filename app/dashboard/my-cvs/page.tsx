@@ -101,13 +101,14 @@ export default function MyCVsPage() {
     }
   }
 
+  // Updated PDF download function to match CV Builder formatting
   const downloadCVAsPDF = (cv: SavedCV) => {
     try {
       const printWindow = window.open("", "_blank")
       if (!printWindow) return
 
       // Get the template and render with proper styling
-      const template = getTemplateById(cv.template_id || "ats-optimized")
+      const template = getTemplateById(cv.template_id || "modern")
       let renderedHTML = ""
 
       if (template) {
@@ -118,40 +119,98 @@ export default function MyCVsPage() {
       }
 
       const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>${cv.title}</title>
-            <meta charset="utf-8">
-            <style>
-              @page { margin: 0.5in; size: A4; }
-              @media print { 
-                body { margin: 0; padding: 0; } 
-                .no-print { display: none; }
-              }
-              body { 
-                font-family: Arial, sans-serif; 
-                line-height: 1.6; 
-                margin: 0;
-                padding: 0;
-              }
-              /* Ensure template styles are preserved */
-              * { box-sizing: border-box; }
-            </style>
-          </head>
-          <body>
-            ${renderedHTML}
-            <script>
-              window.onload = function() {
-                setTimeout(function() {
-                  window.print();
-                  window.close();
-                }, 500);
-              }
-            </script>
-          </body>
-        </html>
-      `
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>${cv.title}</title>
+    <meta charset="utf-8">
+    <style>
+      @page { 
+        margin: 0.5in; 
+        size: A4; 
+        /* Remove headers and footers */
+        @top-left { content: ""; }
+        @top-center { content: ""; }
+        @top-right { content: ""; }
+        @bottom-left { content: ""; }
+        @bottom-center { content: ""; }
+        @bottom-right { content: ""; }
+      }
+      
+      @media print { 
+        body { 
+          margin: 0; 
+          padding: 0; 
+          -webkit-print-color-adjust: exact !important;
+          color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        } 
+        .no-print { display: none; }
+        
+        /* Force colors to print */
+        * {
+          -webkit-print-color-adjust: exact !important;
+          color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+      
+      body { 
+        font-family: Arial, sans-serif; 
+        line-height: 1.6; 
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      /* Ensure template styles are preserved and colors print */
+      * { 
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      /* Force background colors to print */
+      div, span, section, header, footer, article, aside, nav {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      /* Ensure gradients print */
+      [style*="background"] {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      /* Hide any browser-generated headers/footers */
+      @page {
+        margin-top: 0.5in;
+        margin-bottom: 0.5in;
+        margin-left: 0.5in;
+        margin-right: 0.5in;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="no-print" style="position: fixed; top: 10px; right: 10px; background: #007bff; color: white; padding: 10px 15px; border-radius: 5px; font-size: 14px; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+      <strong>💡 Tip:</strong> Uncheck "Headers and footers" in print options for a clean PDF
+    </div>
+    ${renderedHTML}
+    <script>
+      window.onload = function() {
+        setTimeout(function() {
+          window.print();
+        }, 1000);
+      }
+    </script>
+  </body>
+</html>
+`
 
       printWindow.document.write(htmlContent)
       printWindow.document.close()
@@ -182,7 +241,7 @@ export default function MyCVsPage() {
       if (cvData.experience && cvData.experience.length > 0) {
         html += `<h2>Experience</h2>`
         cvData.experience.forEach((exp) => {
-          html += `<div class="section">
+          html += `<div class="section job-entry">
             <h3>${exp.title || ""} | ${exp.company || ""}</h3>
             <p>${exp.startDate || ""} - ${exp.current ? "Present" : exp.endDate || ""} | ${exp.location || ""}</p>
             <p>${exp.description || ""}</p>
@@ -194,7 +253,7 @@ export default function MyCVsPage() {
       if (cvData.education && cvData.education.length > 0) {
         html += `<h2>Education</h2>`
         cvData.education.forEach((edu) => {
-          html += `<div class="section">
+          html += `<div class="section education-entry">
             <h3>${edu.degree || ""} | ${edu.institution || ""}</h3>
             <p>${edu.startDate || ""} - ${edu.current ? "Present" : edu.endDate || ""} | ${edu.location || ""}</p>
             <p>${edu.description || ""}</p>
@@ -204,14 +263,17 @@ export default function MyCVsPage() {
 
       // Skills
       if (cvData.skills && cvData.skills.length > 0) {
-        html += `<h2>Skills</h2><p>${cvData.skills.join(", ")}</p>`
+        html += `<h2>Skills</h2>
+        <div class="skills-container">
+          ${cvData.skills.map((skill) => `<span class="skill-tag">${skill}</span>`).join("")}
+        </div>`
       }
 
       // Certifications
       if (cvData.certifications && cvData.certifications.length > 0) {
         html += `<h2>Certifications</h2>`
         cvData.certifications.forEach((cert) => {
-          html += `<div class="section">
+          html += `<div class="section cert-entry">
             <h3>${cert.name || ""} | ${cert.issuer || ""}</h3>
             <p>${cert.date || ""}</p>
             ${cert.description ? `<p>${cert.description}</p>` : ""}
