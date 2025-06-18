@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import type { CVData } from "@/lib/cv-templates"
 import { CVPreview } from "@/components/cv-editor/cv-preview"
+import { openPrintableVersion } from "@/lib/pdf-generator"
 
 interface CVAnalysisButtonProps {
   cvData: CVData
@@ -807,6 +808,206 @@ export function CVAnalysisButton({
     console.log("✅ Change undone successfully")
   }
 
+  const handleExportReport = () => {
+    if (!analysisResults?.results) return
+
+    const { atsScore, contentQuality, lengthAnalysis, industryFit } = analysisResults.results
+
+    // Generate comprehensive report content
+    const reportContent = `
+CV ANALYSIS REPORT
+Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+
+CANDIDATE INFORMATION
+Name: ${cvData?.personalInfo?.name || "Not provided"}
+Email: ${cvData?.personalInfo?.email || "Not provided"}
+Title: ${cvData?.personalInfo?.title || "Not provided"}
+
+EXECUTIVE SUMMARY
+This comprehensive CV analysis was performed using advanced AI algorithms to evaluate your resume across multiple dimensions including ATS compatibility, content quality, and industry fit.
+
+OVERALL SCORES
+• ATS Score: ${atsScore?.overall || 0}/100 (${atsScore?.passRate || "Unknown"} pass rate)
+• Content Quality: ${contentQuality?.overall || 0}/100
+• Word Count: ${lengthAnalysis?.wordCount || 0} words (${lengthAnalysis?.pageEstimate || 0} pages)
+• Industry Fit: ${industryFit?.score || "N/A"}/100
+
+DETAILED ANALYSIS
+
+1. ATS COMPATIBILITY ANALYSIS
+Overall Score: ${atsScore?.overall || 0}/100
+Pass Rate: ${atsScore?.passRate || "Unknown"}
+
+Breakdown:
+• Formatting: ${atsScore?.breakdown?.formatting || 0}/100
+• Keywords: ${atsScore?.breakdown?.keywords || 0}/100
+• Structure: ${atsScore?.breakdown?.structure || 0}/100
+• Readability: ${atsScore?.breakdown?.readability || 0}/100
+• File Format: ${atsScore?.breakdown?.fileFormat || 0}/100
+
+Key Recommendations:
+${atsScore?.recommendations?.map((rec, i) => `${i + 1}. ${rec}`).join("\n") || "No specific recommendations available"}
+
+2. CONTENT QUALITY ANALYSIS
+Overall Score: ${contentQuality?.overall || 0}/100
+
+Grammar Analysis:
+• Score: ${contentQuality?.grammar?.score || 0}/100
+• Issues Found: ${contentQuality?.grammar?.issues?.length || 0}
+
+${
+  contentQuality?.grammar?.issues?.length > 0
+    ? `
+Top Grammar Issues:
+${contentQuality.grammar.issues
+  .slice(0, 5)
+  .map(
+    (issue, i) => `${i + 1}. ${issue.message} (${issue.severity} severity)
+   Suggestion: ${issue.suggestion}`,
+  )
+  .join("\n")}
+`
+    : "No significant grammar issues found."
+}
+
+Impact Analysis:
+• Score: ${contentQuality?.impact?.score || 0}/100
+• Weak Verbs Found: ${contentQuality?.impact?.weakVerbs?.length || 0}
+• Missing Quantification: ${contentQuality?.impact?.missingQuantification?.length || 0}
+• Passive Voice Count: ${contentQuality?.impact?.passiveVoiceCount || 0}
+
+${
+  contentQuality?.impact?.weakVerbs?.length > 0
+    ? `
+Weak Verbs to Replace:
+${contentQuality.impact.weakVerbs
+  .map((item, i) => {
+    if (typeof item === "string") return `${i + 1}. ${item}`
+    return `${i + 1}. Replace "${item.verb}" in: "${item.originalSentence}"
+   Improved: "${item.improvedSentence}"`
+  })
+  .join("\n")}
+`
+    : "No weak verbs identified."
+}
+
+${
+  contentQuality?.impact?.missingQuantification?.length > 0
+    ? `
+Quantification Opportunities:
+${contentQuality.impact.missingQuantification
+  .map((item, i) => {
+    if (typeof item === "string") return `${i + 1}. ${item}`
+    return `${i + 1}. Add ${item.metricType} metrics to: "${item.originalText}"
+   Suggested: "${item.suggestedText}"`
+  })
+  .join("\n")}
+`
+    : "Good use of quantification throughout."
+}
+
+Clarity Analysis:
+• Score: ${contentQuality?.clarity?.score || 0}/100
+• Average Sentence Length: ${contentQuality?.clarity?.avgSentenceLength || 0} words
+• Readability Score: ${contentQuality?.clarity?.readabilityScore || 0}
+
+3. LENGTH ANALYSIS
+Word Count: ${lengthAnalysis?.wordCount || 0} words
+Page Estimate: ${lengthAnalysis?.pageEstimate || 0} pages
+Optimal Length: ${lengthAnalysis?.isOptimal ? "Yes" : "No"}
+
+Recommendation: ${lengthAnalysis?.recommendation || "No specific recommendation"}
+
+${
+  lengthAnalysis?.sectionsAnalysis
+    ? `
+Section Analysis:
+• Sections too long: ${lengthAnalysis.sectionsAnalysis.tooLong?.join(", ") || "None"}
+• Sections too short: ${lengthAnalysis.sectionsAnalysis.tooShort?.join(", ") || "None"}
+• Suggestions: ${lengthAnalysis.sectionsAnalysis.suggestions?.join("; ") || "None"}
+`
+    : ""
+}
+
+${
+  industryFit
+    ? `
+4. INDUSTRY FIT ANALYSIS
+Overall Score: ${industryFit.score}/100
+Matched Keywords: ${industryFit.matchedKeywords?.length || 0}
+Missing Keywords: ${industryFit.missingKeywords?.length || 0}
+
+${
+  industryFit.matchedKeywords?.length > 0
+    ? `
+Matched Keywords:
+${industryFit.matchedKeywords
+  .map((item) => {
+    if (typeof item === "string") return `• ${item}`
+    return `• ${item.keyword} (${item.relevance})`
+  })
+  .join("\n")}
+`
+    : ""
+}
+
+${
+  industryFit.missingKeywords?.length > 0
+    ? `
+Missing Keywords to Consider:
+${industryFit.missingKeywords
+  .map((item) => {
+    if (typeof item === "string") return `• ${item}`
+    return `• ${item.keyword} (${item.importance} importance)
+   Suggested placement: ${item.suggestedPlacement}
+   Example: "${item.exampleUsage}"`
+  })
+  .join("\n")}
+`
+    : ""
+}
+
+${
+  industryFit.recommendations?.length > 0
+    ? `
+Industry Fit Recommendations:
+${industryFit.recommendations.map((rec, i) => `${i + 1}. ${rec}`).join("\n")}
+`
+    : ""
+}
+`
+    : ""
+}
+
+NEXT STEPS
+1. Address high-priority grammar and formatting issues
+2. Replace weak verbs with stronger action words
+3. Add quantifiable metrics to achievements
+4. Optimize keyword usage for your target industry
+5. Ensure ATS compatibility by following formatting guidelines
+
+ABOUT THIS REPORT
+This analysis was generated using JobsyAI's advanced CV analysis engine, which combines natural language processing, ATS simulation, and industry best practices to provide comprehensive feedback on your resume.
+
+For questions about this report or to get personalized career advice, visit JobsyAI.com
+
+Report ID: ${Date.now()}
+Analysis Date: ${new Date().toISOString()}
+  `.trim()
+
+    // Generate PDF using the existing PDF generator
+    try {
+      openPrintableVersion(
+        reportContent,
+        `CV Analysis Report - ${cvData?.personalInfo?.name || "Candidate"} - ${new Date().toLocaleDateString()}`,
+      )
+    } catch (error) {
+      console.error("Error generating PDF report:", error)
+      setErrorMessage("❌ Failed to generate PDF report. Please try again.")
+      setTimeout(() => setErrorMessage(""), 3000)
+    }
+  }
+
   const renderModal = () => {
     if (!showModal) return null
 
@@ -866,7 +1067,7 @@ export function CVAnalysisButton({
 
     return (
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-2xl max-w-7xl w-full h-[95vh] flex flex-col overflow-hidden">
           <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 text-white">
             <div className="flex items-center justify-between">
               <div>
@@ -951,7 +1152,7 @@ export function CVAnalysisButton({
             </div>
           )}
 
-          <div className="overflow-y-auto max-h-[calc(95vh-200px)]">
+          <div className="flex-1 overflow-y-auto min-h-0">
             {/* NEW: Live Preview Tab */}
             {activeTab === "preview" && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
@@ -2002,7 +2203,7 @@ export function CVAnalysisButton({
             )}
           </div>
 
-          <div className="border-t bg-gray-50 px-6 py-4 flex justify-between items-center">
+          <div className="border-t bg-gray-50 px-6 py-4 flex justify-between items-center flex-shrink-0">
             <div className="text-sm text-gray-600">Analysis completed • Powered by AI</div>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => setShowModal(false)}>
@@ -2015,9 +2216,12 @@ export function CVAnalysisButton({
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Reanalyze
               </Button>
-              <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+              <Button
+                onClick={handleExportReport}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+              >
                 <Download className="w-4 h-4 mr-2" />
-                Export Report
+                See Full Report
               </Button>
             </div>
           </div>

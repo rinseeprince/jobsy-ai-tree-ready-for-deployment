@@ -54,6 +54,7 @@ export interface CVTemplate {
     text: string
     background: string
   }
+  features?: string[] // Add optional features array
 }
 
 // Update the CV_TEMPLATES array to add three new photo-based templates

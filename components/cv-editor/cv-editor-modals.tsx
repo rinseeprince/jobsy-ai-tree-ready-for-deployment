@@ -333,8 +333,12 @@ function PhotoUploadModal({
         {cvData.personalInfo.profilePhoto ? (
           <div className="flex items-start gap-6">
             <div className="relative">
-              <div className="w-32 h-32 rounded-2xl border-4 border-white shadow-lg bg-gray-100 flex items-center justify-center">
-                <User className="w-16 h-16 text-gray-400" />
+              <div className="w-32 h-32 rounded-2xl border-4 border-white shadow-lg bg-gray-100 flex items-center justify-center overflow-hidden">
+                <img
+                  src={cvData.personalInfo.profilePhoto || "/placeholder.svg"}
+                  alt="Profile photo"
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                 <Check className="w-4 h-4 text-white" />
