@@ -32,6 +32,7 @@ import {
   Edit3,
   Save,
   Copy,
+  X,
 } from "lucide-react"
 
 import { CVService } from "@/lib/cv-service"
@@ -198,6 +199,13 @@ const extractSkillsFromText = (text: string): string[] => {
   return [...new Set(foundSkills)].slice(0, 20) // Limit to 20 skills
 }
 
+interface Recommendation {
+  section: string;
+  recommendation: string;
+  impact: string;
+  type: string;
+}
+
 export default function CVBuilderPage() {
   const searchParams = useSearchParams()
   const cvId = searchParams.get("cv")
@@ -220,6 +228,14 @@ export default function CVBuilderPage() {
   const [copySuccess, setCopySuccess] = useState("")
   const [isCopied, setIsCopied] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
+
+  const [showImplementModal, setShowImplementModal] = useState(false)
+  const [recommendationsText, setRecommendationsText] = useState("")
+  const [isImplementing, setIsImplementing] = useState(false)
+  const [originalCVData, setOriginalCVData] = useState<CVData | null>(null)
+  const [parsedRecommendations, setParsedRecommendations] = useState<Recommendation[]>([])
+  const [selectedRecommendations, setSelectedRecommendations] = useState<string[]>([])
+  const [showAISection, setShowAISection] = useState(false)
 
   // Load CV data if editing existing CV
   useEffect(() => {
@@ -975,6 +991,120 @@ Target Position: ${jobDescription.split("\n")[0] || "Position details in job des
     }
   }
 
+  // Handle showing implement modal and parsing recommendations
+  const handleShowImplementModal = async () => {
+    if (!recommendationsText.trim()) {
+      setError("Please paste your AI recommendations first")
+      return
+    }
+
+    if (recommendationsText.trim().length < 50) {
+      setError("Please provide a complete AI recommendations report (minimum 50 characters)")
+      return
+    }
+
+    try {
+      setIsImplementing(true)
+      setError("") // Clear any previous errors
+
+      // Parse recommendations using AI
+      const response = await fetch("/api/parse-recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recommendationsText }),
+      })
+
+      const responseData = await response.json()
+
+      if (!response.ok) {
+        throw new Error(responseData.error || `HTTP ${response.status}: Failed to parse recommendations`)
+      }
+
+      const { recommendations } = responseData
+
+      if (!recommendations || !Array.isArray(recommendations) || recommendations.length === 0) {
+        throw new Error("No valid recommendations found in the provided text")
+      }
+
+      setParsedRecommendations(recommendations)
+      setSelectedRecommendations(recommendations.map((_: Recommendation, index: number) => index.toString()))
+      setShowImplementModal(true)
+      setSuccess(`Successfully parsed ${recommendations.length} recommendations!`)
+    } catch (err) {
+      console.error("Error parsing recommendations:", err)
+      const errorMessage = err instanceof Error ? err.message : "Unknown error occurred"
+
+      // Provide helpful error messages based on the error type
+      if (errorMessage.includes("API key")) {
+        setError("AI parsing service is temporarily unavailable. The system used fallback parsing instead.")
+      } else if (errorMessage.includes("format")) {
+        setError(
+          "Invalid recommendations format. Please paste a complete AI recommendations report that includes specific, actionable suggestions.",
+        )
+      } else {
+        setError(
+          `Failed to parse recommendations: ${errorMessage}. Please try pasting a different recommendations report.`,
+        )
+      }
+    } finally {
+      setIsImplementing(false)
+    }
+  }
+
+  // Handle implementing selected recommendations
+  const handleImplementRecommendations = async (applyAll = false) => {
+    if (!originalCVData) {
+      setOriginalCVData(cvData) // Backup original data
+    }
+
+    setIsImplementing(true)
+    setError("")
+
+    try {
+      const recommendationsToApply = applyAll
+        ? parsedRecommendations
+        : parsedRecommendations.filter((_, index) => selectedRecommendations.includes(index.toString()))
+
+      const response = await fetch("/api/implement-recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentCV: cvData,
+          recommendations: recommendationsToApply,
+          originalRecommendationsText: recommendationsText,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to implement recommendations")
+      }
+
+      const { updatedCV } = await response.json()
+      setCVData(updatedCV)
+      setShowImplementModal(false)
+      setSuccess("AI recommendations implemented successfully! Review your updated CV and save when ready.")
+    } catch (error) {
+      console.error("Error implementing recommendations:", error)
+      setError("Failed to implement recommendations. Please try again.")
+    } finally {
+      setIsImplementing(false)
+    }
+  }
+
+  // Handle reverting to original CV
+  const handleRevertToOriginal = () => {
+    if (originalCVData) {
+      setCVData(originalCVData)
+      setOriginalCVData(null)
+      setSuccess("CV reverted to original version")
+    }
+  }
+
+  // Handle recommendation selection
+  const handleRecommendationToggle = (index: string) => {
+    setSelectedRecommendations((prev) => (prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]))
+  }
+
   const completion = calculateCompletion()
 
   // Apply template handler
@@ -1247,6 +1377,99 @@ Target Position: ${jobDescription.split("\n")[0] || "Position details in job des
                         <Download className="w-4 h-4 mr-2" />
                         Download PDF
                       </Button>
+                      {/* AI Implementation Section */}
+                      <div className="border-t pt-4 mt-4">
+                        <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                          <Brain className="w-4 h-4 text-purple-600" />
+                          AI Implementation
+                          <span className="ml-auto px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                            Pro
+                          </span>
+                        </h4>
+                        <div className="space-y-3">
+                          <Button
+                            onClick={() => setShowAISection(!showAISection)}
+                            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                            variant="outline"
+                          >
+                            <Wand2 className="w-4 h-4 mr-2" />
+                            {showAISection ? "Hide" : "Implement AI Recommendations"}
+                          </Button>
+
+                          {showAISection && (
+                            <div className="space-y-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                              <div>
+                                <Label
+                                  htmlFor="recommendations-input"
+                                  className="text-sm font-medium text-gray-700 mb-2 block"
+                                >
+                                  Paste AI Recommendations Report
+                                </Label>
+                                <Textarea
+                                  id="recommendations-input"
+                                  value={recommendationsText}
+                                  onChange={(e) => setRecommendationsText(e.target.value)}
+                                  placeholder="Paste your complete AI recommendations report here...
+
+Example format:
+• Add quantifiable metrics to your experience section
+• Include relevant keywords like 'project management' and 'team leadership'
+• Update your summary to highlight key achievements
+• Consider adding certifications section"
+                                  rows={8}
+                                  className="border-2 border-purple-200 focus:border-purple-400 rounded-lg text-sm"
+                                />
+                              </div>
+
+                              <div className="bg-purple-100 border border-purple-200 rounded-lg p-3">
+                                <p className="text-purple-800 text-xs">
+                                  <strong>💡 How to use:</strong> Run &quot;AI Optimize&quot; → Copy recommendations → Paste above
+                                  → Click &quot;Parse & Implement&quot;
+                                </p>
+                                <p className="text-purple-700 text-xs mt-1">
+                                  <strong>📝 Tip:</strong> Make sure to paste the complete recommendations text with
+                                  specific suggestions, not just general advice.
+                                </p>
+                              </div>
+
+                              <Button
+                                onClick={handleShowImplementModal}
+                                disabled={
+                                  isImplementing ||
+                                  !recommendationsText.trim() ||
+                                  recommendationsText.trim().length < 50
+                                }
+                                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                                size="sm"
+                              >
+                                {isImplementing ? (
+                                  <>
+                                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                    Processing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Brain className="w-4 h-4 mr-2" />
+                                    Parse & Implement ({recommendationsText.trim().length} chars)
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
+
+                          {originalCVData && (
+                            <Button
+                              onClick={handleRevertToOriginal}
+                              className="w-full text-orange-600 border-orange-200 hover:bg-orange-50"
+                              variant="outline"
+                              size="sm"
+                            >
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              Revert to Original
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1778,6 +2001,126 @@ Target Position: ${jobDescription.split("\n")[0] || "Position details in job des
           handlePhotoUpload={handlePhotoUpload}
           removePhoto={removePhoto}
         />
+        {/* AI Implementation Modal */}
+        {showImplementModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+              <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold flex items-center">
+                    <Brain className="w-6 h-6 mr-3" />
+                    Implement AI Recommendations
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowImplementModal(false)}
+                    className="text-white hover:bg-white/20 p-2 rounded-xl"
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+                <p className="text-purple-100 mt-2">Select which recommendations to apply to your CV</p>
+              </div>
+
+              <div className="p-6 max-h-[60vh] overflow-y-auto">
+                {parsedRecommendations.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-sm text-gray-600">
+                        {selectedRecommendations.length} of {parsedRecommendations.length} recommendations selected
+                      </p>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setSelectedRecommendations([])}>
+                          Select None
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedRecommendations(parsedRecommendations.map((_, i) => i.toString()))}
+                        >
+                          Select All
+                        </Button>
+                      </div>
+                    </div>
+
+                    {parsedRecommendations.map((rec, index) => (
+                      <div key={index} className="border rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            id={`rec-${index}`}
+                            checked={selectedRecommendations.includes(index.toString())}
+                            onChange={() => handleRecommendationToggle(index.toString())}
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          />
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900 mb-1">{rec.section}</h4>
+                            <p className="text-sm text-gray-700 mb-2">{rec.recommendation}</p>
+                            {rec.impact && (
+                              <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                Impact: {rec.impact}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Brain className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">
+                      No recommendations found. Please paste a valid AI recommendations report.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t p-6">
+                <div className="flex justify-end gap-3">
+                  <Button variant="outline" onClick={() => setShowImplementModal(false)} disabled={isImplementing}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => handleImplementRecommendations(false)}
+                    disabled={isImplementing || selectedRecommendations.length === 0}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    {isImplementing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Implementing...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Apply Selected ({selectedRecommendations.length})
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => handleImplementRecommendations(true)}
+                    disabled={isImplementing}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  >
+                    {isImplementing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Implementing...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="w-4 h-4 mr-2" />
+                        Apply All
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

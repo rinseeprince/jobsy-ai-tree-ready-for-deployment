@@ -22,6 +22,7 @@ import {
   CheckCircle,
   Plus,
 } from "lucide-react"
+import Image from 'next/image'
 
 import type { CVData } from "@/lib/cv-templates"
 
@@ -334,9 +335,11 @@ function PhotoUploadModal({
           <div className="flex items-start gap-6">
             <div className="relative">
               <div className="w-32 h-32 rounded-2xl border-4 border-white shadow-lg bg-gray-100 flex items-center justify-center overflow-hidden">
-                <img
+                <Image
                   src={cvData.personalInfo.profilePhoto || "/placeholder.svg"}
                   alt="Profile photo"
+                  width={128}
+                  height={128}
                   className="w-full h-full object-cover"
                 />
               </div>
