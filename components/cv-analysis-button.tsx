@@ -2218,10 +2218,10 @@ Analysis Date: ${new Date().toISOString()}
               </Button>
               <Button
                 onClick={handleExportReport}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 px-4 py-2 max-w-fit sm:max-w-36 lg:max-w-40 whitespace-nowrap"
               >
                 <Download className="w-4 h-4 mr-2" />
-                See Full Report
+                Download
               </Button>
             </div>
           </div>

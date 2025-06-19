@@ -200,10 +200,10 @@ const extractSkillsFromText = (text: string): string[] => {
 }
 
 interface Recommendation {
-  section: string;
-  recommendation: string;
-  impact: string;
-  type: string;
+  section: string
+  recommendation: string
+  impact: string
+  type: string
 }
 
 export default function CVBuilderPage() {
@@ -1423,8 +1423,8 @@ Example format:
 
                               <div className="bg-purple-100 border border-purple-200 rounded-lg p-3">
                                 <p className="text-purple-800 text-xs">
-                                  <strong>💡 How to use:</strong> Run &quot;AI Optimize&quot; → Copy recommendations → Paste above
-                                  → Click &quot;Parse & Implement&quot;
+                                  <strong>💡 How to use:</strong> Run &quot;AI Optimize&quot; → Copy recommendations →
+                                  Paste above → Click &quot;Parse & Implement&quot;
                                 </p>
                                 <p className="text-purple-700 text-xs mt-1">
                                   <strong>📝 Tip:</strong> Make sure to paste the complete recommendations text with
@@ -1822,17 +1822,17 @@ Example format:
 
                 {/* AI Suggestions */}
                 <div className="border rounded-lg p-6 shadow-md bg-white">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-purple-600" />
-                      Job-Specific Recommendations
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <h3 className="text-lg font-medium flex items-center gap-2 min-w-0">
+                      <TrendingUp className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                      <span className="break-words">Job-Specific Recommendations</span>
                     </h3>
                     {improvementSuggestions && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <Button
                           onClick={handleExportJobReport}
                           size="sm"
-                          className="flex items-center gap-2 text-sm bg-green-600 hover:bg-green-700 text-white border-0"
+                          className="flex items-center gap-2 text-sm bg-green-600 hover:bg-green-700 text-white border-0 px-3 py-2 whitespace-nowrap"
                         >
                           <Download className="w-4 h-4" />
                           Export Report
@@ -1841,7 +1841,7 @@ Example format:
                           onClick={handleCopyRecommendations}
                           variant="outline"
                           size="sm"
-                          className={`flex items-center gap-2 text-sm transition-all duration-200 ${
+                          className={`flex items-center gap-2 text-sm transition-all duration-200 px-3 py-2 whitespace-nowrap ${
                             isCopied ? "bg-green-50 border-green-300 text-green-700 scale-95" : "hover:bg-gray-50"
                           }`}
                         >
