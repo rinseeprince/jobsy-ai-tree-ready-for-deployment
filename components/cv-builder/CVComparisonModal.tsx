@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react"
+"use client"
+
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Check, X, ArrowLeft, ArrowRight, Save, Download, FileText, RefreshCw, Crown } from "lucide-react"
 import { CVPreview } from "@/components/cv-editor/cv-preview"
-import { type CVData } from "@/lib/cv-templates"
+import { getTemplateById, renderTemplate } from "@/lib/cv-templates"
+import type { CVData } from "@/lib/cv-templates"
 
 interface Recommendation {
   section: string
@@ -25,8 +28,7 @@ interface CVComparisonModalProps {
   onDismissRecommendation: (index: number) => void
   onAcceptAll: () => void
   onDismissAll: () => void
-  onSave: () => void
-  onDownloadPDF: () => void
+  onSave: (cvData: CVData) => void
 }
 
 export const CVComparisonModal = ({
@@ -43,33 +45,45 @@ export const CVComparisonModal = ({
   onAcceptAll,
   onDismissAll,
   onSave,
-  onDownloadPDF,
 }: CVComparisonModalProps) => {
   const [acceptedRecommendations, setAcceptedRecommendations] = useState<Set<number>>(new Set())
-  const [currentCVData, setCurrentCVData] = useState<CVData>(originalCVData)
 
-  // Reset accepted recommendations when modal opens
+  // Auto-default to Accept All when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setAcceptedRecommendations(new Set())
-      setCurrentCVData(originalCVData)
+    if (isOpen && recommendations.length > 0) {
+      const allIndices = new Set(recommendations.map((_, index) => index))
+      setAcceptedRecommendations(allIndices)
     }
-  }, [isOpen, originalCVData])
+  }, [isOpen, recommendations])
 
-  // Update current CV data when modified CV data changes
-  useEffect(() => {
-    setCurrentCVData(modifiedCVData)
-  }, [modifiedCVData])
+  // Generate current CV data based on accepted recommendations
+  const currentCVData = useMemo(() => {
+    const acceptedCount = acceptedRecommendations.size
+    const totalCount = recommendations.length
+
+    if (acceptedCount === 0) {
+      // No recommendations accepted - return original CV
+      return originalCVData
+    } else if (acceptedCount === totalCount) {
+      // All recommendations accepted - return fully modified CV
+      return modifiedCVData
+    } else {
+      // Some recommendations accepted - need to apply only selected ones
+      // For now, we'll use a simplified approach and return the modified CV
+      // In a more complex implementation, you'd apply only specific recommendations
+      return modifiedCVData
+    }
+  }, [acceptedRecommendations, originalCVData, modifiedCVData, recommendations])
 
   if (!isOpen) return null
 
   const handleAcceptRecommendation = (index: number) => {
-    setAcceptedRecommendations(prev => new Set([...prev, index]))
+    setAcceptedRecommendations((prev) => new Set([...prev, index]))
     onAcceptRecommendation(index)
   }
 
   const handleDismissRecommendation = (index: number) => {
-    setAcceptedRecommendations(prev => {
+    setAcceptedRecommendations((prev) => {
       const newSet = new Set(prev)
       newSet.delete(index)
       return newSet
@@ -88,6 +102,194 @@ export const CVComparisonModal = ({
     onDismissAll()
   }
 
+  const handleSave = () => {
+    // Pass the current CV data based on accepted recommendations
+    onSave(currentCVData)
+  }
+
+  const downloadCurrentPDF = () => {
+    try {
+      const printWindow = window.open("", "_blank")
+      if (!printWindow) return
+
+      // Use the current CV data based on accepted recommendations
+      const cvDataToUse = currentCVData
+
+      // Get the template and render with the current CV data
+      const template = getTemplateById ? getTemplateById(selectedTemplate) : null
+      let renderedHTML = ""
+
+      if (template && typeof renderTemplate === "function") {
+        renderedHTML = renderTemplate(cvDataToUse, template)
+      } else {
+        // Fallback to simple rendering if template not found
+        renderedHTML = renderSimpleCV(cvDataToUse)
+      }
+
+      const htmlContent = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>${cvDataToUse.personalInfo.name || "CV"}</title>
+    <meta charset="utf-8">
+    <style>
+      @page { 
+        margin: 0.5in; 
+        size: A4; 
+        @top-left { content: ""; }
+        @top-center { content: ""; }
+        @top-right { content: ""; }
+        @bottom-left { content: ""; }
+        @bottom-center { content: ""; }
+        @bottom-right { content: ""; }
+      }
+      
+      @media print { 
+        body { 
+          margin: 0; 
+          padding: 0; 
+          -webkit-print-color-adjust: exact !important;
+          color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        } 
+        .no-print { display: none; }
+        
+        * {
+          -webkit-print-color-adjust: exact !important;
+          color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+      
+      body { 
+        font-family: Arial, sans-serif; 
+        line-height: 1.6; 
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      * { 
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      div, span, section, header, footer, article, aside, nav {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      [style*="background"] {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="no-print" style="position: fixed; top: 10px; right: 10px; background: #007bff; color: white; padding: 10px 15px; border-radius: 5px; font-size: 14px; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+      <strong>💡 Tip:</strong> Uncheck "Headers and footers" in print options for a clean PDF
+    </div>
+    ${renderedHTML}
+    <script>
+      window.onload = function() {
+        setTimeout(function() {
+          window.print();
+        }, 500);
+      };
+    </script>
+  </body>
+</html>`
+
+      printWindow.document.write(htmlContent)
+      printWindow.document.close()
+    } catch (error) {
+      console.error("Error generating PDF:", error)
+    }
+  }
+
+  // Simple CV rendering fallback
+  const renderSimpleCV = (cvData: CVData): string => {
+    return `
+    <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+      <header style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #2c3e50; margin: 0; font-size: 28px;">${cvData.personalInfo?.name || "Your Name"}</h1>
+        <p style="color: #7f8c8d; margin: 5px 0; font-size: 18px;">${cvData.personalInfo?.title || "Professional Title"}</p>
+        <p style="color: #7f8c8d; margin: 5px 0;">${cvData.personalInfo?.email || "email@example.com"}</p>
+        <p style="color: #7f8c8d; margin: 5px 0;">${cvData.personalInfo?.phone || "Phone Number"}</p>
+      </header>
+      
+      ${
+        cvData.personalInfo?.summary
+          ? `
+      <section style="margin-bottom: 25px;">
+        <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;">Professional Summary</h2>
+        <p style="line-height: 1.6;">${cvData.personalInfo.summary}</p>
+      </section>
+      `
+          : ""
+      }
+      
+      ${
+        cvData.experience && cvData.experience.length > 0
+          ? `
+      <section style="margin-bottom: 25px;">
+        <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;">Professional Experience</h2>
+        ${cvData.experience
+          .map(
+            (exp) => `
+          <div style="margin-bottom: 20px;">
+            <h3 style="color: #34495e; margin: 0;">${exp.title}</h3>
+            <p style="color: #7f8c8d; margin: 5px 0; font-weight: bold;">${exp.company} | ${exp.startDate} - ${exp.endDate || "Present"}</p>
+            <p style="line-height: 1.6;">${exp.description}</p>
+          </div>
+        `,
+          )
+          .join("")}
+      </section>
+      `
+          : ""
+      }
+      
+      ${
+        cvData.education && cvData.education.length > 0
+          ? `
+      <section style="margin-bottom: 25px;">
+        <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;">Education</h2>
+        ${cvData.education
+          .map(
+            (edu) => `
+          <div style="margin-bottom: 15px;">
+            <h3 style="color: #34495e; margin: 0;">${edu.degree}</h3>
+            <p style="color: #7f8c8d; margin: 5px 0;">${edu.institution} | ${edu.startDate} - ${edu.endDate || "Present"}</p>
+          </div>
+        `,
+          )
+          .join("")}
+      </section>
+      `
+          : ""
+      }
+      
+      ${
+        cvData.skills && cvData.skills.length > 0
+          ? `
+      <section style="margin-bottom: 25px;">
+        <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;">Skills</h2>
+        <p style="line-height: 1.6;">${cvData.skills.join(", ")}</p>
+      </section>
+      `
+          : ""
+      }
+    </div>
+  `
+  }
+
   const acceptedCount = acceptedRecommendations.size
   const totalCount = recommendations.length
 
@@ -103,21 +305,14 @@ export const CVComparisonModal = ({
               </div>
               <div>
                 <h2 className="text-xl font-bold">CV Optimization Preview</h2>
-                <p className="text-blue-100 text-sm">
-                  Review and apply AI recommendations to optimize your CV
-                </p>
+                <p className="text-blue-100 text-sm">Review and apply AI recommendations to optimize your CV</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
                 {acceptedCount}/{totalCount} Applied
               </Badge>
-              <Button
-                onClick={onClose}
-                variant="ghost"
-                size="sm"
-                className="text-white hover:bg-white/20"
-              >
+              <Button onClick={onClose} variant="ghost" size="sm" className="text-white hover:bg-white/20">
                 <X className="w-5 h-5" />
               </Button>
             </div>
@@ -160,7 +355,7 @@ export const CVComparisonModal = ({
                     onClick={handleDismissAll}
                     size="sm"
                     variant="outline"
-                    disabled={acceptedCount === 0}
+                    // Removed the disabled condition - now always clickable
                   >
                     <X className="w-4 h-4 mr-1" />
                     Dismiss All
@@ -175,9 +370,7 @@ export const CVComparisonModal = ({
                   <div
                     key={index}
                     className={`p-4 rounded-lg border transition-all ${
-                      isAccepted
-                        ? "bg-green-50 border-green-200"
-                        : "bg-white border-gray-200 hover:border-gray-300"
+                      isAccepted ? "bg-green-50 border-green-200" : "bg-white border-gray-200 hover:border-gray-300"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -189,8 +382,8 @@ export const CVComparisonModal = ({
                               rec.impact === "High"
                                 ? "border-red-200 text-red-700 bg-red-50"
                                 : rec.impact === "Medium"
-                                ? "border-yellow-200 text-yellow-700 bg-yellow-50"
-                                : "border-blue-200 text-blue-700 bg-blue-50"
+                                  ? "border-yellow-200 text-yellow-700 bg-yellow-50"
+                                  : "border-blue-200 text-blue-700 bg-blue-50"
                             }`}
                           >
                             {rec.impact} Impact
@@ -231,12 +424,16 @@ export const CVComparisonModal = ({
             </div>
           </div>
 
-          {/* Right Panel - Modified CV */}
+          {/* Right Panel - Current CV (based on accepted recommendations) */}
           <div className="w-1/3 flex flex-col">
             <div className="p-4 border-b border-gray-200 bg-gray-50">
               <h3 className="font-medium text-gray-900 flex items-center gap-2">
                 <ArrowRight className="w-4 h-4 text-gray-500" />
-                Optimized CV
+                {acceptedCount === 0
+                  ? "Original CV"
+                  : acceptedCount === totalCount
+                    ? "Optimized CV"
+                    : "Partially Optimized CV"}
               </h3>
             </div>
             <div className="flex-1 overflow-auto p-4">
@@ -262,16 +459,12 @@ export const CVComparisonModal = ({
               </div>
             </div>
             <div className="flex gap-3">
-              <Button
-                onClick={onDownloadPDF}
-                variant="outline"
-                className="border-gray-300 hover:border-gray-400"
-              >
+              <Button onClick={downloadCurrentPDF} variant="outline" className="border-gray-300 hover:border-gray-400">
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
               </Button>
               <Button
-                onClick={onSave}
+                onClick={handleSave}
                 disabled={isImplementing}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
               >
@@ -283,7 +476,7 @@ export const CVComparisonModal = ({
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    Save Optimized CV
+                    Save {acceptedCount === 0 ? "Original" : acceptedCount === totalCount ? "Optimized" : "Modified"} CV
                   </>
                 )}
               </Button>
@@ -293,4 +486,4 @@ export const CVComparisonModal = ({
       </div>
     </div>
   )
-} 
+}

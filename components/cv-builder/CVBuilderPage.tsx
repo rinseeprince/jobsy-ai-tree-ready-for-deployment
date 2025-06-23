@@ -308,12 +308,12 @@ export const CVBuilderPage = () => {
   }
 
   // Save optimized CV handler
-  const handleSaveOptimizedCV = () => {
-    if (modifiedCVData) {
-      setCVData(modifiedCVData)
-      setShowComparisonModal(false)
-      handleSaveClick(modifiedCVData)
-    }
+  const handleSaveOptimizedCV = (cvDataToSave: CVData) => {
+    // Update the main CV builder state with the user's chosen CV version
+    setCVData(cvDataToSave)
+    setShowComparisonModal(false)
+    // Save the chosen CV data to the database
+    handleSaveClick(cvDataToSave)
   }
 
   if (isLoading) {
@@ -445,7 +445,6 @@ export const CVBuilderPage = () => {
           onAcceptAll={handleAcceptAll}
           onDismissAll={handleDismissAll}
           onSave={handleSaveOptimizedCV}
-          onDownloadPDF={downloadCVAsPDF}
         />
 
         {/* Modals */}
