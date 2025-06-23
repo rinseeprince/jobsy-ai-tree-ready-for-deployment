@@ -18,6 +18,7 @@ interface CoverLetterBuildTabProps {
   loadFromCV: (cvId: string) => void
   regenerateContent: () => void
   isRegenerating: boolean
+  isLoading: boolean
 }
 
 export const CoverLetterBuildTab = ({
@@ -28,6 +29,7 @@ export const CoverLetterBuildTab = ({
   loadFromCV,
   regenerateContent,
   isRegenerating,
+  isLoading,
 }: CoverLetterBuildTabProps) => {
   const [selectedCVId, setSelectedCVId] = useState("")
 
@@ -68,8 +70,8 @@ export const CoverLetterBuildTab = ({
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleLoadFromCV} disabled={!selectedCVId} className="w-full">
-              Load Personal Information
+            <Button onClick={handleLoadFromCV} disabled={!selectedCVId || isLoading} className="w-full">
+              {isLoading ? "Loading..." : "Load Personal Information"}
             </Button>
           </CardContent>
         </Card>

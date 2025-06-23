@@ -2,17 +2,17 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import CoverLetterBuilderTabs from "./CoverLetterBuilderTabs"
-import CoverLetterBuildTab from "./CoverLetterBuildTab"
-import CoverLetterTemplatesTab from "./CoverLetterTemplatesTab"
-import CoverLetterPreviewTab from "./CoverLetterPreviewTab"
-import CoverLetterBuilderHeader from "./CoverLetterBuilderHeader"
-import useCoverLetterData from "./hooks/useCoverLetterData"
-import useCoverLetterSave from "./hooks/useCoverLetterSave"
-import CoverLetterSaveModal from "./CoverLetterSaveModal"
+import { CoverLetterBuilderTabs } from "./CoverLetterBuilderTabs"
+import { CoverLetterBuildTab } from "./CoverLetterBuildTab"
+import { CoverLetterTemplatesTab } from "./CoverLetterTemplatesTab"
+import { CoverLetterPreviewTab } from "./CoverLetterPreviewTab"
+import { CoverLetterBuilderHeader } from "./CoverLetterBuilderHeader"
+import { useCoverLetterData } from "./hooks/useCoverLetterData"
+import { useCoverLetterSave } from "./hooks/useCoverLetterSave"
+import { CoverLetterSaveModal } from "./CoverLetterSaveModal"
 import { COVER_LETTER_TEMPLATES } from "@/lib/cover-letter-templates"
 
-export const CoverLetterBuilderPage = () => {
+export default function CoverLetterBuilderPage() {
   const searchParams = useSearchParams()
   const coverLetterId = searchParams.get("id")
 
@@ -22,6 +22,7 @@ export const CoverLetterBuilderPage = () => {
 
   const {
     coverLetterData,
+    isLoading,
     error,
     success,
     setError,
@@ -54,7 +55,6 @@ export const CoverLetterBuilderPage = () => {
       setShowSaveModal(false)
       setSuccess("Cover letter saved successfully!")
     } catch (error) {
-      console.error("Failed to save cover letter:", error)
       setError("Failed to save cover letter")
     }
   }
@@ -90,6 +90,7 @@ export const CoverLetterBuilderPage = () => {
               loadFromCV={loadFromCV}
               regenerateContent={regenerateContent}
               isRegenerating={isRegenerating}
+              isLoading={isLoading}
             />
           )}
 

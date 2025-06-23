@@ -10,7 +10,8 @@ const navigation = [
     name: "Tools",
     items: [
       { name: "Home", href: "/dashboard", icon: Home },
-      { name: "Cover Letter Generator", href: "/generator", icon: FileText },
+      { name: "Cover Letter Generator", href: "/dashboard/cover-letter-generator", icon: FileText },
+      { name: "My Cover Letters", href: "/dashboard/my-cover-letters", icon: FileText },
       { name: "CV Builder", href: "/dashboard/cv-builder", icon: User },
     ],
   },
@@ -53,7 +54,10 @@ export function Sidebar() {
                     // Check if the current path starts with the item's href
                     const isActive =
                       pathname === item.href ||
-                      (item.href === "/dashboard/cv-builder" && pathname.includes("/dashboard/cv-builder"))
+                      (item.href === "/dashboard/cv-builder" && pathname.includes("/dashboard/cv-builder")) ||
+                      (item.href === "/dashboard/cover-letter-generator" &&
+                        pathname.includes("/dashboard/cover-letter-generator")) ||
+                      (item.href === "/dashboard/my-cover-letters" && pathname.includes("/dashboard/my-cover-letters"))
                     const IconComponent = item.icon
                     return (
                       <Link

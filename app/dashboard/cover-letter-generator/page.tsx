@@ -1,9 +1,5 @@
-import { CoverLetterGenerator } from "@/components/cover-letter-generator"
+import { redirect } from "next/navigation"
 
 export default function CoverLetterGeneratorPage() {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <CoverLetterGenerator />
-    </div>
-  )
+  redirect("/dashboard/cover-letter-builder")
 }
