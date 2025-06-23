@@ -16,13 +16,15 @@ export const useCVAnalysis = () => {
   const [isCopied, setIsCopied] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
 
-  const [showImplementModal, setShowImplementModal] = useState(false)
-  const [recommendationsText, setRecommendationsText] = useState("")
+  // New state for streamlined UX
+  const [generateCoverLetter, setGenerateCoverLetter] = useState(false)
+  const [showComparisonModal, setShowComparisonModal] = useState(false)
   const [isImplementing, setIsImplementing] = useState(false)
   const [originalCVData, setOriginalCVData] = useState<CVData | null>(null)
+  const [modifiedCVData, setModifiedCVData] = useState<CVData | null>(null)
   const [parsedRecommendations, setParsedRecommendations] = useState<Recommendation[]>([])
-  const [selectedRecommendations, setSelectedRecommendations] = useState<string[]>([])
-  const [showAISection, setShowAISection] = useState(false)
+  const [coverLetter, setCoverLetter] = useState("")
+  const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false)
 
   // Improve CV with AI
   const handleImproveCV = async (generateCVText: () => string, setError: (error: string) => void, setSuccess: (success: string) => void) => {
@@ -167,98 +169,84 @@ Target Position: ${jobDescription.split("\n")[0] || "Position details in job des
     }
   }
 
-  // Handle showing implement modal and parsing recommendations
-  const handleShowImplementModal = async (setError: (error: string) => void, setSuccess: (success: string) => void) => {
-    if (!recommendationsText.trim()) {
-      setError("Please paste your AI recommendations first")
+  // New method to handle implementing recommendations with the streamlined UX
+  const handleImplementRecommendations = async (
+    cvData: CVData,
+    generateCVText: () => string,
+    setError: (error: string) => void,
+    setSuccess: (success: string) => void
+  ) => {
+    if (!improvementSuggestions) {
+      setError("Please run AI analysis first to get recommendations")
       return
-    }
-
-    if (recommendationsText.trim().length < 50) {
-      setError("Please provide a complete AI recommendations report (minimum 50 characters)")
-      return
-    }
-
-    try {
-      setIsImplementing(true)
-      setError("") // Clear any previous errors
-
-      // Parse recommendations using AI
-      const response = await fetch("/api/parse-recommendations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recommendationsText }),
-      })
-
-      const responseData = await response.json()
-
-      if (!response.ok) {
-        throw new Error(responseData.error || `HTTP ${response.status}: Failed to parse recommendations`)
-      }
-
-      const { recommendations } = responseData
-
-      if (!recommendations || !Array.isArray(recommendations) || recommendations.length === 0) {
-        throw new Error("No valid recommendations found in the provided text")
-      }
-
-      setParsedRecommendations(recommendations)
-      setSelectedRecommendations(recommendations.map((_: Recommendation, index: number) => index.toString()))
-      setShowImplementModal(true)
-      setSuccess(`Successfully parsed ${recommendations.length} recommendations!`)
-    } catch (err) {
-      console.error("Error parsing recommendations:", err)
-      const errorMessage = err instanceof Error ? err.message : "Unknown error occurred"
-
-      // Provide helpful error messages based on the error type
-      if (errorMessage.includes("API key")) {
-        setError("AI parsing service is temporarily unavailable. The system used fallback parsing instead.")
-      } else if (errorMessage.includes("format")) {
-        setError(
-          "Invalid recommendations format. Please paste a complete AI recommendations report that includes specific, actionable suggestions.",
-        )
-      } else {
-        setError(
-          `Failed to parse recommendations: ${errorMessage}. Please try pasting a different recommendations report.`,
-        )
-      }
-    } finally {
-      setIsImplementing(false)
-    }
-  }
-
-  // Handle implementing selected recommendations
-  const handleImplementRecommendations = async (cvData: CVData, setCVData: (data: CVData) => void, setError: (error: string) => void, setSuccess: (success: string) => void, applyAll = false) => {
-    if (!originalCVData) {
-      setOriginalCVData(cvData) // Backup original data
     }
 
     setIsImplementing(true)
     setError("")
 
     try {
-      const recommendationsToApply = applyAll
-        ? parsedRecommendations
-        : parsedRecommendations.filter((_, index) => selectedRecommendations.includes(index.toString()))
+      // Backup original CV data
+      setOriginalCVData(cvData)
 
-      const response = await fetch("/api/implement-recommendations", {
+      // Parse recommendations using existing API
+      const parseResponse = await fetch("/api/parse-recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recommendationsText: improvementSuggestions }),
+      })
+
+      if (!parseResponse.ok) {
+        throw new Error("Failed to parse recommendations")
+      }
+
+      const parseData = await parseResponse.json()
+      setParsedRecommendations(parseData.recommendations)
+
+      // Generate cover letter if requested
+      if (generateCoverLetter) {
+        setIsGeneratingCoverLetter(true)
+        try {
+          const cvText = generateCVText()
+          const coverLetterResponse = await fetch("/api/generate-cover-letter", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jobPosting: jobDescription,
+              cvContent: cvText,
+            }),
+          })
+
+          if (coverLetterResponse.ok) {
+            const coverLetterData = await coverLetterResponse.json()
+            setCoverLetter(coverLetterData.coverLetter)
+          }
+        } catch (coverLetterError) {
+          console.error("Error generating cover letter:", coverLetterError)
+          // Don't fail the whole process if cover letter generation fails
+        } finally {
+          setIsGeneratingCoverLetter(false)
+        }
+      }
+
+      // Implement all recommendations
+      const implementResponse = await fetch("/api/implement-recommendations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           currentCV: cvData,
-          recommendations: recommendationsToApply,
-          originalRecommendationsText: recommendationsText,
+          recommendations: parseData.recommendations,
+          originalRecommendationsText: improvementSuggestions,
         }),
       })
 
-      if (!response.ok) {
+      if (!implementResponse.ok) {
         throw new Error("Failed to implement recommendations")
       }
 
-      const { updatedCV } = await response.json()
-      setCVData(updatedCV)
-      setShowImplementModal(false)
-      setSuccess("AI recommendations implemented successfully! Review your updated CV and save when ready.")
+      const implementData = await implementResponse.json()
+      setModifiedCVData(implementData.updatedCV)
+      setShowComparisonModal(true)
+      setSuccess("Recommendations implemented! Review the changes in the comparison view.")
     } catch (error) {
       console.error("Error implementing recommendations:", error)
       setError("Failed to implement recommendations. Please try again.")
@@ -267,18 +255,28 @@ Target Position: ${jobDescription.split("\n")[0] || "Position details in job des
     }
   }
 
-  // Handle reverting to original CV
-  const handleRevertToOriginal = (setCVData: (data: CVData) => void, setSuccess: (success: string) => void) => {
-    if (originalCVData) {
-      setCVData(originalCVData)
-      setOriginalCVData(null)
-      setSuccess("CV reverted to original version")
-    }
+  // Handle accepting individual recommendations
+  const handleAcceptRecommendation = (index: number) => {
+    // This will be handled by the comparison modal
+    console.log("Accepting recommendation:", index)
   }
 
-  // Handle recommendation selection
-  const handleRecommendationToggle = (index: string) => {
-    setSelectedRecommendations((prev) => (prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]))
+  // Handle dismissing individual recommendations
+  const handleDismissRecommendation = (index: number) => {
+    // This will be handled by the comparison modal
+    console.log("Dismissing recommendation:", index)
+  }
+
+  // Handle accepting all recommendations
+  const handleAcceptAll = () => {
+    // This will be handled by the comparison modal
+    console.log("Accepting all recommendations")
+  }
+
+  // Handle dismissing all recommendations
+  const handleDismissAll = () => {
+    // This will be handled by the comparison modal
+    console.log("Dismissing all recommendations")
   }
 
   return {
@@ -289,23 +287,23 @@ Target Position: ${jobDescription.split("\n")[0] || "Position details in job des
     copySuccess,
     isCopied,
     errorMessage,
-    showImplementModal,
-    setShowImplementModal,
-    recommendationsText,
-    setRecommendationsText,
+    generateCoverLetter,
+    setGenerateCoverLetter,
+    showComparisonModal,
+    setShowComparisonModal,
     isImplementing,
     originalCVData,
+    modifiedCVData,
     parsedRecommendations,
-    selectedRecommendations,
-    setSelectedRecommendations,
-    showAISection,
-    setShowAISection,
+    coverLetter,
+    isGeneratingCoverLetter,
     handleImproveCV,
     handleCopyRecommendations,
     handleExportJobReport,
-    handleShowImplementModal,
     handleImplementRecommendations,
-    handleRevertToOriginal,
-    handleRecommendationToggle,
+    handleAcceptRecommendation,
+    handleDismissRecommendation,
+    handleAcceptAll,
+    handleDismissAll,
   }
 } 

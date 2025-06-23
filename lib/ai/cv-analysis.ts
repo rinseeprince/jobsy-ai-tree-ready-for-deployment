@@ -247,14 +247,14 @@ export class CVAnalysisService {
     // Calculate densities and matches
     const cvWords = cvText.split(/\s+/).length
     topKeywords.forEach((item) => {
-      item.density = (item.cvMatches / cvWords) * 100
+      item.density = ((item.cvMatches ?? 0) / cvWords) * 100
     })
 
     const missing = topKeywords.filter((k) => k.cvMatches === 0 && k.importance === "Critical").map((k) => k.keyword)
-    const underused = topKeywords.filter((k) => k.cvMatches < 2 && k.importance === "Important").map((k) => k.keyword)
-    const overused = topKeywords.filter((k) => k.density > 5).map((k) => k.keyword)
+    const underused = topKeywords.filter((k) => (k.cvMatches ?? 0) < 2 && k.importance === "Important").map((k) => k.keyword)
+    const overused = topKeywords.filter((k) => (k.density ?? 0) > 5).map((k) => k.keyword)
 
-    const totalMatches = topKeywords.reduce((sum, k) => sum + (k.cvMatches > 0 ? 1 : 0), 0)
+    const totalMatches = topKeywords.reduce((sum, k) => sum + ((k.cvMatches ?? 0) > 0 ? 1 : 0), 0)
     const overallMatch = Math.round((totalMatches / topKeywords.length) * 100)
 
     return {

@@ -7,20 +7,12 @@ interface CVBuildTabProps {
   selectedTemplate: string
   isUploading: boolean
   isSaving: boolean
-  showAISection: boolean
-  recommendationsText: string
-  isImplementing: boolean
-  originalCVData: CVData | null
   getSectionStatus: (section: string) => boolean
   getSectionPreview: (section: string) => string
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
   onSaveClick: () => void
   onDownloadPDF: () => void
   onCVUpdate: (updatedCVData: CVData) => void
-  onShowAISection: (show: boolean) => void
-  onRecommendationsTextChange: (text: string) => void
-  onShowImplementModal: () => void
-  onRevertToOriginal: () => void
   onTemplateChange: () => void
   onSectionClick: (modal: string) => void
 }
@@ -30,20 +22,12 @@ export const CVBuildTab = ({
   selectedTemplate,
   isUploading,
   isSaving,
-  showAISection,
-  recommendationsText,
-  isImplementing,
-  originalCVData,
   getSectionStatus,
   getSectionPreview,
   onFileUpload,
   onSaveClick,
   onDownloadPDF,
   onCVUpdate,
-  onShowAISection,
-  onRecommendationsTextChange,
-  onShowImplementModal,
-  onRevertToOriginal,
   onTemplateChange,
   onSectionClick,
 }: CVBuildTabProps) => {
@@ -56,18 +40,10 @@ export const CVBuildTab = ({
           selectedTemplate={selectedTemplate}
           isUploading={isUploading}
           isSaving={isSaving}
-          showAISection={showAISection}
-          recommendationsText={recommendationsText}
-          isImplementing={isImplementing}
-          originalCVData={originalCVData}
           onFileUpload={onFileUpload}
           onSaveClick={onSaveClick}
           onDownloadPDF={onDownloadPDF}
           onCVUpdate={onCVUpdate}
-          onShowAISection={onShowAISection}
-          onRecommendationsTextChange={onRecommendationsTextChange}
-          onShowImplementModal={onShowImplementModal}
-          onRevertToOriginal={onRevertToOriginal}
           onTemplateChange={onTemplateChange}
         />
 

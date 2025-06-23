@@ -1,15 +1,11 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Upload,
   Download,
   Save,
   RefreshCw,
   Rocket,
-  Brain,
-  Wand2,
   Layout,
   Check,
 } from "lucide-react"
@@ -22,18 +18,10 @@ interface CVActionsPanelProps {
   selectedTemplate: string
   isUploading: boolean
   isSaving: boolean
-  showAISection: boolean
-  recommendationsText: string
-  isImplementing: boolean
-  originalCVData: CVData | null
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
   onSaveClick: () => void
   onDownloadPDF: () => void
   onCVUpdate: (updatedCVData: CVData) => void
-  onShowAISection: (show: boolean) => void
-  onRecommendationsTextChange: (text: string) => void
-  onShowImplementModal: () => void
-  onRevertToOriginal: () => void
   onTemplateChange: () => void
 }
 
@@ -42,18 +30,10 @@ export const CVActionsPanel = ({
   selectedTemplate,
   isUploading,
   isSaving,
-  showAISection,
-  recommendationsText,
-  isImplementing,
-  originalCVData,
   onFileUpload,
   onSaveClick,
   onDownloadPDF,
   onCVUpdate,
-  onShowAISection,
-  onRecommendationsTextChange,
-  onShowImplementModal,
-  onRevertToOriginal,
   onTemplateChange,
 }: CVActionsPanelProps) => {
   return (
@@ -148,99 +128,6 @@ export const CVActionsPanel = ({
             <Download className="w-4 h-4 mr-2" />
             Download PDF
           </Button>
-          {/* AI Implementation Section */}
-          <div className="border-t pt-4 mt-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-              <Brain className="w-4 h-4 text-purple-600" />
-              AI Implementation
-              <span className="ml-auto px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
-                Pro
-              </span>
-            </h4>
-            <div className="space-y-3">
-              <Button
-                onClick={() => onShowAISection(!showAISection)}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                variant="outline"
-              >
-                <Wand2 className="w-4 h-4 mr-2" />
-                {showAISection ? "Hide" : "Implement AI Recommendations"}
-              </Button>
-
-              {showAISection && (
-                <div className="space-y-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <div>
-                    <Label
-                      htmlFor="recommendations-input"
-                      className="text-sm font-medium text-gray-700 mb-2 block"
-                    >
-                      Paste AI Recommendations Report
-                    </Label>
-                    <Textarea
-                      id="recommendations-input"
-                      value={recommendationsText}
-                      onChange={(e) => onRecommendationsTextChange(e.target.value)}
-                      placeholder="Paste your complete AI recommendations report here...
-
-Example format:
-• Add quantifiable metrics to your experience section
-• Include relevant keywords like 'project management' and 'team leadership'
-• Update your summary to highlight key achievements
-• Consider adding certifications section"
-                      rows={8}
-                      className="border-2 border-purple-200 focus:border-purple-400 rounded-lg text-sm"
-                    />
-                  </div>
-
-                  <div className="bg-purple-100 border border-purple-200 rounded-lg p-3">
-                    <p className="text-purple-800 text-xs">
-                      <strong>💡 How to use:</strong> Run &quot;AI Optimize&quot; → Copy recommendations →
-                      Paste above → Click &quot;Parse & Implement&quot;
-                    </p>
-                    <p className="text-purple-700 text-xs mt-1">
-                      <strong>📝 Tip:</strong> Make sure to paste the complete recommendations text with
-                      specific suggestions, not just general advice.
-                    </p>
-                  </div>
-
-                  <Button
-                    onClick={onShowImplementModal}
-                    disabled={
-                      isImplementing ||
-                      !recommendationsText.trim() ||
-                      recommendationsText.trim().length < 50
-                    }
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                    size="sm"
-                  >
-                    {isImplementing ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Brain className="w-4 h-4 mr-2" />
-                        Parse & Implement ({recommendationsText.trim().length} chars)
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-
-              {originalCVData && (
-                <Button
-                  onClick={onRevertToOriginal}
-                  className="w-full text-orange-600 border-orange-200 hover:bg-orange-50"
-                  variant="outline"
-                  size="sm"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Revert to Original
-                </Button>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -9,14 +9,13 @@ import { CVTemplatesTab } from "./CVTemplatesTab"
 import { CVPreviewTab } from "./CVPreviewTab"
 import { CVOptimizeTab } from "./CVOptimizeTab"
 import { CVSaveModal } from "./CVSaveModal"
-import { CVAIImplementationModal } from "./CVAIImplementationModal"
+import { CVComparisonModal } from "./CVComparisonModal"
 import CVEditorModals from "@/components/cv-editor/cv-editor-modals"
 import { useCVData } from "./hooks/useCVData"
 import { useCVSave } from "./hooks/useCVSave"
 import { useCVAnalysis } from "./hooks/useCVAnalysis"
 import { useCVCompletion } from "./hooks/useCVCompletion"
 import { getTemplateById, renderTemplate, type CVData } from "@/lib/cv-templates"
-import { openPrintableVersion } from "@/lib/pdf-generator"
 
 export const CVBuilderPage = () => {
   const [activeTab, setActiveTab] = useState("build")
@@ -57,7 +56,6 @@ export const CVBuilderPage = () => {
     cvTitle,
     setCvTitle,
     currentCVId,
-    setCurrentCVId,
     handleSaveClick,
     handleSave,
   } = useCVSave()
@@ -70,24 +68,23 @@ export const CVBuilderPage = () => {
     copySuccess,
     isCopied,
     errorMessage,
-    showImplementModal,
-    setShowImplementModal,
-    recommendationsText,
-    setRecommendationsText,
+    generateCoverLetter,
+    setGenerateCoverLetter,
+    showComparisonModal,
+    setShowComparisonModal,
     isImplementing,
     originalCVData,
+    modifiedCVData,
     parsedRecommendations,
-    selectedRecommendations,
-    setSelectedRecommendations,
-    showAISection,
-    setShowAISection,
+    coverLetter,
     handleImproveCV,
     handleCopyRecommendations,
     handleExportJobReport,
-    handleShowImplementModal,
     handleImplementRecommendations,
-    handleRevertToOriginal,
-    handleRecommendationToggle,
+    handleAcceptRecommendation,
+    handleDismissRecommendation,
+    handleAcceptAll,
+    handleDismissAll,
   } = useCVAnalysis()
 
   const { calculateCompletion, getSectionStatus, getSectionPreview } = useCVCompletion()
@@ -198,105 +195,86 @@ export const CVBuilderPage = () => {
       window.onload = function() {
         setTimeout(function() {
           window.print();
-        }, 1000);
-      }
+        }, 500);
+      };
     </script>
   </body>
-</html>
-`
+</html>`
 
       printWindow.document.write(htmlContent)
       printWindow.document.close()
-      setSuccess("CV opened for PDF download! Follow the tips in the blue box for best results.")
     } catch (error) {
-      console.error("Error downloading CV as PDF:", error)
-      setError("Error generating PDF. Please try again.")
+      console.error("Error generating PDF:", error)
+      setError("Failed to generate PDF. Please try again.")
     }
   }
 
-  // Add the renderSimpleCV helper function
+  // Simple CV rendering fallback
   const renderSimpleCV = (cvData: CVData): string => {
-    try {
-      let html = ""
-
-      // Personal Info
-      if (cvData.personalInfo) {
-        const p = cvData.personalInfo
-        html += `<div class="section">
-        <h1>${p.name || ""}</h1>
-        <p>${p.title || ""}</p>
-        <p>${p.email || ""} | ${p.phone || ""} | ${p.location || ""}</p>
-        ${p.linkedin ? `<p>LinkedIn: ${p.linkedin}</p>` : ""}
-        ${p.website ? `<p>Website: ${p.website}</p>` : ""}
-        <p>${p.summary || ""}</p>
-      </div>`
-      }
-
-      // Experience
-      if (cvData.experience && cvData.experience.length > 0) {
-        html += `<h2>Experience</h2>`
-        cvData.experience.forEach((exp) => {
-          html += `<div class="section">
-          <h3>${exp.title || ""} | ${exp.company || ""}</h3>
-          <p>${exp.startDate || ""} - ${exp.current ? "Present" : exp.endDate || ""} | ${exp.location || ""}</p>
-          <p>${exp.description || ""}</p>
-        </div>`
-        })
-      }
-
-      // Education
-      if (cvData.education && cvData.education.length > 0) {
-        html += `<h2>Education</h2>`
-        cvData.education.forEach((edu) => {
-          html += `<div class="section">
-          <h3>${edu.degree || ""} | ${edu.institution || ""}</h3>
-          <p>${edu.startDate || ""} - ${edu.current ? "Present" : edu.endDate || ""} | ${edu.location || ""}</p>
-          <p>${edu.description || ""}</p>
-        </div>`
-        })
-      }
-
-      // Skills
-      if (cvData.skills && cvData.skills.length > 0) {
-        html += `<h2>Skills</h2><p>${cvData.skills.join(", ")}</p>`
-      }
-
-      // Certifications
-      if (cvData.certifications && cvData.certifications.length > 0) {
-        html += `<h2>Certifications</h2>`
-        cvData.certifications.forEach((cert) => {
-          html += `<div class="section">
-          <h3>${cert.name || ""} | ${cert.issuer || ""}</h3>
-          <p>${cert.date || ""}</p>
-          ${cert.description ? `<p>${cert.description}</p>` : ""}
-        </div>`
-        })
-      }
-
-      return html
-    } catch (error) {
-      console.error("Error rendering CV:", error)
-      return "<p>Error rendering CV</p>"
-    }
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+        <header style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2c3e50; margin: 0; font-size: 28px;">${cvData.personalInfo?.name || "Your Name"}</h1>
+          <p style="color: #7f8c8d; margin: 5px 0; font-size: 18px;">${cvData.personalInfo?.title || "Professional Title"}</p>
+          <p style="color: #7f8c8d; margin: 5px 0;">${cvData.personalInfo?.email || "email@example.com"}</p>
+          <p style="color: #7f8c8d; margin: 5px 0;">${cvData.personalInfo?.phone || "Phone Number"}</p>
+        </header>
+        
+        ${cvData.personalInfo?.summary ? `
+        <section style="margin-bottom: 25px;">
+          <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;">Professional Summary</h2>
+          <p style="line-height: 1.6;">${cvData.personalInfo.summary}</p>
+        </section>
+        ` : ""}
+        
+        ${cvData.experience && cvData.experience.length > 0 ? `
+        <section style="margin-bottom: 25px;">
+          <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;">Professional Experience</h2>
+          ${cvData.experience.map(exp => `
+            <div style="margin-bottom: 20px;">
+              <h3 style="color: #34495e; margin: 0;">${exp.title}</h3>
+              <p style="color: #7f8c8d; margin: 5px 0; font-weight: bold;">${exp.company} | ${exp.startDate} - ${exp.endDate || "Present"}</p>
+              <p style="line-height: 1.6;">${exp.description}</p>
+            </div>
+          `).join("")}
+        </section>
+        ` : ""}
+        
+        ${cvData.education && cvData.education.length > 0 ? `
+        <section style="margin-bottom: 25px;">
+          <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;">Education</h2>
+          ${cvData.education.map(edu => `
+            <div style="margin-bottom: 15px;">
+              <h3 style="color: #34495e; margin: 0;">${edu.degree}</h3>
+              <p style="color: #7f8c8d; margin: 5px 0;">${edu.institution} | ${edu.startDate} - ${edu.endDate || "Present"}</p>
+            </div>
+          `).join("")}
+        </section>
+        ` : ""}
+        
+        ${cvData.skills && cvData.skills.length > 0 ? `
+        <section style="margin-bottom: 25px;">
+          <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;">Skills</h2>
+          <p style="line-height: 1.6;">${cvData.skills.join(", ")}</p>
+        </section>
+        ` : ""}
+      </div>
+    `
   }
 
-  // Add a function to handle CV updates from analysis
+  // CV update handler from analysis
   const handleCVUpdateFromAnalysis = (updatedCVData: CVData) => {
-    console.log("🔄 Updating CV data from analysis:", updatedCVData)
     setCVData(updatedCVData)
-    setSuccess("CV updated with AI recommendations!")
-  }
-
-  // Apply template handler
-  const handleApplyTemplate = (templateId: string) => {
-    setSelectedTemplate(templateId)
-    setSuccess(`Template "${templateId}" applied successfully!`)
-    setActiveTab("build")
   }
 
   // Template change handler
+  const handleApplyTemplate = (templateId: string) => {
+    setSelectedTemplate(templateId)
+  }
+
+  // Template change modal handler
   const handleTemplateChange = () => {
-    setActiveTab("templates")
+    setActiveModal("template")
   }
 
   // Section click handler
@@ -324,28 +302,18 @@ export const CVBuilderPage = () => {
     handleExportJobReport(cvData)
   }
 
-  // Show implement modal handler
-  const handleShowImplementModalWrapper = () => {
-    handleShowImplementModal(setError, setSuccess)
+  // Implement recommendations handler
+  const handleImplementRecommendationsWrapper = () => {
+    handleImplementRecommendations(cvData, generateCVText, setError, setSuccess)
   }
 
-  // Implement recommendations handlers
-  const handleImplementRecommendationsWrapper = (applyAll = false) => {
-    handleImplementRecommendations(cvData, setCVData, setError, setSuccess, applyAll)
-  }
-
-  // Revert to original handler
-  const handleRevertToOriginalWrapper = () => {
-    handleRevertToOriginal(setCVData, setSuccess)
-  }
-
-  // Recommendation selection handlers
-  const handleSelectNone = () => {
-    setSelectedRecommendations([])
-  }
-
-  const handleSelectAll = () => {
-    setSelectedRecommendations(parsedRecommendations.map((_, i) => i.toString()))
+  // Save optimized CV handler
+  const handleSaveOptimizedCV = () => {
+    if (modifiedCVData) {
+      setCVData(modifiedCVData)
+      setShowComparisonModal(false)
+      handleSaveClick(modifiedCVData)
+    }
   }
 
   if (isLoading) {
@@ -408,20 +376,12 @@ export const CVBuilderPage = () => {
               selectedTemplate={selectedTemplate}
               isUploading={isUploading}
               isSaving={isSaving}
-              showAISection={showAISection}
-              recommendationsText={recommendationsText}
-              isImplementing={isImplementing}
-              originalCVData={originalCVData}
               getSectionStatus={(section) => getSectionStatus(cvData, section)}
               getSectionPreview={(section) => getSectionPreview(cvData, section)}
               onFileUpload={handleFileUpload}
               onSaveClick={handleSaveClickWrapper}
               onDownloadPDF={downloadCVAsPDF}
               onCVUpdate={handleCVUpdateFromAnalysis}
-              onShowAISection={setShowAISection}
-              onRecommendationsTextChange={setRecommendationsText}
-              onShowImplementModal={handleShowImplementModalWrapper}
-              onRevertToOriginal={handleRevertToOriginalWrapper}
               onTemplateChange={handleTemplateChange}
               onSectionClick={handleSectionClick}
             />
@@ -448,10 +408,13 @@ export const CVBuilderPage = () => {
               isImproving={isImproving}
               improvementSuggestions={improvementSuggestions}
               isCopied={isCopied}
+              generateCoverLetter={generateCoverLetter}
               onJobDescriptionChange={setJobDescription}
               onImproveCV={handleImproveCVWrapper}
               onCopyRecommendations={handleCopyRecommendations}
               onExportJobReport={handleExportJobReportWrapper}
+              onGenerateCoverLetterChange={setGenerateCoverLetter}
+              onImplementRecommendations={handleImplementRecommendationsWrapper}
             />
           )}
         </div>
@@ -467,18 +430,22 @@ export const CVBuilderPage = () => {
           onClose={() => setShowSaveModal(false)}
         />
 
-        {/* AI Implementation Modal */}
-        <CVAIImplementationModal
-          showImplementModal={showImplementModal}
+        {/* CV Comparison Modal */}
+        <CVComparisonModal
+          isOpen={showComparisonModal}
+          originalCVData={originalCVData || cvData}
+          modifiedCVData={modifiedCVData || cvData}
+          recommendations={parsedRecommendations}
+          coverLetter={coverLetter}
+          selectedTemplate={selectedTemplate}
           isImplementing={isImplementing}
-          parsedRecommendations={parsedRecommendations}
-          selectedRecommendations={selectedRecommendations}
-          onClose={() => setShowImplementModal(false)}
-          onRecommendationToggle={handleRecommendationToggle}
-          onSelectNone={handleSelectNone}
-          onSelectAll={handleSelectAll}
-          onApplySelected={() => handleImplementRecommendationsWrapper(false)}
-          onApplyAll={() => handleImplementRecommendationsWrapper(true)}
+          onClose={() => setShowComparisonModal(false)}
+          onAcceptRecommendation={handleAcceptRecommendation}
+          onDismissRecommendation={handleDismissRecommendation}
+          onAcceptAll={handleAcceptAll}
+          onDismissAll={handleDismissAll}
+          onSave={handleSaveOptimizedCV}
+          onDownloadPDF={downloadCVAsPDF}
         />
 
         {/* Modals */}

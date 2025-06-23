@@ -20,17 +20,17 @@ export const useCVCompletion = () => {
   const getSectionStatus = (cvData: CVData, section: string) => {
     switch (section) {
       case "personal":
-        return cvData.personalInfo.name && cvData.personalInfo.email && cvData.personalInfo.summary
+        return !!(cvData.personalInfo.name && cvData.personalInfo.email && cvData.personalInfo.summary)
       case "photo":
         return !!cvData.personalInfo.profilePhoto
       case "experience":
-        return cvData.experience.some((exp) => exp.title && exp.company)
+        return !!cvData.experience.some((exp) => exp.title && exp.company)
       case "education":
-        return cvData.education.some((edu) => edu.degree && edu.institution)
+        return !!cvData.education.some((edu) => edu.degree && edu.institution)
       case "skills":
-        return cvData.skills.length > 0
+        return !!(cvData.skills.length > 0)
       case "certifications":
-        return cvData.certifications.some((cert) => cert.name)
+        return !!cvData.certifications.some((cert) => cert.name)
       default:
         return false
     }

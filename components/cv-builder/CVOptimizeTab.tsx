@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
 import {
   Target,
   TrendingUp,
@@ -14,6 +15,9 @@ import {
   Check,
   RefreshCw,
   Wand2,
+  Crown,
+  FileText,
+  Sparkles,
 } from "lucide-react"
 
 interface CVOptimizeTabProps {
@@ -21,10 +25,13 @@ interface CVOptimizeTabProps {
   isImproving: boolean
   improvementSuggestions: string
   isCopied: boolean
+  generateCoverLetter: boolean
   onJobDescriptionChange: (description: string) => void
   onImproveCV: () => void
   onCopyRecommendations: () => void
   onExportJobReport: () => void
+  onGenerateCoverLetterChange: (generate: boolean) => void
+  onImplementRecommendations: () => void
 }
 
 export const CVOptimizeTab = ({
@@ -32,10 +39,13 @@ export const CVOptimizeTab = ({
   isImproving,
   improvementSuggestions,
   isCopied,
+  generateCoverLetter,
   onJobDescriptionChange,
   onImproveCV,
   onCopyRecommendations,
   onExportJobReport,
+  onGenerateCoverLetterChange,
+  onImplementRecommendations,
 }: CVOptimizeTabProps) => {
   return (
     <div className="p-6 bg-white border rounded-xl shadow-md">
@@ -93,6 +103,33 @@ export const CVOptimizeTab = ({
                 className="border-2 border-gray-200 focus:border-blue-500 transition-colors"
               />
             </div>
+
+            {/* Cover Letter Toggle */}
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="generate-cover-letter"
+                    checked={generateCoverLetter}
+                    onChange={(e) => onGenerateCoverLetterChange(e.target.checked)}
+                    className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                  />
+                  <Label htmlFor="generate-cover-letter" className="text-sm font-medium text-purple-900">
+                    Generate tailored cover letter for this role
+                  </Label>
+                </div>
+                <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                  <Crown className="w-3 h-3 mr-1" />
+                  Pro
+                </Badge>
+              </div>
+              <p className="text-sm text-purple-700 mt-2 ml-6">
+                <FileText className="w-4 h-4 inline mr-1" />
+                AI will create a personalized cover letter based on your CV and this job description
+              </p>
+            </div>
+
             <Button
               onClick={onImproveCV}
               disabled={isImproving || !jobDescription.trim()}
@@ -180,6 +217,31 @@ export const CVOptimizeTab = ({
                   tailored to help you pass ATS screening and impress hiring managers.
                 </p>
               </div>
+
+              {/* Implement Recommendations Button */}
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-600" />
+                    <span className="font-medium text-purple-900">Ready to implement?</span>
+                  </div>
+                  <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                    <Crown className="w-3 h-3 mr-1" />
+                    Pro
+                  </Badge>
+                </div>
+                <p className="text-sm text-purple-700 mb-4">
+                  Review and apply recommendations in our interactive comparison tool with real-time preview.
+                </p>
+                <Button
+                  onClick={onImplementRecommendations}
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-3"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Implement Recommendations
+                </Button>
+              </div>
+
               <div className="prose prose-sm max-w-none">
                 <div
                   className="text-gray-700 whitespace-pre-wrap"
