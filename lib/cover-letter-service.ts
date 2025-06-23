@@ -21,25 +21,38 @@ export async function saveCoverLetter(data: {
   template_id: string
   status: "draft" | "ready" | "sent"
 }): Promise<SavedCoverLetter> {
-  console.log("💾 Saving cover letter...")
+  console.log("💾 Starting saveCoverLetter function...")
+  console.log("📋 Input data:", {
+    title: data.title,
+    template_id: data.template_id,
+    status: data.status,
+    cover_letter_data_keys: Object.keys(data.cover_letter_data)
+  })
 
   if (!isSupabaseReady) {
+    console.error("❌ Supabase not ready")
     throw new Error("Supabase not ready")
   }
 
+  console.log("🔐 Getting user authentication...")
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
+    console.error("❌ User not authenticated")
     throw new Error("User not authenticated")
   }
+
+  console.log("✅ User authenticated:", { userId: user.id })
 
   // Calculate word count
   const wordCount = 
     (data.cover_letter_data.content.opening?.split(/\s+/).length || 0) +
     (data.cover_letter_data.content.body?.split(/\s+/).length || 0) +
     (data.cover_letter_data.content.closing?.split(/\s+/).length || 0)
+
+  console.log("📊 Calculated word count:", wordCount)
 
   const coverLetterData = {
     user_id: user.id,
@@ -50,6 +63,14 @@ export async function saveCoverLetter(data: {
     word_count: wordCount,
   }
 
+  console.log("💾 Inserting into database with data:", {
+    user_id: coverLetterData.user_id,
+    title: coverLetterData.title,
+    template_id: coverLetterData.template_id,
+    status: coverLetterData.status,
+    word_count: coverLetterData.word_count,
+  })
+
   const { data: savedData, error } = await supabase
     .from("saved_cover_letters")
     .insert(coverLetterData)
@@ -57,11 +78,23 @@ export async function saveCoverLetter(data: {
     .single()
 
   if (error) {
-    console.error("❌ Error saving cover letter:", error)
-    throw new Error("Failed to save cover letter")
+    console.error("❌ Database error saving cover letter:", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      fullError: error,
+    })
+    throw new Error(`Failed to save cover letter: ${error.message}`)
   }
 
-  console.log("✅ Cover letter saved successfully")
+  console.log("✅ Cover letter saved successfully to database:", {
+    id: savedData.id,
+    title: savedData.title,
+    status: savedData.status,
+    created_at: savedData.created_at
+  })
+  
   return savedData as unknown as SavedCoverLetter
 }
 

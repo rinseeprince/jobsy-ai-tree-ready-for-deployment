@@ -1,65 +1,32 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Download, Save } from "lucide-react"
+import { Wand2 } from "lucide-react"
 
 interface CoverLetterBuilderHeaderProps {
-  onSave: () => void
-  onDownloadPDF: () => void
-  isSaving: boolean
-  error: string | null
-  success: string | null
+  completion?: number
 }
 
-export const CoverLetterBuilderHeader = ({
-  onSave,
-  onDownloadPDF,
-  isSaving,
-  error,
-  success,
-}: CoverLetterBuilderHeaderProps) => {
+export const CoverLetterBuilderHeader = ({ completion = 0 }: CoverLetterBuilderHeaderProps) => {
   return (
-    <div className="bg-white border rounded-xl shadow-md p-6 mb-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Cover Letter Builder</h1>
-          <p className="text-gray-600 mt-2">
-            Create a professional cover letter tailored to your job application
-          </p>
+    <div className="mb-8 flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+          <Wand2 className="w-6 h-6 text-white" />
         </div>
-        
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={onDownloadPDF}
-            className="flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Download PDF
-          </Button>
-          <Button
-            onClick={onSave}
-            disabled={isSaving}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
-          >
-            <Save className="w-4 h-4" />
-            {isSaving ? "Saving..." : "Save Cover Letter"}
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Cover Letter Generator</h1>
+          <p className="text-gray-600">Create and customize your professional cover letter</p>
         </div>
       </div>
-
-      {/* Status Messages */}
-      {error && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-700 text-sm">{error}</p>
+      <div className="flex items-center gap-4">
+        <div className="text-right">
+          <div className="text-sm text-gray-600">Completion</div>
+          <div className="text-2xl font-bold text-blue-600">{completion}%</div>
         </div>
-      )}
-      
-      {success && (
-        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-green-700 text-sm">{success}</p>
+        <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-full bg-blue-600 rounded-full" style={{ width: `${completion}%` }}></div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

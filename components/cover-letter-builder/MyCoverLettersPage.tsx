@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/empty-state"
 import { DeleteConfirmationModal } from "@/components/delete-confirmation-modal"
 import { openPrintableVersion } from "@/lib/pdf-generator"
 import { renderCoverLetterTemplate, getCoverLetterTemplateById } from "@/lib/cover-letter-templates"
+import { toast } from "@/components/ui/use-toast"
 
 export const MyCoverLettersPage = () => {
   const [coverLetters, setCoverLetters] = useState<SavedCoverLetter[]>([])
@@ -25,6 +26,7 @@ export const MyCoverLettersPage = () => {
     isOpen: false,
     coverLetter: null,
   })
+  const [isExporting, setIsExporting] = useState<string | null>(null)
 
   useEffect(() => {
     loadCoverLetters()
@@ -36,6 +38,11 @@ export const MyCoverLettersPage = () => {
       setCoverLetters(data)
     } catch (error) {
       console.error("Failed to load cover letters:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load cover letters. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -46,8 +53,17 @@ export const MyCoverLettersPage = () => {
       await deleteSavedCoverLetter(coverLetter.id)
       setCoverLetters((prev) => prev.filter((cl) => cl.id !== coverLetter.id))
       setDeleteModal({ isOpen: false, coverLetter: null })
+      toast({
+        title: "Success",
+        description: `"${coverLetter.title}" has been deleted successfully.`,
+      })
     } catch (error) {
       console.error("Failed to delete cover letter:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete cover letter. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -55,19 +71,45 @@ export const MyCoverLettersPage = () => {
     try {
       const duplicated = await duplicateSavedCoverLetter(coverLetter.id)
       setCoverLetters((prev) => [duplicated, ...prev])
+      toast({
+        title: "Success",
+        description: `"${coverLetter.title}" has been duplicated successfully.`,
+      })
     } catch (error) {
       console.error("Failed to duplicate cover letter:", error)
+      toast({
+        title: "Error",
+        description: "Failed to duplicate cover letter. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleDownload = (coverLetter: SavedCoverLetter) => {
-    const template = getCoverLetterTemplateById(coverLetter.template_id)
-    if (!template) {
-      console.error("Template not found:", coverLetter.template_id)
-      return
+  const handleDownload = async (coverLetter: SavedCoverLetter) => {
+    setIsExporting(coverLetter.id)
+    try {
+      const template = getCoverLetterTemplateById(coverLetter.template_id)
+      if (!template) {
+        throw new Error(`Template not found: ${coverLetter.template_id}`)
+      }
+      
+      const renderedContent = renderCoverLetterTemplate(coverLetter.cover_letter_data, template)
+      await openPrintableVersion(renderedContent, coverLetter.title)
+      
+      toast({
+        title: "Success",
+        description: `"${coverLetter.title}" has been exported to PDF successfully.`,
+      })
+    } catch (error) {
+      console.error("Failed to export cover letter:", error)
+      toast({
+        title: "Error",
+        description: "Failed to export cover letter to PDF. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsExporting(null)
     }
-    const renderedContent = renderCoverLetterTemplate(coverLetter.cover_letter_data, template)
-    openPrintableVersion(renderedContent, coverLetter.title)
   }
 
   const getStatusColor = (status: SavedCoverLetter["status"]) => {
@@ -190,8 +232,25 @@ export const MyCoverLettersPage = () => {
                       Edit
                     </Button>
                   </Link>
-                  <Button variant="outline" size="sm" onClick={() => handleDownload(coverLetter)}>
-                    <Eye className="h-4 w-4" />
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleDownload(coverLetter)}
+                    disabled={isExporting === coverLetter.id}
+                  >
+                    {isExporting === coverLetter.id ? (
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setDeleteModal({ isOpen: true, coverLetter })}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </CardContent>

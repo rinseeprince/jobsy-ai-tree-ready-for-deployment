@@ -1,36 +1,46 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { FileText, Layout, Eye } from "lucide-react"
-
 interface CoverLetterBuilderTabsProps {
   activeTab: string
   setActiveTab: (tab: string) => void
 }
 
 export const CoverLetterBuilderTabs = ({ activeTab, setActiveTab }: CoverLetterBuilderTabsProps) => {
-  const tabs = [
-    { id: "build", label: "Build", icon: FileText },
-    { id: "templates", label: "Templates", icon: Layout },
-    { id: "preview", label: "Preview", icon: Eye },
-  ]
-
   return (
-    <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-      {tabs.map((tab) => {
-        const Icon = tab.icon
-        return (
-          <Button
-            key={tab.id}
-            variant={activeTab === tab.id ? "default" : "ghost"}
-            onClick={() => setActiveTab(tab.id)}
-            className="flex items-center gap-2"
-          >
-            <Icon className="w-4 h-4" />
-            {tab.label}
-          </Button>
-        )
-      })}
+    <div className="bg-white rounded-xl border shadow-md p-4 mb-6 flex items-center justify-between">
+      <div className="flex-1">{/* Empty space or could add search functionality later */}</div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setActiveTab("build")}
+          className={`py-2 px-4 rounded-lg font-medium text-sm ${
+            activeTab === "build"
+              ? "bg-gray-900 text-white"
+              : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          Build Cover Letter
+        </button>
+        <button
+          onClick={() => setActiveTab("templates")}
+          className={`py-2 px-4 rounded-lg font-medium text-sm ${
+            activeTab === "templates"
+              ? "bg-gray-900 text-white"
+              : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          Templates
+        </button>
+        <button
+          onClick={() => setActiveTab("preview")}
+          className={`py-2 px-4 rounded-lg font-medium text-sm ${
+            activeTab === "preview"
+              ? "bg-gray-900 text-white"
+              : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          Preview
+        </button>
+      </div>
     </div>
   )
 }

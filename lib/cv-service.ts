@@ -43,10 +43,13 @@ export class CVService {
         throw new Error("User not authenticated")
       }
 
+      // Ensure we have a proper title - use filename if title is empty
+      const finalTitle = cvData.title.trim() || cvData.file_name.replace(/\.[^/.]+$/, "")
+
       // Prepare the data to insert
       const insertData = {
         user_id: user.id,
-        title: cvData.title,
+        title: finalTitle,
         file_name: cvData.file_name,
         file_size: cvData.file_size,
         parsed_content: cvData.parsed_content,
@@ -128,7 +131,7 @@ export class CVService {
       return []
     }
 
-    console.log("✅ Successfully fetched CVs:", data?.length || 0)
+    console.log("✅ Successfully fetched CVs:", data?.map((cv) => ({ id: cv.id, title: cv.title })) || [])
     // Fix the type conversion by mapping each item
     return (data || []).map((item) => ({
       id: item.id,
@@ -204,6 +207,181 @@ export class CVService {
     } catch (error) {
       console.error("❌ Error in deleteCV:", error)
       return false
+    }
+  }
+
+  static async updateCV(
+    id: string,
+    updates: Partial<Omit<CV, "id" | "user_id" | "created_at" | "updated_at">>,
+  ): Promise<CV | null> {
+    console.log("📝 Updating CV:", id, updates)
+
+    if (!isSupabaseReady) {
+      console.error("❌ Cannot update CV: Supabase not configured")
+      return null
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        console.error("❌ Cannot update CV: User not authenticated")
+        return null
+      }
+
+      const { data, error } = await supabase
+        .from("cvs")
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error("❌ Supabase update error:", error)
+        return null
+      }
+
+      console.log("✅ CV updated successfully:", data)
+      return {
+        id: data.id,
+        user_id: data.user_id,
+        title: data.title,
+        file_name: data.file_name,
+        file_size: data.file_size,
+        parsed_content: data.parsed_content,
+        raw_text: data.raw_text,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      } as CV
+    } catch (error) {
+      console.error("❌ Error in updateCV:", error)
+      return null
+    }
+  }
+
+  static async duplicateCV(id: string, newTitle?: string): Promise<CV | null> {
+    console.log("📋 Duplicating CV:", id)
+
+    try {
+      const originalCV = await this.getCV(id)
+      if (!originalCV) {
+        throw new Error("CV not found")
+      }
+
+      const duplicateTitle = newTitle || `${originalCV.title} (Copy)`
+
+      return await this.saveCV({
+        title: duplicateTitle,
+        file_name: originalCV.file_name,
+        file_size: originalCV.file_size,
+        parsed_content: originalCV.parsed_content,
+        raw_text: originalCV.raw_text,
+      })
+    } catch (error) {
+      console.error("❌ Error duplicating CV:", error)
+      return null
+    }
+  }
+
+  static async searchCVs(query: string): Promise<CV[]> {
+    console.log("🔍 Searching CVs with query:", query)
+
+    if (!isSupabaseReady) {
+      console.log("⚠️ Supabase not ready, returning empty array")
+      return []
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      console.log("❌ No user found, returning empty array")
+      return []
+    }
+
+    const { data, error } = await supabase
+      .from("cvs")
+      .select("*")
+      .eq("user_id", user.id)
+      .or(`title.ilike.%${query}%, parsed_content.ilike.%${query}%`)
+      .order("updated_at", { ascending: false })
+
+    if (error) {
+      console.error("❌ Error searching CVs:", error)
+      return []
+    }
+
+    return (data || []).map((item) => ({
+      id: item.id,
+      user_id: item.user_id,
+      title: item.title,
+      file_name: item.file_name,
+      file_size: item.file_size,
+      parsed_content: item.parsed_content,
+      raw_text: item.raw_text,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+    })) as CV[]
+  }
+
+  static async getCVStats(): Promise<{
+    total: number
+    thisMonth: number
+    averageSize: number
+  }> {
+    console.log("📊 Getting CV stats...")
+
+    if (!isSupabaseReady) {
+      return { total: 0, thisMonth: 0, averageSize: 0 }
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return { total: 0, thisMonth: 0, averageSize: 0 }
+    }
+
+    const { data, error } = await supabase.from("cvs").select("file_size, created_at").eq("user_id", user.id)
+
+    if (error || !data) {
+      console.error("❌ Error fetching CV stats:", error)
+      return { total: 0, thisMonth: 0, averageSize: 0 }
+    }
+
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+
+    const thisMonth = data.filter((cv) => {
+      if (!cv.created_at) return false
+      try {
+        const createdAt = new Date(cv.created_at as string)
+        return createdAt.getMonth() === currentMonth && createdAt.getFullYear() === currentYear
+      } catch {
+        return false
+      }
+    }).length
+
+    const totalSize = data.reduce((sum, cv) => {
+      const fileSize = typeof cv.file_size === "number" ? cv.file_size : 0
+      return sum + fileSize
+    }, 0)
+
+    const averageSize = data.length > 0 ? Math.round(totalSize / data.length) : 0
+
+    return {
+      total: data.length,
+      thisMonth,
+      averageSize,
     }
   }
 }

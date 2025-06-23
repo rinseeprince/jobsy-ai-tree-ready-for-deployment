@@ -25,10 +25,10 @@ export const CoverLetterPreviewTab = ({ coverLetterData, selectedTemplate }: Cov
     )
   }
 
-  // Check if we have the minimum required data
-  const hasRequiredData = coverLetterData.personalInfo.name && 
-                         coverLetterData.jobInfo.jobTitle && 
-                         coverLetterData.jobInfo.companyName
+  // Check if we have the minimum required data (just job info and content)
+  const hasRequiredData = coverLetterData.jobInfo.jobTitle && 
+                         coverLetterData.jobInfo.companyName &&
+                         (coverLetterData.content.opening || coverLetterData.content.body || coverLetterData.content.closing)
 
   if (!hasRequiredData) {
     return (
@@ -38,7 +38,7 @@ export const CoverLetterPreviewTab = ({ coverLetterData, selectedTemplate }: Cov
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">Incomplete Information</h3>
         <p className="text-gray-600">
-          Please fill in your name, job title, and company name to preview your cover letter
+          Please fill in job title, company name, and add some content to preview your cover letter
         </p>
       </div>
     )

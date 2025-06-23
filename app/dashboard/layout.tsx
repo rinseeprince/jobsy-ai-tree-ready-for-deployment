@@ -3,6 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useState } from "react"
 
 export default function DashboardLayout({
   children,
@@ -10,6 +11,17 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({
+    "Cover Letter Generator": false,
+    "CV Builder": false,
+  })
+
+  const toggleDropdown = (itemName: string) => {
+    setOpenDropdowns((prev) => ({
+      ...prev,
+      [itemName]: !prev[itemName],
+    }))
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -55,123 +67,182 @@ export default function DashboardLayout({
                     </svg>
                     Home
                   </Link>
-                  <Link
-                    href="/dashboard/cover-letter-generator"
-                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                      pathname === "/dashboard/cover-letter-generator"
-                        ? "bg-blue-50 text-blue-700"
-                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                    }`}
-                  >
-                    <svg
-                      className={`mr-3 h-5 w-5 ${
-                        pathname === "/dashboard/cover-letter-generator"
-                          ? "text-blue-500"
-                          : "text-gray-400 group-hover:text-gray-500"
-                      }`}
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                      <polyline points="14 2 14 8 20 8"></polyline>
-                      <line x1="16" y1="13" x2="8" y2="13"></line>
-                      <line x1="16" y1="17" x2="8" y2="17"></line>
-                      <polyline points="10 9 9 9 8 9"></polyline>
-                    </svg>
-                    Cover Letter Generator
-                  </Link>
-                  <Link
-                    href="/dashboard/my-cover-letters"
-                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                      pathname === "/dashboard/my-cover-letters"
-                        ? "bg-blue-50 text-blue-700"
-                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                    }`}
-                  >
-                    <svg
-                      className={`mr-3 h-5 w-5 ${
-                        pathname === "/dashboard/my-cover-letters"
-                          ? "text-blue-500"
-                          : "text-gray-400 group-hover:text-gray-500"
-                      }`}
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                      <polyline points="14 2 14 8 20 8"></polyline>
-                      <line x1="16" y1="13" x2="8" y2="13"></line>
-                      <line x1="16" y1="17" x2="8" y2="17"></line>
-                      <polyline points="10 9 9 9 8 9"></polyline>
-                    </svg>
-                    My Cover Letters
-                  </Link>
 
-                  {/* CV Builder Button - Let's add it directly here */}
-                  <Link
-                    href="/dashboard/cv-builder"
-                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                      pathname === "/dashboard/cv-builder" || pathname.startsWith("/dashboard/cv-builder")
-                        ? "bg-blue-50 text-blue-700"
-                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                    }`}
-                  >
-                    <svg
-                      className={`mr-3 h-5 w-5 ${
-                        pathname === "/dashboard/cv-builder" || pathname.startsWith("/dashboard/cv-builder")
-                          ? "text-blue-500"
-                          : "text-gray-400 group-hover:text-gray-500"
-                      }`}
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
-                    CV Builder
-                  </Link>
-                  <Link
-                    href="/dashboard/my-cvs"
-                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                      pathname === "/dashboard/my-cvs"
-                        ? "bg-blue-50 text-blue-700"
-                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                    }`}
-                  >
-                    <svg
-                      className={`mr-3 h-5 w-5 ${
-                        pathname === "/dashboard/my-cvs" ? "text-blue-500" : "text-gray-400 group-hover:text-gray-500"
-                      }`}
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                      <polyline points="14 2 14 8 20 8"></polyline>
-                      <line x1="16" y1="13" x2="8" y2="13"></line>
-                      <line x1="16" y1="17" x2="8" y2="17"></line>
-                      <polyline points="10 9 9 9 8 9"></polyline>
-                    </svg>
-                    My CVs
-                  </Link>
+                  {/* Cover Letter Generator with Dropdown */}
+                  <div>
+                    <div className="flex items-center">
+                      <Link
+                        href="/dashboard/cover-letter-generator"
+                        className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md flex-1 ${
+                          pathname === "/dashboard/cover-letter-generator" || pathname === "/dashboard/my-cover-letters"
+                            ? "bg-blue-50 text-blue-700"
+                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                        }`}
+                      >
+                        <svg
+                          className={`mr-3 h-5 w-5 ${
+                            pathname === "/dashboard/cover-letter-generator" ||
+                            pathname === "/dashboard/my-cover-letters"
+                              ? "text-blue-500"
+                              : "text-gray-400 group-hover:text-gray-500"
+                          }`}
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                          <polyline points="14 2 14 8 20 8"></polyline>
+                          <line x1="16" y1="13" x2="8" y2="13"></line>
+                          <line x1="16" y1="17" x2="8" y2="17"></line>
+                          <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        Cover Letter Generator
+                      </Link>
+                      <button
+                        onClick={() => toggleDropdown("Cover Letter Generator")}
+                        className={`p-1 rounded-md transition-colors mr-2 ${
+                          pathname === "/dashboard/cover-letter-generator" || pathname === "/dashboard/my-cover-letters"
+                            ? "text-blue-700 hover:bg-blue-100"
+                            : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        {openDropdowns["Cover Letter Generator"] ? (
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        ) : (
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                    {openDropdowns["Cover Letter Generator"] && (
+                      <div className="ml-6 mt-1">
+                        <Link
+                          href="/dashboard/my-cover-letters"
+                          className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                            pathname === "/dashboard/my-cover-letters"
+                              ? "bg-blue-50 text-blue-700"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                          }`}
+                        >
+                          <svg
+                            className={`mr-3 h-4 w-4 ${
+                              pathname === "/dashboard/my-cover-letters" ? "text-blue-500" : "text-gray-400"
+                            }`}
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                          </svg>
+                          My Cover Letters
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CV Builder with Dropdown */}
+                  <div>
+                    <div className="flex items-center">
+                      <Link
+                        href="/dashboard/cv-builder"
+                        className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md flex-1 ${
+                          pathname === "/dashboard/cv-builder" ||
+                          pathname.startsWith("/dashboard/cv-builder") ||
+                          pathname === "/dashboard/my-cvs"
+                            ? "bg-blue-50 text-blue-700"
+                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                        }`}
+                      >
+                        <svg
+                          className={`mr-3 h-5 w-5 ${
+                            pathname === "/dashboard/cv-builder" ||
+                            pathname.startsWith("/dashboard/cv-builder") ||
+                            pathname === "/dashboard/my-cvs"
+                              ? "text-blue-500"
+                              : "text-gray-400 group-hover:text-gray-500"
+                          }`}
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        CV Builder
+                      </Link>
+                      <button
+                        onClick={() => toggleDropdown("CV Builder")}
+                        className={`p-1 rounded-md transition-colors mr-2 ${
+                          pathname === "/dashboard/cv-builder" ||
+                          pathname.startsWith("/dashboard/cv-builder") ||
+                          pathname === "/dashboard/my-cvs"
+                            ? "text-blue-700 hover:bg-blue-100"
+                            : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        {openDropdowns["CV Builder"] ? (
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        ) : (
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                    {openDropdowns["CV Builder"] && (
+                      <div className="ml-6 mt-1">
+                        <Link
+                          href="/dashboard/my-cvs"
+                          className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                            pathname === "/dashboard/my-cvs"
+                              ? "bg-blue-50 text-blue-700"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                          }`}
+                        >
+                          <svg
+                            className={`mr-3 h-4 w-4 ${
+                              pathname === "/dashboard/my-cvs" ? "text-blue-500" : "text-gray-400"
+                            }`}
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                          </svg>
+                          My CVs
+                        </Link>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
