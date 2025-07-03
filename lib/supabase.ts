@@ -48,6 +48,20 @@ export type SavedCV = {
   updated_at: string
 }
 
+export type SavedCoverLetter = {
+  id: string
+  user_id: string
+  title: string
+  content: string
+  job_title?: string
+  company_name?: string
+  template_id?: string
+  status: "draft" | "ready" | "sent"
+  word_count: number
+  created_at: string
+  updated_at: string
+}
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -81,107 +95,23 @@ const isSupabaseConfigured = (): boolean => {
 // Export the configuration check result
 export const isSupabaseReady = isSupabaseConfigured()
 
-// Define proper types for the mock client
-type MockResponse<T = null> = {
-  data: T
-  error: { message: string } | null
-}
-
-type MockQueryBuilder = {
-  select: (columns?: string) => MockQueryBuilder
-  eq: (column: string, value: unknown) => MockQueryBuilder
-  order: (column: string, options?: { ascending: boolean }) => MockQueryBuilder
-  single: () => Promise<MockResponse>
-  then: <TResult1 = MockResponse<unknown[]>, TResult2 = never>(
-    onfulfilled?: ((value: MockResponse<unknown[]>) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
-  ) => Promise<TResult1 | TResult2>
-  catch: <TResult = never>(
-    onrejected?: ((reason: unknown) => TResult | PromiseLike<TResult>) | null,
-  ) => Promise<MockResponse<unknown[]> | TResult>
-}
-
-// Create a comprehensive mock client
-const createMockSupabaseClient = () => {
-  console.log("⚠️ Creating mock Supabase client - database features will not work")
-
-  const mockSubscription = {
-    unsubscribe: () => {},
-  }
-
-  const mockError = { message: "Supabase not configured" }
-  const mockResponse: MockResponse = { data: null, error: mockError }
-  const mockArrayResponse: MockResponse<unknown[]> = { data: [], error: null }
-
-  // Create a mock query builder that properly chains
-  const createMockQueryBuilder = (): MockQueryBuilder => {
-    const mockBuilder: MockQueryBuilder = {
-      select: () => mockBuilder,
-      eq: () => mockBuilder,
-      order: () => mockBuilder,
-      single: () => Promise.resolve(mockResponse),
-      then: <TResult1 = MockResponse<unknown[]>, TResult2 = never>(
-        resolve?: ((value: MockResponse<unknown[]>) => TResult1 | PromiseLike<TResult1>) | null,
-      ) => {
-        if (resolve) {
-          return Promise.resolve(mockArrayResponse).then(resolve)
-        }
-        return Promise.resolve(mockArrayResponse) as Promise<TResult1 | TResult2>
-      },
-      catch: <TResult = never>(reject?: ((reason: unknown) => TResult | PromiseLike<TResult>) | null) => {
-        if (reject) {
-          return Promise.resolve(mockArrayResponse).catch(reject)
-        }
-        return Promise.resolve(mockArrayResponse) as Promise<MockResponse<unknown[]> | TResult>
-      },
-    }
-    return mockBuilder
-  }
-
-  return {
-    auth: {
-      getUser: () => Promise.resolve({ data: { user: null }, error: null }),
-      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
-      signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: mockError }),
-      signUp: () => Promise.resolve({ data: { user: null, session: null }, error: mockError }),
-      signOut: () => Promise.resolve({ error: null }),
-      onAuthStateChange: () => ({ data: { subscription: mockSubscription } }),
-      exchangeCodeForSession: () => Promise.resolve({ data: { user: null, session: null }, error: mockError }),
-    },
-    from: () => ({
-      select: () => createMockQueryBuilder(),
-      insert: () => ({
-        select: () => ({
-          single: () => Promise.resolve(mockResponse),
-        }),
-      }),
-      update: () => ({
-        eq: () => Promise.resolve(mockResponse),
-      }),
-      delete: () => ({
-        eq: () => Promise.resolve(mockResponse),
-      }),
-    }),
-  }
-}
-
-// Create the Supabase client
+// Create the Supabase client using the modern approach
 const createSupabaseClient = () => {
   if (!isSupabaseReady) {
-    console.warn("⚠️ Supabase environment variables not configured or invalid. Using mock client.")
-    return createMockSupabaseClient()
+    console.warn("⚠️ Supabase environment variables not configured or invalid.")
+    return null
   }
 
   try {
-    console.log("✅ Creating real Supabase client with valid configuration")
+    console.log("✅ Creating Supabase client with valid configuration")
     return createClient(supabaseUrl!, supabaseAnonKey!)
   } catch (error) {
     console.error("❌ Failed to create Supabase client:", error)
-    return createMockSupabaseClient()
+    return null
   }
 }
 
-export const supabase = createSupabaseClient() as ReturnType<typeof createClient>
+export const supabase = createSupabaseClient()
 
 // Log the configuration status
 console.log("🔧 Supabase Configuration Status:", {
@@ -216,7 +146,7 @@ export class ApplicationsService {
       companyName: applicationData.company_name,
     })
 
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       console.error("❌ Cannot save application: Supabase not configured")
       throw new Error("Supabase not configured")
     }
@@ -299,7 +229,7 @@ export class ApplicationsService {
   static async getUserApplications(): Promise<Application[]> {
     console.log("🔍 Getting user applications...")
 
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       console.log("⚠️ Supabase not ready, returning empty array")
       return []
     }
@@ -336,7 +266,7 @@ export class ApplicationsService {
     byStatus: Record<string, number>
     interviewRate: number
   }> {
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       return {
         total: 0,
         thisMonth: 0,
@@ -468,7 +398,7 @@ export class ApplicationsService {
   ): Promise<void> {
     console.log("📝 Updating application:", applicationId, data)
 
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       console.error("❌ Cannot update application: Supabase not configured")
       throw new Error("Supabase not configured")
     }
@@ -502,7 +432,7 @@ export class ApplicationsService {
   ): Promise<void> {
     console.log("🔄 Updating application status:", { applicationId, status, interviewDate })
 
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       console.error("❌ Cannot update application status: Supabase not configured")
       throw new Error("Supabase not configured")
     }
@@ -538,7 +468,7 @@ export class ApplicationsService {
   static async deleteApplication(applicationId: string): Promise<void> {
     console.log("🗑️ Deleting application:", applicationId)
 
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       console.error("❌ Cannot delete application: Supabase not configured")
       throw new Error("Supabase not configured")
     }
@@ -559,7 +489,7 @@ export class ApplicationsService {
   }
 
   static async getUserProfile(): Promise<{ full_name?: string } | null> {
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       return null
     }
 
@@ -597,7 +527,7 @@ export class ApplicationsService {
       templateId: cvData.template_id,
     })
 
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       console.error("❌ Cannot save CV: Supabase not configured")
       throw new Error("Supabase not configured")
     }
@@ -658,7 +588,7 @@ export class ApplicationsService {
   ): Promise<SavedCV> {
     console.log("📝 Updating CV:", cvId, cvData)
 
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       throw new Error("Supabase not configured")
     }
 
@@ -691,7 +621,7 @@ export class ApplicationsService {
   static async getUserSavedCVs(): Promise<SavedCV[]> {
     console.log("🔍 Getting user saved CVs...")
 
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       console.log("⚠️ Supabase not ready, returning empty array")
       return []
     }
@@ -723,7 +653,7 @@ export class ApplicationsService {
   static async getSavedCV(cvId: string): Promise<SavedCV | null> {
     console.log("🔍 Getting saved CV by ID:", cvId)
 
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       return null
     }
 
@@ -748,7 +678,7 @@ export class ApplicationsService {
   static async deleteSavedCV(cvId: string): Promise<boolean> {
     console.log("🗑️ Deleting saved CV:", cvId)
 
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       return false
     }
 
@@ -798,7 +728,7 @@ export class ApplicationsService {
   ): Promise<SavedCV> {
     console.log("📝 Updating saved CV:", cvId, cvData)
 
-    if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
       console.error("❌ Cannot update CV: Supabase not configured")
       throw new Error("Supabase not configured")
     }
@@ -841,6 +771,187 @@ export class ApplicationsService {
     } catch (error) {
       console.error("❌ Error in updateSavedCV:", error)
       throw error
+    }
+  }
+
+  // Cover Letter Management Functions
+  static async saveCoverLetter(coverLetterData: {
+    title: string
+    content: string
+    job_title?: string
+    company_name?: string
+    template_id?: string
+    status?: "draft" | "ready" | "sent"
+  }): Promise<SavedCoverLetter> {
+    console.log("📝 Attempting to save cover letter:", {
+      isSupabaseReady,
+      title: coverLetterData.title,
+    })
+
+    if (!isSupabaseReady || !supabase) {
+      console.error("❌ Cannot save cover letter: Supabase not configured")
+      throw new Error("Supabase not configured")
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        console.error("❌ Cannot save cover letter: User not authenticated")
+        throw new Error("User not authenticated")
+      }
+
+      // Calculate word count
+      const wordCount = this.countWords(coverLetterData.content)
+
+      const insertData = {
+        user_id: user.id,
+        title: coverLetterData.title,
+        content: coverLetterData.content,
+        job_title: coverLetterData.job_title || null,
+        company_name: coverLetterData.company_name || null,
+        template_id: coverLetterData.template_id || null,
+        status: coverLetterData.status || "draft",
+        word_count: wordCount,
+      }
+
+      console.log("💾 Inserting cover letter to Supabase:", {
+        user_id: insertData.user_id,
+        title: insertData.title,
+        job_title: insertData.job_title,
+        company_name: insertData.company_name,
+        status: insertData.status,
+        word_count: insertData.word_count,
+      })
+
+      const { data, error } = await supabase.from("saved_cover_letters").insert(insertData).select().single()
+
+      if (error) {
+        console.error("❌ Supabase insert error:", error)
+        throw new Error(`Database error: ${error.message}`)
+      }
+
+      console.log("✅ Cover letter saved successfully:", data)
+      return data as SavedCoverLetter
+    } catch (error) {
+      console.error("❌ Error in saveCoverLetter:", error)
+      throw error
+    }
+  }
+
+  static async getUserSavedCoverLetters(): Promise<SavedCoverLetter[]> {
+    console.log("🔍 Getting user saved cover letters...")
+
+    if (!isSupabaseReady || !supabase) {
+      console.log("⚠️ Supabase not ready, returning empty array")
+      return []
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      console.log("❌ No user found, returning empty array")
+      return []
+    }
+
+    const { data, error } = await supabase
+      .from("saved_cover_letters")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false })
+
+    if (error) {
+      console.error("❌ Error fetching saved cover letters:", error)
+      return []
+    }
+
+    console.log("✅ Successfully fetched saved cover letters:", data?.length || 0)
+    return (data || []) as SavedCoverLetter[]
+  }
+
+  static async updateSavedCoverLetter(
+    coverLetterId: string,
+    coverLetterData: {
+      title?: string
+      content?: string
+      job_title?: string
+      company_name?: string
+      template_id?: string
+      status?: "draft" | "ready" | "sent"
+    },
+  ): Promise<SavedCoverLetter> {
+    console.log("📝 Updating saved cover letter:", coverLetterId, coverLetterData)
+
+    if (!isSupabaseReady || !supabase) {
+      console.error("❌ Cannot update cover letter: Supabase not configured")
+      throw new Error("Supabase not configured")
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        console.error("❌ Cannot update cover letter: User not authenticated")
+        throw new Error("User not authenticated")
+      }
+
+      const updateData: Record<string, unknown> = {
+        ...coverLetterData,
+        updated_at: new Date().toISOString(),
+      }
+
+      // Calculate word count if content is provided
+      if (coverLetterData.content) {
+        updateData.word_count = this.countWords(coverLetterData.content)
+      }
+
+      const { data, error } = await supabase
+        .from("saved_cover_letters")
+        .update(updateData)
+        .eq("id", coverLetterId)
+        .eq("user_id", user.id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error("❌ Supabase update error:", error)
+        throw new Error(`Database error: ${error.message}`)
+      }
+
+      console.log("✅ Cover letter updated successfully:", data)
+      return data as SavedCoverLetter
+    } catch (error) {
+      console.error("❌ Error in updateSavedCoverLetter:", error)
+      throw error
+    }
+  }
+
+  static async deleteSavedCoverLetter(coverLetterId: string): Promise<boolean> {
+    console.log("🗑️ Deleting saved cover letter:", coverLetterId)
+
+    if (!isSupabaseReady || !supabase) {
+      return false
+    }
+
+    try {
+      const { error } = await supabase.from("saved_cover_letters").delete().eq("id", coverLetterId)
+
+      if (error) {
+        console.error("❌ Supabase delete error:", error)
+        return false
+      }
+
+      console.log("✅ Saved cover letter deleted successfully")
+      return true
+    } catch (error) {
+      console.error("❌ Error in deleteSavedCoverLetter:", error)
+      return false
     }
   }
 

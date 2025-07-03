@@ -22,7 +22,10 @@ export function AuthButton() {
 
     // Check auth status immediately and on mount
     const checkAuth = async () => {
-      if (!isSupabaseReady) {
+      if (!isSupabaseReady || !supabase) {
+        if (mounted) {
+          setLoading(false)
+        }
         return
       }
 
@@ -43,7 +46,7 @@ export function AuthButton() {
     checkAuth()
 
     // Set up auth listener only if Supabase is configured
-    if (isSupabaseReady) {
+    if (isSupabaseReady && supabase) {
       try {
         const {
           data: { subscription },
@@ -79,6 +82,8 @@ export function AuthButton() {
   }, [router])
 
   const handleSignOut = async () => {
+    if (!supabase) return
+
     try {
       await supabase.auth.signOut()
       router.push("/")
