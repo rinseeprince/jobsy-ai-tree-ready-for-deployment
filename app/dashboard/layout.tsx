@@ -4,6 +4,7 @@ import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
+import { FloatingActionButton } from "@/components/floating-action-button"
 
 export default function DashboardLayout({
   children,
@@ -66,6 +67,32 @@ export default function DashboardLayout({
                       <polyline points="9 22 9 12 15 12 15 22"></polyline>
                     </svg>
                     Home
+                  </Link>
+
+                  {/* New Application Wizard Link */}
+                  <Link
+                    href="/wizard"
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                      pathname === "/wizard"
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                  >
+                    <svg
+                      className={`mr-3 h-5 w-5 ${
+                        pathname === "/wizard" ? "text-blue-500" : "text-gray-400 group-hover:text-gray-500"
+                      }`}
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                    </svg>
+                    New Application
                   </Link>
 
                   {/* Cover Letter Generator with Dropdown */}
@@ -385,7 +412,10 @@ export default function DashboardLayout({
       </div>
 
       {/* Main content */}
-      <div className="md:pl-64">{children}</div>
+      <div className="md:pl-64">
+        {children}
+        <FloatingActionButton />
+      </div>
     </div>
   )
 }
