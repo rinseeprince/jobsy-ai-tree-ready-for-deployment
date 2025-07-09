@@ -8,8 +8,20 @@ export async function POST(request: NextRequest) {
 
     const { cvContent, jobDescription } = await request.json()
 
-    if (!cvContent || !jobDescription) {
-      return NextResponse.json({ error: "CV content and job description are required" }, { status: 400 })
+    if (!cvContent) {
+      return NextResponse.json({ error: "Missing CV content" }, { status: 400 })
+    }
+
+    if (!jobDescription) {
+      return NextResponse.json({ error: "Missing job description" }, { status: 400 })
+    }
+
+    if (typeof cvContent !== "string" || cvContent.trim() === "") {
+      return NextResponse.json({ error: "Invalid CV content" }, { status: 400 })
+    }
+
+    if (typeof jobDescription !== "string" || jobDescription.trim() === "") {
+      return NextResponse.json({ error: "Invalid job description" }, { status: 400 })
     }
 
     console.log("CV Content length:", cvContent.length)

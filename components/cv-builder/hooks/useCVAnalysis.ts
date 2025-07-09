@@ -1,5 +1,7 @@
+"use client"
+
 import { useState } from "react"
-import { type CVData } from "@/lib/cv-templates"
+import type { CVData } from "@/lib/cv-templates"
 
 interface Recommendation {
   section: string
@@ -27,7 +29,11 @@ export const useCVAnalysis = () => {
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false)
 
   // Improve CV with AI
-  const handleImproveCV = async (generateCVText: () => string, setError: (error: string) => void, setSuccess: (success: string) => void) => {
+  const handleImproveCV = async (
+    generateCVText: () => string,
+    setError: (error: string) => void,
+    setSuccess: (success: string) => void,
+  ) => {
     if (!jobDescription.trim()) {
       setError("Please add a job description to get AI-powered improvements")
       return
@@ -174,7 +180,7 @@ Target Position: ${jobDescription.split("\n")[0] || "Position details in job des
     cvData: CVData,
     generateCVText: () => string,
     setError: (error: string) => void,
-    setSuccess: (success: string) => void
+    setSuccess: (success: string) => void,
   ) => {
     if (!improvementSuggestions) {
       setError("Please run AI analysis first to get recommendations")
@@ -306,4 +312,4 @@ Target Position: ${jobDescription.split("\n")[0] || "Position details in job des
     handleAcceptAll,
     handleDismissAll,
   }
-} 
+}

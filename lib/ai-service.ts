@@ -34,7 +34,7 @@ export async function improveCv(jobPosting: string, cvContent: string): Promise<
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ jobPosting, cvContent }),
+      body: JSON.stringify({ jobDescription: jobPosting, cvContent }),
     })
 
     const data = await response.json()
@@ -43,7 +43,7 @@ export async function improveCv(jobPosting: string, cvContent: string): Promise<
       throw new Error(data.error || "Failed to generate CV improvements")
     }
 
-    return data.cvSuggestions
+    return data.improvedCV
   } catch (error) {
     console.error("Error in NEW ai-service calling CV API route:", error)
     return "There was an error generating your CV improvement suggestions. Please try again."
