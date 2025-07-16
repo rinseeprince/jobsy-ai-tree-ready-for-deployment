@@ -182,7 +182,11 @@ function InlineApplicationDetailModal({
           </div>
 
           <div className="flex justify-end pt-4">
-            <Button variant="outline" onClick={handleClose} className="hover:bg-gray-100 transition-colors">
+            <Button
+              variant="outline"
+              onClick={handleClose}
+              className="hover:bg-gray-100 transition-colors bg-transparent"
+            >
               Close
             </Button>
           </div>
@@ -260,6 +264,14 @@ function InlineApplicationEditModal({
     try {
       console.log("Attempting to update application:", application.id)
       console.log("Update data:", formData)
+
+      // Add null check for supabase
+      if (!supabase) {
+        console.error("❌ Supabase client not available")
+        alert("Database connection not available")
+        setLoading(false)
+        return
+      }
 
       // Process the form data to handle empty dates properly
       const processedData = {
@@ -441,7 +453,7 @@ function InlineApplicationEditModal({
                 variant="outline"
                 onClick={handleClose}
                 disabled={loading}
-                className="hover:bg-gray-100 transition-colors"
+                className="hover:bg-gray-100 transition-colors bg-transparent"
               >
                 Cancel
               </Button>
@@ -659,7 +671,7 @@ function InlineApplicationStatusModal({
                 variant="outline"
                 onClick={handleClose}
                 disabled={loading}
-                className="hover:bg-gray-100 transition-colors"
+                className="hover:bg-gray-100 transition-colors bg-transparent"
               >
                 Cancel
               </Button>
@@ -762,7 +774,7 @@ function InlineDeleteConfirmationModal({
               variant="outline"
               onClick={handleClose}
               disabled={isDeleting}
-              className="hover:bg-gray-100 transition-colors"
+              className="hover:bg-gray-100 transition-colors bg-transparent"
             >
               Cancel
             </Button>
@@ -792,6 +804,7 @@ function InlineDeleteConfirmationModal({
 // Inline getUserProfile function
 async function inlineGetUserProfile(): Promise<{ full_name?: string } | null> {
   if (!supabase) {
+    console.error("❌ Supabase client not available")
     return null
   }
 
@@ -847,6 +860,13 @@ export default function DashboardPage() {
   useEffect(() => {
     const getUser = async () => {
       try {
+        // Add null check for supabase
+        if (!supabase) {
+          console.error("❌ Supabase client not available")
+          setLoading(false)
+          return
+        }
+
         const { data } = await supabase.auth.getUser()
         console.log("👤 Current user:", data.user?.email || "No user")
         setUser(data.user)
@@ -881,6 +901,13 @@ export default function DashboardPage() {
   const fetchApplications = async (userId: string): Promise<void> => {
     try {
       console.log("🔍 Fetching applications for user:", userId)
+
+      // Add null check for supabase
+      if (!supabase) {
+        console.error("❌ Supabase client not available")
+        setApplications([])
+        return
+      }
 
       const { data, error } = await supabase
         .from("applications")
@@ -942,6 +969,7 @@ export default function DashboardPage() {
       setApplications(typedApplications)
     } catch (error) {
       console.error("❌ Failed to fetch applications:", error)
+      setApplications([])
     }
   }
 
@@ -952,11 +980,18 @@ export default function DashboardPage() {
     try {
       console.log("Attempting to delete application:", selectedApplication.id)
 
-      // Use direct Supabase query instead of ApplicationsService
+      // Add null check for supabase
+      if (!supabase) {
+        console.error("❌ Supabase client not available")
+        alert("Database connection not available")
+        return
+      }
+
       const { error } = await supabase.from("applications").delete().eq("id", selectedApplication.id)
 
       if (error) {
         console.error("Error deleting application:", error)
+        alert(`Error deleting application: ${error.message}`)
         return
       }
 
@@ -968,6 +1003,7 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error("Error in delete operation:", error)
+      alert("An unexpected error occurred while deleting the application")
     }
   }
 
@@ -1086,7 +1122,7 @@ export default function DashboardPage() {
               <Button
                 onClick={refreshApplications}
                 variant="outline"
-                className="px-6 py-3 rounded-2xl border-2 border-gray-200 hover:border-blue-400"
+                className="px-6 py-3 rounded-2xl border-2 border-gray-200 hover:border-blue-400 bg-transparent"
               >
                 <RefreshCw className="w-5 h-5 mr-2" />
                 Refresh
@@ -1322,7 +1358,7 @@ export default function DashboardPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600 hover:text-red-700 bg-transparent"
                             title="Delete Application"
                             onClick={() => {
                               setSelectedApplication(app)
