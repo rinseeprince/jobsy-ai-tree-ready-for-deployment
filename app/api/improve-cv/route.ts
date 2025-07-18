@@ -1,10 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
+import { PaywallService } from "@/lib/paywall"
+import { SubscriptionService } from "@/lib/subscription"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("=== CV IMPROVEMENT API ROUTE CALLED ===")
+    console.log("🔍 CV Improvement API called")
+
+    // Check paywall for CV generations
+    const paywallCheck = await PaywallService.checkAndRecordUsage("cv_generations")
+    if (!paywallCheck.allowed) {
+      console.log("🚫 Paywall triggered for CV generations")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Usage limit reached",
+          paywallInfo: paywallCheck.paywallInfo,
+        },
+        { status: 402 }
+      )
+    }
 
     const { cvContent, jobDescription } = await request.json()
 
@@ -27,8 +43,14 @@ export async function POST(request: NextRequest) {
     console.log("CV Content length:", cvContent.length)
     console.log("Job Description length:", jobDescription.length)
 
+    // Determine AI model based on user tier
+    const userTier = await SubscriptionService.getUserTier()
+    const aiModel = userTier === "free" ? "gpt-3.5-turbo" : "gpt-4o"
+    
+    console.log(`🤖 Using ${aiModel} for user tier: ${userTier}`)
+
     const { text } = await generateText({
-      model: openai("gpt-4o"),
+      model: openai(aiModel),
       prompt: `You are an expert CV optimization specialist with deep knowledge of Applicant Tracking Systems (ATS) and modern recruitment practices. 
 
 TASK: Analyze the provided CV against the job description and provide comprehensive, ATS-optimized improvement recommendations.

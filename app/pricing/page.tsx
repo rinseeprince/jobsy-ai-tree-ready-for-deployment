@@ -6,16 +6,26 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Check, X, Star, Zap, Crown, CheckCircle, ChevronDown, ChevronUp } from "lucide-react"
+import { Check, X, Star, Zap, Crown, CheckCircle, ChevronDown, ChevronUp, Target, Sparkles, MessageSquare, Users, Calendar, ArrowRight } from "lucide-react"
+import { SUBSCRIPTION_PLANS, type BillingCycle } from "@/lib/subscription"
+import { PaywallService } from "@/lib/paywall"
 
 export default function PricingPage() {
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly")
+  const [isLoading, setIsLoading] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
 
   const faqs = [
     {
       question: "How does the free plan work?",
       answer:
-        "The free plan gives you 3 cover letter generations per month with basic CV analysis. No credit card required.",
+        "The free plan gives you 3 CV generations, 3 cover letters, and 1 application wizard use per month with GPT-3.5 AI. No credit card required.",
+    },
+    {
+      question: "What's the difference between Pro and Premium?",
+      answer:
+        "Pro includes unlimited CVs, 20 optimizations, 20 cover letters, and GPT-4 AI. Premium adds unlimited everything, career coaching, salary guides, and job insights.",
     },
     {
       question: "Can I cancel my subscription anytime?",
@@ -23,16 +33,71 @@ export default function PricingPage() {
         "Yes! You can cancel your subscription at any time. Your plan will remain active until the end of your current billing period.",
     },
     {
-      question: "What is included in the 30-day money back guarantee?",
+      question: "What's included in the 30-day money back guarantee?",
       answer:
-        "If you are not completely satisfied with your Pro subscription within the first 30 days, we will refund your payment in full.",
+        "If you are not completely satisfied with your subscription within the first 30 days, we will refund your payment in full.",
     },
     {
       question: "How accurate is the AI-generated content?",
       answer:
         "Our AI is trained on thousands of successful applications. Our users report 3x higher interview rates compared to generic applications.",
     },
+    {
+      question: "Do you offer quarterly billing?",
+      answer:
+        "Yes! We offer both monthly and quarterly billing options. Quarterly plans come with significant savings - up to 21% off compared to monthly billing.",
+    },
   ]
+
+  const handleUpgrade = async (planId: string) => {
+    setIsLoading(planId)
+    setError(null)
+
+    try {
+      const result = await PaywallService.createCheckoutSession(planId)
+      
+      if (result.success && result.sessionUrl) {
+        window.location.href = result.sessionUrl
+      } else {
+        setError(result.error || "Failed to create checkout session")
+      }
+    } catch (err) {
+      setError("An unexpected error occurred")
+      console.error("Upgrade error:", err)
+    } finally {
+      setIsLoading(null)
+    }
+  }
+
+  const getPlansForBillingCycle = () => {
+    return SUBSCRIPTION_PLANS.filter(plan => plan.billingCycle === billingCycle)
+  }
+
+  const getTierIcon = (tier: string) => {
+    switch (tier) {
+      case "free":
+        return <Star className="w-6 h-6" />
+      case "pro":
+        return <Zap className="w-6 h-6" />
+      case "premium":
+        return <Crown className="w-6 h-6" />
+      default:
+        return <Star className="w-6 h-6" />
+    }
+  }
+
+  const getTierColor = (tier: string) => {
+    switch (tier) {
+      case "free":
+        return "bg-gray-100"
+      case "pro":
+        return "bg-gradient-to-r from-blue-600 to-teal-600"
+      case "premium":
+        return "bg-gradient-to-r from-purple-600 to-pink-600"
+      default:
+        return "bg-gray-100"
+    }
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -67,141 +132,196 @@ export default function PricingPage() {
         </div>
       </section>
 
+      {/* Billing Toggle */}
+      <section className="py-8 bg-white border-b">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center gap-4">
+            <span className={`text-sm font-medium ${billingCycle === "monthly" ? "text-gray-900" : "text-gray-500"}`}>
+              Monthly
+            </span>
+            <button
+              onClick={() => setBillingCycle(billingCycle === "monthly" ? "quarterly" : "monthly")}
+              className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  billingCycle === "quarterly" ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+            <span className={`text-sm font-medium ${billingCycle === "quarterly" ? "text-gray-900" : "text-gray-500"}`}>
+              Quarterly
+              <Badge className="ml-2 bg-green-100 text-green-800 text-xs">Save up to 21%</Badge>
+            </span>
+          </div>
+        </div>
+      </section>
+
       {/* Pricing Cards */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-3 gap-8">
-            {/* Free Plan */}
-            <Card className="relative border-2 border-gray-200 hover:border-blue-300 transition-all duration-300 hover:shadow-xl">
-              <CardHeader className="text-center pb-8">
-                <div className="w-12 h-12 rounded-lg mx-auto mb-4 flex items-center justify-center bg-gray-100">
-                  <Star className="w-6 h-6 text-gray-600" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Free</h3>
-                <p className="text-gray-600 mb-4">Perfect for trying out our AI-powered applications</p>
-                <div className="mb-6">
-                  <span className="text-4xl font-bold text-gray-900">$0</span>
-                  <span className="text-gray-600">/forever</span>
-                </div>
-                <Button variant="outline" size="lg" className="w-full">
-                  Get Started Free
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <h4 className="font-semibold text-gray-900 mb-3">What is included:</h4>
-                <ul className="space-y-2">
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">3 cover letters per month</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">Basic CV analysis</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">Standard templates</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">Email support</span>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            {/* Pro Plan */}
-            <Card className="relative border-2 border-blue-500 shadow-lg scale-105 transition-all duration-300 hover:shadow-xl">
-              <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-teal-600 text-white px-4 py-1">
-                Most Popular
-              </Badge>
-              <CardHeader className="text-center pb-8">
-                <div className="w-12 h-12 rounded-lg mx-auto mb-4 flex items-center justify-center bg-gradient-to-r from-blue-600 to-teal-600">
-                  <Zap className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Pro</h3>
-                <p className="text-gray-600 mb-4">For active job seekers who want the best results</p>
-                <div className="mb-6">
-                  <span className="text-4xl font-bold text-gray-900">$19</span>
-                  <span className="text-gray-600">/month</span>
-                </div>
-                <Button
-                  size="lg"
-                  className="w-full bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
-                >
-                  Start Pro Trial
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <h4 className="font-semibold text-gray-900 mb-3">What is included:</h4>
-                <ul className="space-y-2">
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">Unlimited cover letters</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">Advanced CV optimization</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">Premium templates</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">Priority support</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">Application tracking</span>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            {/* Enterprise Plan */}
-            <Card className="relative border-2 border-gray-200 hover:border-blue-300 transition-all duration-300 hover:shadow-xl">
-              <CardHeader className="text-center pb-8">
-                <div className="w-12 h-12 rounded-lg mx-auto mb-4 flex items-center justify-center bg-gray-100">
-                  <Crown className="w-6 h-6 text-gray-600" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Enterprise</h3>
-                <p className="text-gray-600 mb-4">For teams and career coaches helping multiple clients</p>
-                <div className="mb-6">
-                  <span className="text-4xl font-bold text-gray-900">$99</span>
-                  <span className="text-gray-600">/month</span>
-                </div>
-                <Button variant="outline" size="lg" className="w-full">
-                  Contact Sales
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <h4 className="font-semibold text-gray-900 mb-3">What is included:</h4>
-                <ul className="space-y-2">
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">Everything in Pro</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">Team collaboration</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">Bulk processing</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">Custom branding</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">API access</span>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
+            {getPlansForBillingCycle().map((plan) => (
+              <Card 
+                key={plan.id} 
+                className={`relative border-2 transition-all duration-300 hover:shadow-xl ${
+                  plan.popular 
+                    ? "border-blue-500 shadow-lg scale-105" 
+                    : "border-gray-200 hover:border-blue-300"
+                }`}
+              >
+                {plan.popular && (
+                  <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-teal-600 text-white px-4 py-1">
+                    Most Popular
+                  </Badge>
+                )}
+                {plan.savings && (
+                  <Badge className="absolute -top-3 -right-3 bg-green-500 text-white px-2 py-1 text-xs">
+                    {plan.savings}
+                  </Badge>
+                )}
+                
+                <CardHeader className="text-center pb-8">
+                  <div className={`w-12 h-12 rounded-lg mx-auto mb-4 flex items-center justify-center ${getTierColor(plan.tier)} ${plan.tier !== "free" ? "text-white" : "text-gray-600"}`}>
+                    {getTierIcon(plan.tier)}
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
+                  <p className="text-gray-600 mb-4">
+                    {plan.tier === "free" 
+                      ? "Perfect for trying out our AI-powered applications"
+                      : plan.tier === "pro"
+                      ? "For active job seekers who want the best results"
+                      : "For professionals who want everything unlimited"
+                    }
+                  </p>
+                  <div className="mb-6">
+                    <span className="text-4xl font-bold text-gray-900">
+                      ${plan.price}
+                    </span>
+                    <span className="text-gray-600">
+                      /{plan.billingCycle === "monthly" ? "month" : "quarter"}
+                    </span>
+                  </div>
+                  <Button
+                    onClick={() => handleUpgrade(plan.id)}
+                    disabled={isLoading === plan.id}
+                    variant={plan.tier === "free" ? "outline" : "default"}
+                    size="lg"
+                    className={`w-full ${
+                      plan.tier === "pro" 
+                        ? "bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
+                        : plan.tier === "premium"
+                        ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                        : ""
+                    }`}
+                  >
+                    {isLoading === plan.id ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Processing...
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {plan.tier === "free" ? "Get Started Free" : `Start ${plan.name} Trial`}
+                        <ArrowRight className="w-4 h-4" />
+                      </div>
+                    )}
+                  </Button>
+                </CardHeader>
+                
+                <CardContent>
+                  <h4 className="font-semibold text-gray-900 mb-3">What is included:</h4>
+                  <ul className="space-y-2">
+                    <li className="flex items-start">
+                      <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-gray-700">
+                        {plan.features.cvGenerations === "unlimited" 
+                          ? "Unlimited CV generations"
+                          : `${plan.features.cvGenerations} CV generations per month`
+                        }
+                      </span>
+                    </li>
+                    {plan.features.cvOptimizations !== 0 && (
+                      <li className="flex items-start">
+                        <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-700">
+                          {plan.features.cvOptimizations === "unlimited"
+                            ? "Unlimited CV optimizations"
+                            : `${plan.features.cvOptimizations} CV optimizations per month`
+                          }
+                        </span>
+                      </li>
+                    )}
+                    <li className="flex items-start">
+                      <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-gray-700">
+                        {plan.features.coverLetters === "unlimited"
+                          ? "Unlimited cover letters"
+                          : `${plan.features.coverLetters} cover letters per month`
+                        }
+                      </span>
+                    </li>
+                    <li className="flex items-start">
+                      <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-gray-700">
+                        {plan.features.applicationWizard === "unlimited"
+                          ? "Unlimited application wizard uses"
+                          : `${plan.features.applicationWizard} application wizard uses per month`
+                        }
+                      </span>
+                    </li>
+                    <li className="flex items-start">
+                      <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-gray-700">
+                        {plan.features.aiModel === "gpt-4" ? "GPT-4 AI" : "GPT-3.5 AI"}
+                      </span>
+                    </li>
+                    <li className="flex items-start">
+                      <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-gray-700">
+                        {plan.features.support === "priority" ? "Priority support" : "Email support"}
+                      </span>
+                    </li>
+                    {plan.features.applicationTracking && (
+                      <li className="flex items-start">
+                        <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-700">Application tracking dashboard</span>
+                      </li>
+                    )}
+                    {plan.features.careerCoaching && (
+                      <li className="flex items-start">
+                        <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-700">1-on-1 career coaching session (monthly)</span>
+                      </li>
+                    )}
+                    {plan.features.salaryNegotiation && (
+                      <li className="flex items-start">
+                        <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-700">Salary negotiation guides</span>
+                      </li>
+                    )}
+                    {plan.features.jobMarketInsights && (
+                      <li className="flex items-start">
+                        <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-700">Job market insights</span>
+                      </li>
+                    )}
+                  </ul>
+                </CardContent>
+              </Card>
+            ))}
           </div>
+          
+          {/* Error Message */}
+          {error && (
+            <div className="mt-8 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-red-800">
+                <X className="w-4 h-4" />
+                <span className="font-medium">Error</span>
+              </div>
+              <p className="text-red-700 text-sm mt-1">{error}</p>
+            </div>
+          )}
         </div>
       </section>
 

@@ -29,6 +29,8 @@ import {
 } from "lucide-react"
 import type { User } from "@supabase/supabase-js"
 import type { Application } from "@/lib/supabase"
+import { PaywallService, type Feature } from "@/lib/paywall"
+import { PaywallModal } from "@/components/paywall-modal"
 
 // Update the InlineApplicationDetailModal component with animations and styling
 function InlineApplicationDetailModal({
@@ -865,9 +867,22 @@ export default function DashboardPage() {
     | "ghosted"
   >("all")
 
+  // Paywall state
+  const [paywallModal, setPaywallModal] = useState<{
+    isOpen: boolean
+    feature: Feature | null
+    paywallInfo: any
+  }>({
+    isOpen: false,
+    feature: null,
+    paywallInfo: null,
+  })
+
   useEffect(() => {
     const getUser = async () => {
       try {
+        console.log("🔄 Starting dashboard initialization...")
+        
         // Add null check for supabase
         if (!supabase) {
           console.error("❌ Supabase client not available")
@@ -875,18 +890,29 @@ export default function DashboardPage() {
           return
         }
 
-        const { data } = await supabase.auth.getUser()
+        const { data, error } = await supabase.auth.getUser()
+        
+        if (error) {
+          console.error("❌ Error getting user:", error)
+          setLoading(false)
+          return
+        }
+        
         console.log("👤 Current user:", data.user?.email || "No user")
         setUser(data.user)
 
         // If user exists, fetch their applications and profile
         if (data.user) {
+          console.log("📋 User authenticated, fetching data...")
           await fetchApplications(data.user.id)
           await fetchUserProfile()
+        } else {
+          console.log("⚠️ No authenticated user found")
         }
       } catch (error) {
-        console.error("Error getting user:", error)
+        console.error("❌ Error in getUser:", error)
       } finally {
+        console.log("✅ Dashboard initialization complete")
         setLoading(false)
       }
     }
@@ -917,6 +943,8 @@ export default function DashboardPage() {
         return
       }
 
+      console.log("📊 Querying applications table...")
+      
       const { data, error } = await supabase
         .from("applications")
         .select("*")
@@ -925,6 +953,21 @@ export default function DashboardPage() {
 
       if (error) {
         console.error("❌ Error fetching applications:", error)
+        console.error("❌ Error details:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        })
+        
+        // If table doesn't exist, just set empty applications and continue
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          console.warn("⚠️ Applications table doesn't exist yet - this is normal for new setups")
+          setApplications([])
+          return
+        }
+        
+        setApplications([])
         return
       }
 
@@ -947,7 +990,7 @@ export default function DashboardPage() {
       }
 
       // More flexible type conversion using type guards
-      const typedApplications = (data || []).map((app): Application => {
+      const typedApplications = (data || []).map((app: any): Application => {
         // Type assertion for the raw data
         const rawApp = app as Record<string, unknown>
 
@@ -977,6 +1020,8 @@ export default function DashboardPage() {
       setApplications(typedApplications)
     } catch (error) {
       console.error("❌ Failed to fetch applications:", error)
+      console.error("❌ Error type:", typeof error)
+      console.error("❌ Error message:", error instanceof Error ? error.message : String(error))
       setApplications([])
     }
   }
@@ -1018,6 +1063,35 @@ export default function DashboardPage() {
   const refreshApplications = async () => {
     if (user) {
       await fetchApplications(user.id)
+    }
+  }
+
+  // Paywall check function
+  const checkPaywall = async (feature: Feature) => {
+    try {
+      const paywallInfo = await PaywallService.checkFeatureAccess(feature)
+      if (!paywallInfo || !paywallInfo.allowed) {
+        if (paywallInfo) {
+          setPaywallModal({
+            isOpen: true,
+            feature,
+            paywallInfo,
+          })
+        }
+        return false
+      }
+      return true
+    } catch (error) {
+      console.error("Error checking paywall:", error)
+      return true // Allow if check fails
+    }
+  }
+
+  const handleNewApplication = async () => {
+    // Check paywall for application wizard (uses multiple features)
+    const allowed = await checkPaywall("application_wizard")
+    if (allowed) {
+      window.location.href = "/wizard"
     }
   }
 
@@ -1136,7 +1210,7 @@ export default function DashboardPage() {
                 Refresh
               </Button>
               <Button
-                onClick={() => (window.location.href = "/wizard")}
+                onClick={handleNewApplication}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
               >
                 <Plus className="w-5 h-5 mr-2" />
@@ -1282,7 +1356,7 @@ export default function DashboardPage() {
                   Start by creating your first application with AI-powered cover letters
                 </p>
                 <Button
-                  onClick={() => (window.location.href = "/generator")}
+                  onClick={handleNewApplication}
                   className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
                 >
                   <FileText className="w-4 h-4 mr-2" />
@@ -1426,6 +1500,13 @@ export default function DashboardPage() {
           )}
         </>
       )}
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        isOpen={paywallModal.isOpen}
+        onClose={() => setPaywallModal({ isOpen: false, feature: null, paywallInfo: null })}
+        paywallInfo={paywallModal.paywallInfo}
+      />
     </div>
   )
 }

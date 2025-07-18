@@ -34,6 +34,8 @@ import { generateCoverLetter, improveCv } from "@/lib/ai-service"
 import { useToast } from "@/components/ui/use-toast"
 import { CV_TEMPLATES, renderTemplate, getTemplateById, type CVData } from "@/lib/cv-templates"
 import { parseResumeWithAI } from "@/lib/resume-parser"
+import { PaywallService, type Feature } from "@/lib/paywall"
+import { PaywallModal } from "@/components/paywall-modal"
 
 interface WizardData {
   jobDescription: string
@@ -103,6 +105,15 @@ export default function ApplicationWizard() {
   const [isLoading, setIsLoading] = useState(false)
   const [savedCVs, setSavedCVs] = useState<SavedCV[]>([])
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
+  const [paywallModal, setPaywallModal] = useState<{
+    isOpen: boolean
+    feature: Feature | null
+    paywallInfo: any
+  }>({
+    isOpen: false,
+    feature: null,
+    paywallInfo: null,
+  })
   const [wizardData, setWizardData] = useState<WizardData>({
     jobDescription: "",
     jobUrl: "",
@@ -177,6 +188,57 @@ export default function ApplicationWizard() {
       setCurrentStep(currentStep - 1)
     }
   }, [currentStep])
+
+  // Paywall check functions
+  const checkPaywall = async (feature: Feature) => {
+    try {
+      const paywallInfo = await PaywallService.checkFeatureAccess(feature)
+      if (!paywallInfo || !paywallInfo.allowed) {
+        if (paywallInfo) {
+          setPaywallModal({
+            isOpen: true,
+            feature,
+            paywallInfo,
+          })
+        }
+        return false
+      }
+      return true
+    } catch (error) {
+      console.error("Error checking paywall:", error)
+      return true // Allow if check fails
+    }
+  }
+
+  const handlePaywallUpgrade = async (feature: Feature) => {
+    try {
+      const paywallInfo = await PaywallService.checkFeatureAccess(feature)
+      setPaywallModal({
+        isOpen: true,
+        feature,
+        paywallInfo,
+      })
+    } catch (error) {
+      console.error("Error checking feature access:", error)
+    }
+  }
+
+  // Paywall-aware step navigation
+  const nextStepWithPaywallCheck = useCallback(async () => {
+    // Check paywall for step 3 (CV optimization)
+    if (currentStep === 2) {
+      const allowed = await checkPaywall("cv_optimizations")
+      if (!allowed) return
+    }
+    
+    // Check paywall for step 4 (cover letter generation)
+    if (currentStep === 3) {
+      const allowed = await checkPaywall("cover_letters")
+      if (!allowed) return
+    }
+
+    nextStep()
+  }, [currentStep, nextStep, checkPaywall])
 
   const handleFileUpload = useCallback(
     async (file: File) => {
@@ -346,6 +408,10 @@ export default function ApplicationWizard() {
   )
 
   const optimizeCVWithAI = useCallback(async () => {
+    // Check paywall for CV optimizations
+    const allowed = await checkPaywall("cv_optimizations")
+    if (!allowed) return
+
     if (!wizardData.selectedCV || !wizardData.selectedCV.cv_data) {
       toast({
         title: "Missing CV data",
@@ -422,6 +488,10 @@ export default function ApplicationWizard() {
   }, [wizardData.selectedCV, wizardData.jobDescription, wizardData.selectedTemplate, updateWizardData, toast])
 
   const generateCoverLetterContent = useCallback(async () => {
+    // Check paywall for cover letters
+    const allowed = await checkPaywall("cover_letters")
+    if (!allowed) return
+
     if (!wizardData.selectedCV || !wizardData.selectedCV.cv_data) {
       toast({
         title: "Missing CV data",
@@ -1023,7 +1093,7 @@ export default function ApplicationWizard() {
 
         <div className="flex justify-end pt-4">
           <Button
-            onClick={nextStep}
+            onClick={nextStepWithPaywallCheck}
             disabled={!wizardData.jobDescription.trim()}
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-2.5"
           >
@@ -1245,9 +1315,9 @@ export default function ApplicationWizard() {
             Previous
           </Button>
           <Button
-            onClick={nextStep}
+            onClick={nextStepWithPaywallCheck}
             disabled={!wizardData.selectedCV || !wizardData.selectedTemplate}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-2.5"
+            className="bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-2.5"
           >
             Continue with Selection
             <ArrowRight className="w-4 h-4 ml-2" />
@@ -1574,7 +1644,7 @@ export default function ApplicationWizard() {
             Previous
           </Button>
           <Button
-            onClick={nextStep}
+            onClick={nextStepWithPaywallCheck}
             disabled={!wizardData.coverLetter}
             className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-2.5"
           >
@@ -1839,6 +1909,13 @@ export default function ApplicationWizard() {
           <CardContent className="p-8">{renderStep()}</CardContent>
         </Card>
         {TemplateSelectionModal}
+
+        {/* Paywall Modal */}
+        <PaywallModal
+          isOpen={paywallModal.isOpen}
+          onClose={() => setPaywallModal({ isOpen: false, feature: null, paywallInfo: null })}
+          paywallInfo={paywallModal.paywallInfo}
+        />
       </div>
     </div>
   )

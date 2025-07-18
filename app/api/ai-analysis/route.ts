@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import type { CVData } from "@/lib/cv-templates"
+import { PaywallService } from "@/lib/paywall"
+import { SubscriptionService } from "@/lib/subscription"
 
 interface AnalysisRequest {
   cvData: CVData
@@ -35,6 +37,20 @@ let validatedResults: Record<string, unknown> = {}
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     console.log("🔍 Enhanced AI Analysis API called")
+
+    // Check paywall for CV optimizations
+    const paywallCheck = await PaywallService.checkAndRecordUsage("cv_optimizations")
+    if (!paywallCheck.allowed) {
+      console.log("🚫 Paywall triggered for CV optimizations")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Usage limit reached",
+          paywallInfo: paywallCheck.paywallInfo,
+        },
+        { status: 402 }
+      )
+    }
 
     // Check if OpenAI is configured
     if (!process.env.OPENAI_API_KEY) {
@@ -78,7 +94,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     console.log("🤖 Sending comprehensive request to OpenAI GPT-4o...")
 
-    // Use GPT-4o for better context understanding with increased token limit
+    // Determine AI model based on user tier
+    const userTier = await SubscriptionService.getUserTier()
+    const aiModel = userTier === "free" ? "gpt-3.5-turbo" : "gpt-4o"
+    
+    console.log(`🤖 Using ${aiModel} for user tier: ${userTier}`)
+
+    // Use appropriate AI model based on subscription tier
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -86,7 +108,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: aiModel,
         messages: [
           {
             role: "system",
@@ -111,7 +133,7 @@ You must analyze EVERY experience section and return comprehensive recommendatio
           },
         ],
         temperature: 0.15, // Very low for consistent analysis
-        max_tokens: 8000, // Increased significantly for comprehensive analysis
+        max_tokens: userTier === "free" ? 4000 : 8000, // Lower token limit for free users
       }),
     })
 

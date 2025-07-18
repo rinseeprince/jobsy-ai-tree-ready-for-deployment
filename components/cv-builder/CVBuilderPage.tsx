@@ -16,11 +16,22 @@ import { useCVSave } from "./hooks/useCVSave"
 import { useCVAnalysis } from "./hooks/useCVAnalysis"
 import { useCVCompletion } from "./hooks/useCVCompletion"
 import { getTemplateById, renderTemplate, type CVData } from "@/lib/cv-templates"
+import { PaywallService, type Feature } from "@/lib/paywall"
+import { PaywallModal } from "@/components/paywall-modal"
 
 export const CVBuilderPage = () => {
   const [activeTab, setActiveTab] = useState("build")
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState("modern")
+  const [paywallModal, setPaywallModal] = useState<{
+    isOpen: boolean
+    feature: Feature | null
+    paywallInfo: any
+  }>({
+    isOpen: false,
+    feature: null,
+    paywallInfo: null,
+  })
 
   // Custom hooks
   const {
@@ -88,6 +99,40 @@ export const CVBuilderPage = () => {
   } = useCVAnalysis()
 
   const { calculateCompletion, getSectionStatus, getSectionPreview } = useCVCompletion()
+
+  // Paywall check functions
+  const checkPaywall = async (feature: Feature) => {
+    try {
+      const paywallInfo = await PaywallService.checkFeatureAccess(feature)
+      if (!paywallInfo || !paywallInfo.allowed) {
+        if (paywallInfo) {
+          setPaywallModal({
+            isOpen: true,
+            feature,
+            paywallInfo,
+          })
+        }
+        return false
+      }
+      return true
+    } catch (error) {
+      console.error("Error checking paywall:", error)
+      return true // Allow if check fails
+    }
+  }
+
+  const handlePaywallUpgrade = async (feature: Feature) => {
+    try {
+      const paywallInfo = await PaywallService.checkFeatureAccess(feature)
+      setPaywallModal({
+        isOpen: true,
+        feature,
+        paywallInfo,
+      })
+    } catch (error) {
+      console.error("Error checking feature access:", error)
+    }
+  }
 
   // Update template preview when data or template changes
   useEffect(() => {
@@ -293,7 +338,9 @@ export const CVBuilderPage = () => {
   }
 
   // Improve CV handler
-  const handleImproveCVWrapper = () => {
+  const handleImproveCVWrapper = async () => {
+    const allowed = await checkPaywall("cv_optimizations")
+    if (!allowed) return
     handleImproveCV(generateCVText, setError, setSuccess)
   }
 
@@ -303,7 +350,9 @@ export const CVBuilderPage = () => {
   }
 
   // Implement recommendations handler
-  const handleImplementRecommendationsWrapper = () => {
+  const handleImplementRecommendationsWrapper = async () => {
+    const allowed = await checkPaywall("cv_optimizations")
+    if (!allowed) return
     handleImplementRecommendations(cvData, generateCVText, setError, setSuccess)
   }
 
@@ -465,6 +514,13 @@ export const CVBuilderPage = () => {
           removeCertification={removeCertification}
           handlePhotoUpload={handlePhotoUpload}
           removePhoto={removePhoto}
+        />
+
+        {/* Paywall Modal */}
+        <PaywallModal
+          isOpen={paywallModal.isOpen}
+          onClose={() => setPaywallModal({ isOpen: false, feature: null, paywallInfo: null })}
+          paywallInfo={paywallModal.paywallInfo}
         />
       </div>
     </div>

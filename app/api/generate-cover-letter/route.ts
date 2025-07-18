@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
 import { createOpenAI } from "@ai-sdk/openai"
+import { PaywallService } from "@/lib/paywall"
+import { SubscriptionService } from "@/lib/subscription"
 
 const openaiClient = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -8,6 +10,22 @@ const openaiClient = createOpenAI({
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("🔍 Cover Letter Generation API called")
+
+    // Check paywall for cover letters
+    const paywallCheck = await PaywallService.checkAndRecordUsage("cover_letters")
+    if (!paywallCheck.allowed) {
+      console.log("🚫 Paywall triggered for cover letters")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Usage limit reached",
+          paywallInfo: paywallCheck.paywallInfo,
+        },
+        { status: 402 }
+      )
+    }
+
     console.log("API Route - Environment check:")
     console.log("OPENAI_API_KEY exists:", !!process.env.OPENAI_API_KEY)
     console.log("OPENAI_API_KEY length:", process.env.OPENAI_API_KEY?.length || 0)
@@ -22,8 +40,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Job posting and CV content are required" }, { status: 400 })
     }
 
+    // Determine AI model based on user tier
+    const userTier = await SubscriptionService.getUserTier()
+    const aiModel = userTier === "free" ? "gpt-3.5-turbo" : "gpt-4o"
+    
+    console.log(`🤖 Using ${aiModel} for user tier: ${userTier}`)
+
     const { text } = await generateText({
-      model: openaiClient("gpt-4o"),
+      model: openaiClient(aiModel),
       system: `You are an expert career coach and professional writer specializing in creating compelling cover letters. Your task is to write personalized, professional cover letters that effectively match candidates to job opportunities.
 
 Guidelines:
