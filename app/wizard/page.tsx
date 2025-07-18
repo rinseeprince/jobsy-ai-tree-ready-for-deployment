@@ -27,6 +27,7 @@ import {
   Sparkles,
   Mail,
   ClipboardCheck,
+  X,
 } from "lucide-react"
 import { ApplicationsService, type SavedCV } from "@/lib/supabase"
 import { generateCoverLetter, improveCv } from "@/lib/ai-service"
@@ -43,6 +44,7 @@ interface WizardData {
   renderedCV?: string
   coverLetter?: string
   applicationName: string
+  companyName: string
   status: string
 }
 
@@ -100,6 +102,7 @@ export default function ApplicationWizard() {
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [savedCVs, setSavedCVs] = useState<SavedCV[]>([])
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
   const [wizardData, setWizardData] = useState<WizardData>({
     jobDescription: "",
     jobUrl: "",
@@ -109,6 +112,7 @@ export default function ApplicationWizard() {
     renderedCV: "",
     coverLetter: "",
     applicationName: "",
+    companyName: "",
     status: "applied",
   })
 
@@ -149,7 +153,17 @@ export default function ApplicationWizard() {
 
   // Use useCallback to prevent unnecessary re-renders that cause focus loss
   const updateWizardData = useCallback((updates: Partial<WizardData>) => {
-    setWizardData((prev) => ({ ...prev, ...updates }))
+    setWizardData((prev) => {
+      const newData = { ...prev, ...updates }
+      
+      // If job description is being updated, extract and set company name
+      if (updates.jobDescription && updates.jobDescription !== prev.jobDescription) {
+        const jobDetails = ApplicationsService.extractJobDetails(updates.jobDescription)
+        newData.companyName = jobDetails.company_name
+      }
+      
+      return newData
+    })
   }, [])
 
   const nextStep = useCallback(() => {
@@ -380,10 +394,10 @@ export default function ApplicationWizard() {
       const implementData = await implementResponse.json()
       const optimizedCVData = implementData.updatedCV
 
-      // Get selected template
+      // Always use the current selected template from wizardData
       const selectedTemplate = CV_TEMPLATES.find((t) => t.id === wizardData.selectedTemplate) || CV_TEMPLATES[0]
 
-      // Render the optimized CV with the selected template
+      // Render the optimized CV with the current selected template
       const renderedCV = renderTemplate(optimizedCVData, selectedTemplate)
 
       updateWizardData({
@@ -486,7 +500,7 @@ export default function ApplicationWizard() {
   }, [])
 
   const saveApplication = useCallback(async () => {
-    if (!wizardData.selectedCV || !wizardData.jobDescription || !wizardData.coverLetter || !wizardData.renderedCV) {
+    if (!wizardData.selectedCV || !wizardData.jobDescription || !wizardData.coverLetter || !wizardData.renderedCV || !wizardData.companyName.trim()) {
       toast({
         title: "Missing information",
         description: "Please complete all steps before saving.",
@@ -500,8 +514,8 @@ export default function ApplicationWizard() {
       const jobDetails = ApplicationsService.extractJobDetails(wizardData.jobDescription)
 
       await ApplicationsService.saveApplication({
-        job_title: jobDetails.job_title,
-        company_name: jobDetails.company_name,
+        job_title: wizardData.applicationName,
+        company_name: wizardData.companyName || jobDetails.company_name, // Use user-entered company name, fallback to extracted
         job_posting: wizardData.jobDescription,
         cv_content: wizardData.renderedCV, // Save the formatted, templated CV
         cover_letter: wizardData.coverLetter,
@@ -1022,6 +1036,65 @@ export default function ApplicationWizard() {
     [wizardData.jobDescription, wizardData.jobUrl, updateWizardData, handleFileUpload, isLoading, nextStep],
   )
 
+  // Sample CV data for template previews when no CV is selected
+  const sampleCVData: CVData = {
+    personalInfo: {
+      name: "John Smith",
+      title: "Software Engineer",
+      email: "john.smith@email.com",
+      phone: "+1 (555) 123-4567",
+      location: "San Francisco, CA",
+      summary: "Experienced software engineer with 5+ years developing scalable web applications using React, Node.js, and cloud technologies.",
+      linkedin: "linkedin.com/in/johnsmith",
+      website: "johnsmith.dev",
+      profilePhoto: "",
+    },
+    experience: [
+      {
+        id: "exp-1",
+        title: "Senior Software Engineer",
+        company: "Tech Corp",
+        location: "San Francisco, CA",
+        startDate: "2022",
+        endDate: "Present",
+        current: true,
+        description: "Lead development of microservices architecture. Mentored junior developers and improved code quality.",
+      },
+      {
+        id: "exp-2",
+        title: "Software Engineer",
+        company: "Startup Inc",
+        location: "San Francisco, CA",
+        startDate: "2020",
+        endDate: "2022",
+        current: false,
+        description: "Built and maintained React applications. Collaborated with design and product teams.",
+      },
+    ],
+    education: [
+      {
+        id: "edu-1",
+        degree: "Bachelor of Science in Computer Science",
+        institution: "University of California",
+        location: "Berkeley, CA",
+        startDate: "2016",
+        endDate: "2020",
+        current: false,
+        description: "Graduated with honors. Focused on software engineering and algorithms.",
+      },
+    ],
+    skills: ["React", "Node.js", "TypeScript", "AWS", "Docker", "Git"],
+    certifications: [
+      {
+        id: "cert-1",
+        name: "AWS Certified Developer",
+        issuer: "Amazon Web Services",
+        date: "2023",
+        description: "Associate level certification for AWS development.",
+      },
+    ],
+  }
+
   const Step2SelectCVAndTemplate = useMemo(
     () => (
       <div className="space-y-6">
@@ -1102,48 +1175,63 @@ export default function ApplicationWizard() {
             Choose Template Style
           </h4>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {CV_TEMPLATES.map((template) => (
-              <Card
-                key={template.id}
-                className={`cursor-pointer transition-all duration-200 hover:shadow-lg border ${
-                  wizardData.selectedTemplate === template.id
-                    ? "ring-2 ring-purple-500 bg-purple-50 border-purple-200 shadow-md"
-                    : "hover:bg-gray-50 border-gray-200 shadow-sm hover:border-gray-300"
-                }`}
-                onClick={() => updateWizardData({ selectedTemplate: template.id })}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-sm mb-1 text-gray-900">{template.name}</h4>
-                      <p className="text-xs text-gray-500 mb-2">{template.description}</p>
+            {CV_TEMPLATES.map((template) => {
+              // Use selected CV data or sample data for preview
+              const cvDataForPreview = wizardData.selectedCV?.cv_data || sampleCVData
+              const renderedTemplate = renderTemplate(cvDataForPreview, template)
+              
+              return (
+                <Card
+                  key={template.id}
+                  className={`cursor-pointer transition-all duration-200 hover:shadow-lg border ${
+                    wizardData.selectedTemplate === template.id
+                      ? "ring-2 ring-purple-500 bg-purple-50 border-purple-200 shadow-md"
+                      : "hover:bg-gray-50 border-gray-200 shadow-sm hover:border-gray-300"
+                  }`}
+                  onClick={() => updateWizardData({ selectedTemplate: template.id })}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm mb-1 text-gray-900">{template.name}</h4>
+                        <p className="text-xs text-gray-500 mb-2">{template.description}</p>
+                      </div>
+                      {wizardData.selectedTemplate === template.id && <CheckCircle className="w-5 h-5 text-purple-500" />}
                     </div>
-                    {wizardData.selectedTemplate === template.id && <CheckCircle className="w-5 h-5 text-purple-500" />}
-                  </div>
 
-                  {/* Template Preview */}
-                  <div className="bg-gray-50 rounded-lg p-2 mb-3 h-32 overflow-hidden relative border">
-                    <div className="text-xs text-gray-600 text-center pt-12">Template Preview</div>
-                  </div>
+                    {/* Template Preview */}
+                    <div className="bg-gray-50 rounded-lg p-2 mb-3 h-32 overflow-hidden relative border">
+                      <div 
+                        className="w-full h-full overflow-hidden"
+                        style={{
+                          transform: 'scale(0.15)',
+                          transformOrigin: 'top left',
+                          width: '667%',
+                          height: '667%',
+                        }}
+                        dangerouslySetInnerHTML={{ __html: renderedTemplate }}
+                      />
+                    </div>
 
-                  <div className="flex flex-wrap gap-1">
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full font-medium ${
-                        template.category === "ats-optimized"
-                          ? "bg-green-100 text-green-800"
-                          : template.category === "professional"
-                            ? "bg-blue-100 text-blue-800"
-                            : template.category === "modern"
-                              ? "bg-purple-100 text-purple-800"
-                              : "bg-orange-100 text-orange-800"
-                      }`}
-                    >
-                      {template.category}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="flex flex-wrap gap-1">
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full font-medium ${
+                          template.category === "ats-optimized"
+                            ? "bg-green-100 text-green-800"
+                            : template.category === "professional"
+                              ? "bg-blue-100 text-blue-800"
+                              : template.category === "modern"
+                                ? "bg-purple-100 text-purple-800"
+                                : "bg-orange-100 text-orange-800"
+                        }`}
+                      >
+                        {template.category}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         </div>
 
@@ -1178,6 +1266,34 @@ export default function ApplicationWizard() {
       nextStep,
     ],
   )
+
+  const handleTemplateChange = useCallback(() => {
+    setIsTemplateModalOpen(true)
+  }, [])
+
+  const handleTemplateSelection = useCallback((templateId: string) => {
+    if (wizardData.optimizedCVData) {
+      // Get the selected template
+      const selectedTemplate = CV_TEMPLATES.find((t) => t.id === templateId) || CV_TEMPLATES[0]
+      
+      // Re-render the CV with the new template
+      const renderedCV = renderTemplate(wizardData.optimizedCVData, selectedTemplate)
+      
+      // Update wizard data with new template and rendered CV
+      updateWizardData({ 
+        selectedTemplate: templateId,
+        renderedCV 
+      })
+      
+      // Close the modal
+      setIsTemplateModalOpen(false)
+      
+      toast({
+        title: "Template updated",
+        description: `Your CV has been re-rendered with the ${selectedTemplate.name} template.`,
+      })
+    }
+  }, [wizardData.optimizedCVData, updateWizardData, toast])
 
   const Step3OptimizeCV = useMemo(
     () => (
@@ -1256,10 +1372,7 @@ export default function ApplicationWizard() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      // Template selection change
-                      setCurrentStep(2)
-                    }}
+                    onClick={handleTemplateChange}
                     className="shadow-sm border-gray-300 hover:bg-gray-50"
                   >
                     <Palette className="w-4 h-4 mr-2" />
@@ -1299,7 +1412,78 @@ export default function ApplicationWizard() {
       isLoading,
       prevStep,
       nextStep,
+      handleTemplateChange,
     ],
+  )
+
+  const TemplateSelectionModal = useMemo(
+    () => (
+      <>
+        {isTemplateModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Select Template</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsTemplateModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+              
+              <div className="p-6">
+                <p className="text-sm text-gray-600 mb-6">
+                  Choose a template to re-render your optimized CV. Your content will remain the same, only the visual design will change.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {CV_TEMPLATES.map((template) => (
+                    <div
+                      key={template.id}
+                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all duration-200 hover:shadow-md ${
+                        wizardData.selectedTemplate === template.id
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                      onClick={() => handleTemplateSelection(template.id)}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-gray-900">{template.name}</h4>
+                        {wizardData.selectedTemplate === template.id && (
+                          <CheckCircle className="w-5 h-5 text-blue-500" />
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">{template.description}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500 capitalize">{template.category}</span>
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: template.colors.primary }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsTemplateModalOpen(false)}
+                  className="shadow-sm border-gray-300 hover:bg-gray-50"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    ),
+    [isTemplateModalOpen, wizardData.selectedTemplate, handleTemplateSelection]
   )
 
   const Step4CoverLetter = useMemo(
@@ -1458,6 +1642,18 @@ export default function ApplicationWizard() {
             />
           </div>
           <div>
+            <Label htmlFor="company-name" className="text-sm font-medium text-gray-700">
+              Company Name *
+            </Label>
+            <Input
+              id="company-name"
+              placeholder="e.g., TechCorp Inc."
+              value={wizardData.companyName}
+              onChange={(e) => updateWizardData({ companyName: e.target.value })}
+              className="mt-1 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 shadow-sm"
+            />
+          </div>
+          <div>
             <Label htmlFor="status" className="text-sm font-medium text-gray-700">
               Initial Status
             </Label>
@@ -1506,7 +1702,7 @@ export default function ApplicationWizard() {
             </Button>
             <Button
               onClick={saveApplication}
-              disabled={isLoading || !wizardData.applicationName.trim()}
+              disabled={isLoading || !wizardData.applicationName.trim() || !wizardData.companyName.trim()}
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-2.5"
             >
               {isLoading ? (
@@ -1530,6 +1726,7 @@ export default function ApplicationWizard() {
       wizardData.renderedCV,
       wizardData.coverLetter,
       wizardData.applicationName,
+      wizardData.companyName,
       wizardData.status,
       updateWizardData,
       prevStep,
@@ -1641,6 +1838,7 @@ export default function ApplicationWizard() {
         <Card className="border-0 shadow-2xl bg-white/80 backdrop-blur-sm">
           <CardContent className="p-8">{renderStep()}</CardContent>
         </Card>
+        {TemplateSelectionModal}
       </div>
     </div>
   )
