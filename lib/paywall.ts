@@ -18,16 +18,49 @@ export interface PaywallInfo {
   }>
 }
 
+export interface FeatureAccess {
+  allowed: boolean
+  current: number
+  limit: number
+  tier: "free" | "premium"
+  feature: string
+}
+
+export interface SubscriptionInfo {
+  isActive: boolean
+  planId: string | null
+  status: string | null
+  currentPeriodEnd: string | null
+}
+
 export class PaywallService {
+  // Feature limits for free tier
+  private static readonly FREE_LIMITS = {
+    cv_generations: 3,
+    cv_optimizations: 2,
+    cover_letters: 2,
+    application_wizard: 1,
+  }
+
+  // Premium tier has unlimited access (represented by high number)
+  private static readonly PREMIUM_LIMITS = {
+    cv_generations: 999999,
+    cv_optimizations: 999999,
+    cover_letters: 999999,
+    application_wizard: 999999,
+  }
+
+  /**
+   * Check if user has access to a specific feature
+   */
   static async checkFeatureAccess(feature: Feature): Promise<PaywallInfo> {
     try {
       const usageCheck = await SubscriptionService.checkUsageLimit(feature)
       const tier = await SubscriptionService.getUserTier()
 
       // Get upgrade plans (exclude current tier and free tier)
-      const upgradePlans = SUBSCRIPTION_PLANS
-        .filter(plan => plan.tier !== tier && plan.tier !== "free")
-        .map(plan => ({
+      const upgradePlans = SUBSCRIPTION_PLANS.filter((plan) => plan.tier !== tier && plan.tier !== "free")
+        .map((plan) => ({
           id: plan.id,
           name: plan.name,
           tier: plan.tier,
@@ -54,9 +87,8 @@ export class PaywallService {
         limit: 0,
         tier: "free",
         allowed: false,
-        upgradePlans: SUBSCRIPTION_PLANS
-          .filter(plan => plan.tier !== "free")
-          .map(plan => ({
+        upgradePlans: SUBSCRIPTION_PLANS.filter((plan) => plan.tier !== "free")
+          .map((plan) => ({
             id: plan.id,
             name: plan.name,
             tier: plan.tier,
@@ -69,16 +101,22 @@ export class PaywallService {
     }
   }
 
+  /**
+   * Record feature usage for a user
+   */
   static async recordUsage(feature: Feature): Promise<void> {
     await SubscriptionService.incrementUsage(feature)
   }
 
+  /**
+   * Check if user has access to a specific feature and record usage if allowed
+   */
   static async checkAndRecordUsage(feature: Feature): Promise<{
     allowed: boolean
     paywallInfo?: PaywallInfo
   }> {
     const paywallInfo = await this.checkFeatureAccess(feature)
-    
+
     if (paywallInfo.allowed) {
       await this.recordUsage(feature)
       return { allowed: true }
@@ -90,6 +128,9 @@ export class PaywallService {
     }
   }
 
+  /**
+   * Get display name for a feature
+   */
   static getFeatureDisplayName(feature: Feature): string {
     switch (feature) {
       case "cv_generations":
@@ -105,6 +146,9 @@ export class PaywallService {
     }
   }
 
+  /**
+   * Get description for a feature
+   */
   static getFeatureDescription(feature: Feature): string {
     switch (feature) {
       case "cv_generations":
@@ -120,6 +164,9 @@ export class PaywallService {
     }
   }
 
+  /**
+   * Get display name for a subscription tier
+   */
   static getTierDisplayName(tier: SubscriptionTier): string {
     switch (tier) {
       case "free":
@@ -133,6 +180,9 @@ export class PaywallService {
     }
   }
 
+  /**
+   * Format limit for display
+   */
   static formatLimit(limit: number | "unlimited"): string {
     if (limit === "unlimited") {
       return "Unlimited"
@@ -140,9 +190,12 @@ export class PaywallService {
     return limit.toString()
   }
 
+  /**
+   * Get upgrade message for a feature based on current tier
+   */
   static getUpgradeMessage(feature: Feature, currentTier: SubscriptionTier): string {
     const featureName = this.getFeatureDisplayName(feature)
-    
+
     switch (currentTier) {
       case "free":
         return `Upgrade to Pro or Premium for unlimited ${featureName.toLowerCase()}`
@@ -155,7 +208,13 @@ export class PaywallService {
     }
   }
 
-  static getUsageProgress(current: number, limit: number | "unlimited"): {
+  /**
+   * Get usage progress for a feature
+   */
+  static getUsageProgress(
+    current: number,
+    limit: number | "unlimited",
+  ): {
     percentage: number
     remaining: number | "unlimited"
   } {
@@ -175,6 +234,9 @@ export class PaywallService {
     }
   }
 
+  /**
+   * Check if Stripe is properly configured
+   */
   static isStripeConfigured(): boolean {
     return !!(
       process.env.STRIPE_SECRET_KEY &&
@@ -183,17 +245,16 @@ export class PaywallService {
     )
   }
 
+  /**
+   * Get Stripe configuration status for debugging
+   */
   static getStripeConfigurationStatus(): {
     configured: boolean
     missingKeys: string[]
   } {
-    const requiredKeys = [
-      "STRIPE_SECRET_KEY",
-      "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-      "STRIPE_WEBHOOK_SECRET",
-    ]
+    const requiredKeys = ["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", "STRIPE_WEBHOOK_SECRET"]
 
-    const missingKeys = requiredKeys.filter(key => !process.env[key])
+    const missingKeys = requiredKeys.filter((key) => !process.env[key])
 
     return {
       configured: missingKeys.length === 0,
@@ -201,12 +262,18 @@ export class PaywallService {
     }
   }
 
+  /**
+   * Create a checkout session for a subscription plan
+   */
   static async createCheckoutSession(planId: string): Promise<{
     success: boolean
     sessionUrl?: string
     error?: string
   }> {
+    console.log("🔍 PaywallService.createCheckoutSession called with planId:", planId)
+
     if (!this.isStripeConfigured()) {
+      console.error("❌ Stripe is not configured")
       return {
         success: false,
         error: "Stripe is not configured. Please contact support.",
@@ -214,43 +281,92 @@ export class PaywallService {
     }
 
     try {
+      console.log("📞 Making API call to /api/stripe/create-checkout")
+
+      // Import supabase client dynamically to avoid SSR issues
+      const { supabase } = await import("@/lib/supabase")
+
+      if (!supabase) {
+        throw new Error("Supabase client not available")
+      }
+
+      // Get the current session from Supabase
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError) {
+        console.error("❌ Error getting session:", sessionError)
+        return {
+          success: false,
+          error: "Authentication error. Please log in and try again.",
+        }
+      }
+
+      if (!session?.access_token) {
+        console.error("❌ No valid session found")
+        return {
+          success: false,
+          error: "You must be logged in to upgrade. Please log in and try again.",
+        }
+      }
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      }
+
+      console.log("✅ Added auth token to request")
+
       const response = await fetch("/api/stripe/create-checkout", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({ planId }),
       })
 
+      console.log("📡 API response status:", response.status, response.statusText)
+
       const data = await response.json()
+      console.log("📄 API response data:", data)
 
       if (!response.ok) {
+        console.error("❌ API response not ok:", data)
+        return {
+          success: false,
+          error: data.error || `HTTP ${response.status}: ${response.statusText}`,
+        }
+      }
+
+      if (data.success && data.sessionUrl) {
+        console.log("✅ Checkout session created successfully")
+        return {
+          success: true,
+          sessionUrl: data.sessionUrl,
+        }
+      } else {
+        console.error("❌ API returned success=false:", data)
         return {
           success: false,
           error: data.error || "Failed to create checkout session",
         }
       }
-
-      return {
-        success: true,
-        sessionUrl: data.sessionUrl,
-      }
     } catch (error) {
-      console.error("Error creating checkout session:", error)
+      console.error("❌ Error creating checkout session:", error)
       return {
         success: false,
-        error: "Failed to create checkout session",
+        error: error instanceof Error ? error.message : "Failed to create checkout session",
       }
     }
   }
 
+  /**
+   * Get features included in a subscription plan
+   */
   static getPlanFeatures(planId: string): {
     features: string[]
     aiModel: string
     support: string
   } {
-    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId)
-    
+    const plan = SUBSCRIPTION_PLANS.find((p) => p.id === planId)
+
     if (!plan) {
       return {
         features: [],
@@ -309,4 +425,4 @@ export class PaywallService {
       support: plan.features.support === "priority" ? "Priority support" : "Email support",
     }
   }
-} 
+}

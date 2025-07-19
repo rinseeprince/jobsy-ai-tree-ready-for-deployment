@@ -1,196 +1,133 @@
-import { NextRequest, NextResponse } from "next/server"
-import { supabase, isSupabaseReady } from "@/lib/supabase"
-import { SUBSCRIPTION_PLANS, SubscriptionService } from "@/lib/subscription"
+import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
+import Stripe from "stripe"
 
-// Initialize Stripe with graceful fallback
-let stripe: any = null
-try {
-  if (process.env.STRIPE_SECRET_KEY) {
-    stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
-  }
-} catch (error) {
-  console.warn("⚠️ Stripe not configured or failed to initialize")
-}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2025-06-30.basil",
+})
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: NextRequest) {
   try {
-    console.log("🔍 Stripe checkout API called")
+    console.log("🔄 Starting Stripe checkout creation...")
 
-    // Check if user is authenticated
-    if (!isSupabaseReady || !supabase) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Database not configured. Please contact support.",
-        },
-        { status: 500 }
-      )
+    // Create Supabase client
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+    // Get the authorization header
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader) {
+      console.error("❌ No authorization header found")
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User not authenticated",
-        },
-        { status: 401 }
-      )
-    }
-
-    const body = await request.json()
-    const { planId } = body
-
-    if (!planId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Plan ID is required",
-        },
-        { status: 400 }
-      )
-    }
-
-    // Find the plan
-    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId)
-    if (!plan) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid plan ID",
-        },
-        { status: 400 }
-      )
-    }
-
-    // If it's the free plan, create subscription directly without Stripe
-    if (plan.tier === "free") {
-      const subscription = await SubscriptionService.createSubscription(planId)
-      if (subscription) {
-        return NextResponse.json({
-          success: true,
-          message: "Free subscription activated successfully",
-        })
-      } else {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Failed to activate free subscription",
-          },
-          { status: 500 }
-        )
-      }
-    }
-
-    // Check if Stripe is configured
-    if (!stripe || !process.env.STRIPE_SECRET_KEY) {
-      console.warn("⚠️ Stripe not configured, returning error")
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Payment processing is not configured. Please contact support.",
-        },
-        { status: 503 }
-      )
-    }
-
-    // Check if plan has Stripe price ID
-    if (!plan.stripePriceId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Plan is not configured for payment processing",
-        },
-        { status: 400 }
-      )
-    }
-
-    // Get user profile for Stripe customer
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name, email")
-      .eq("id", user.id)
-      .single()
-
-    const customerEmail = profile?.email || user.email
-    const customerName = profile?.full_name || user.user_metadata?.full_name
-
-    // Create or get Stripe customer
-    let customerId: string
-    const { data: existingCustomers } = await stripe.customers.list({
-      email: customerEmail,
-      limit: 1,
+    // Set the auth token
+    const token = authHeader.replace("Bearer ", "")
+    await supabase.auth.setSession({
+      access_token: token,
+      refresh_token: "",
     })
 
-    if (existingCustomers.data.length > 0) {
-      customerId = existingCustomers.data[0].id
-    } else {
-      const customer = await stripe.customers.create({
-        email: customerEmail,
-        name: customerName,
-        metadata: {
-          supabase_user_id: user.id,
-        },
-      })
-      customerId = customer.id
+    // Get the current user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      console.error("❌ Authentication failed:", authError)
+      return NextResponse.json({ error: "Authentication failed" }, { status: 401 })
     }
 
-    // Create checkout session
+    console.log("✅ User authenticated:", user.email)
+
+    // Parse request body
+    const { planId } = await request.json()
+
+    if (!planId) {
+      console.error("❌ No planId provided")
+      return NextResponse.json({ error: "Plan ID is required" }, { status: 400 })
+    }
+
+    console.log("📋 Creating checkout for plan:", planId)
+
+    // Define plan configurations
+    const planConfigs = {
+      "pro-monthly": {
+        priceId: process.env.STRIPE_PRO_MONTHLY_PRICE_ID!,
+        name: "Pro Monthly",
+      },
+      "pro-quarterly": {
+        priceId: process.env.STRIPE_PRO_QUARTERLY_PRICE_ID!,
+        name: "Pro Quarterly",
+      },
+      "premium-monthly": {
+        priceId: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID!,
+        name: "Premium Monthly",
+      },
+      "premium-quarterly": {
+        priceId: process.env.STRIPE_PREMIUM_QUARTERLY_PRICE_ID!,
+        name: "Premium Quarterly",
+      },
+    }
+
+    const planConfig = planConfigs[planId as keyof typeof planConfigs]
+
+    if (!planConfig) {
+      console.error("❌ Invalid plan ID:", planId)
+      return NextResponse.json({ error: "Invalid plan ID" }, { status: 400 })
+    }
+
+    if (!planConfig.priceId) {
+      console.error("❌ Missing price ID for plan:", planId)
+      return NextResponse.json({ error: "Plan configuration error" }, { status: 500 })
+    }
+
+    console.log("💳 Creating Stripe checkout session...")
+
+    // Create Stripe checkout session (REGULAR CHECKOUT, NOT CONNECT)
     const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      payment_method_types: ["card"],
+      customer_email: user.email,
       line_items: [
         {
-          price: plan.stripePriceId,
+          price: planConfig.priceId,
           quantity: 1,
         },
       ],
       mode: "subscription",
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/auth-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/pricing?canceled=true`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard?upgrade=success`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/wizard?upgrade=cancelled`,
       metadata: {
-        plan_id: planId,
-        user_id: user.id,
+        userId: user.id,
+        planId: planId,
+        userEmail: user.email || "",
       },
       subscription_data: {
         metadata: {
-          plan_id: planId,
-          user_id: user.id,
+          userId: user.id,
+          planId: planId,
         },
       },
     })
 
-    console.log("✅ Stripe checkout session created:", {
-      sessionId: session.id,
-      planId,
-      customerId,
-    })
+    console.log("✅ Stripe checkout session created:", session.id)
 
     return NextResponse.json({
       success: true,
-      sessionUrl: session.url,
       sessionId: session.id,
+      sessionUrl: session.url,
     })
   } catch (error) {
-    console.error("❌ Error in Stripe checkout:", error)
-    
-    // Handle Stripe-specific errors
-    if (error instanceof Error && error.message.includes("stripe")) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Payment processing error. Please try again or contact support.",
-        },
-        { status: 500 }
-      )
-    }
+    console.error("❌ Stripe checkout creation failed:", error)
 
     return NextResponse.json(
       {
         success: false,
         error: "Failed to create checkout session",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
-} 
+}

@@ -1070,20 +1070,22 @@ export default function DashboardPage() {
   const checkPaywall = async (feature: Feature) => {
     try {
       const paywallInfo = await PaywallService.checkFeatureAccess(feature)
-      if (!paywallInfo || !paywallInfo.allowed) {
-        if (paywallInfo) {
-          setPaywallModal({
-            isOpen: true,
-            feature,
-            paywallInfo,
-          })
-        }
+      
+      // Only show paywall if we have valid paywallInfo and access is not allowed
+      if (paywallInfo && !paywallInfo.allowed) {
+        setPaywallModal({
+          isOpen: true,
+          feature,
+          paywallInfo,
+        })
         return false
       }
+      
       return true
     } catch (error) {
       console.error("Error checking paywall:", error)
-      return true // Allow if check fails
+      // If paywall check fails, allow access to avoid blocking users
+      return true
     }
   }
 
