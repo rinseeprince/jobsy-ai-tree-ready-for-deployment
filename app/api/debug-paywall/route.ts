@@ -52,16 +52,23 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       console.error("Error checking feature access:", error)
     }
 
-    // Test Stripe checkout creation (without actually creating one)
+    // Test Stripe configuration (server-side check)
     let stripeTestResult = null
     try {
-      // Just test if we can access the Stripe configuration
-      const stripeConfigured = PaywallService.isStripeConfigured()
-      const configStatus = PaywallService.getStripeConfigurationStatus()
+      // Check Stripe configuration at the server level (same as in create-checkout route)
+      const requiredEnvVars = {
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+        STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+      }
+
+      const missingVars = Object.entries(requiredEnvVars)
+        .filter(([key, value]) => !value)
+        .map(([key]) => key)
 
       stripeTestResult = {
-        configured: stripeConfigured,
-        missingKeys: configStatus.missingKeys,
+        configured: missingVars.length === 0,
+        missingKeys: missingVars,
       }
     } catch (error) {
       stripeTestResult = {

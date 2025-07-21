@@ -234,33 +234,7 @@ export class PaywallService {
     }
   }
 
-  /**
-   * Check if Stripe is properly configured
-   */
-  static isStripeConfigured(): boolean {
-    return !!(
-      process.env.STRIPE_SECRET_KEY &&
-      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY &&
-      process.env.STRIPE_WEBHOOK_SECRET
-    )
-  }
 
-  /**
-   * Get Stripe configuration status for debugging
-   */
-  static getStripeConfigurationStatus(): {
-    configured: boolean
-    missingKeys: string[]
-  } {
-    const requiredKeys = ["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", "STRIPE_WEBHOOK_SECRET"]
-
-    const missingKeys = requiredKeys.filter((key) => !process.env[key])
-
-    return {
-      configured: missingKeys.length === 0,
-      missingKeys,
-    }
-  }
 
   /**
    * Create a checkout session for a subscription plan
@@ -271,14 +245,6 @@ export class PaywallService {
     error?: string
   }> {
     console.log("🔍 PaywallService.createCheckoutSession called with planId:", planId)
-
-    if (!this.isStripeConfigured()) {
-      console.error("❌ Stripe is not configured")
-      return {
-        success: false,
-        error: "Stripe is not configured. Please contact support.",
-      }
-    }
 
     try {
       console.log("📞 Making API call to /api/stripe/create-checkout")
