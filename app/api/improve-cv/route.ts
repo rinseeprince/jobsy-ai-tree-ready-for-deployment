@@ -8,19 +8,24 @@ export async function POST(request: NextRequest) {
   try {
     console.log("🔍 CV Improvement API called")
 
-    // Check paywall for CV generations
-    const paywallCheck = await PaywallService.checkAndRecordUsage("cv_generations")
-    if (!paywallCheck.allowed) {
-      console.log("🚫 Paywall triggered for CV generations")
+    // Check paywall for CV generations - now includes role-based bypass
+    const paywallResult = await PaywallService.checkAccess("cv_generations")
+    if (!paywallResult.allowed) {
+      const message = PaywallService.getUpgradeMessage("cv_generations", paywallResult.tier, paywallResult.role)
+      console.log("🚫 Access denied:", message)
       return NextResponse.json(
         {
           success: false,
-          error: "Usage limit reached",
-          paywallInfo: paywallCheck.paywallInfo,
+          error: message,
+          upgradeRequired: paywallResult.tier !== "premium",
+          reason: `Current tier: ${paywallResult.tier}, Role: ${paywallResult.role}`,
         },
-        { status: 402 }
+        { status: 402 },
       )
     }
+
+    // Record usage (automatically skipped for Super Users/Admins)
+    await PaywallService.recordUsage("cv_generations")
 
     const { cvContent, jobDescription } = await request.json()
 
@@ -46,7 +51,7 @@ export async function POST(request: NextRequest) {
     // Determine AI model based on user tier
     const userTier = await SubscriptionService.getUserTier()
     const aiModel = userTier === "free" ? "gpt-3.5-turbo" : "gpt-4o"
-    
+
     console.log(`🤖 Using ${aiModel} for user tier: ${userTier}`)
 
     const { text } = await generateText({

@@ -4,19 +4,21 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { 
-  Star, 
-  Zap, 
+import {
+  Star,
+  Zap,
   Crown,
+  Shield,
   Calendar,
   CreditCard,
   Settings,
   CheckCircle,
   AlertCircle,
   Clock,
-  ExternalLink
+  ExternalLink,
 } from "lucide-react"
 import { SubscriptionService, type SubscriptionTier, SUBSCRIPTION_PLANS } from "@/lib/subscription"
+import { RolesService, type UserRole } from "@/lib/roles"
 
 interface SubscriptionStatusProps {
   className?: string
@@ -25,17 +27,20 @@ interface SubscriptionStatusProps {
 export function SubscriptionStatus({ className = "" }: SubscriptionStatusProps) {
   const [subscription, setSubscription] = useState<any>(null)
   const [tier, setTier] = useState<SubscriptionTier>("free")
+  const [userRole, setUserRole] = useState<UserRole>("free")
   const [isLoading, setIsLoading] = useState(true)
 
   const loadSubscription = async () => {
     try {
       setIsLoading(true)
-      const [subscriptionData, userTier] = await Promise.all([
+      const [subscriptionData, userTier, currentRole] = await Promise.all([
         SubscriptionService.getUserSubscription(),
         SubscriptionService.getUserTier(),
+        RolesService.getCurrentUserRole(),
       ])
       setSubscription(subscriptionData)
       setTier(userTier)
+      setUserRole(currentRole?.role || "free")
     } catch (error) {
       console.error("Error loading subscription:", error)
     } finally {
@@ -47,16 +52,28 @@ export function SubscriptionStatus({ className = "" }: SubscriptionStatusProps) 
     loadSubscription()
   }, [])
 
-  const getTierInfo = (tier: SubscriptionTier) => {
+  const getTierInfo = (role: UserRole, tier: SubscriptionTier) => {
+    // Prioritize role-based access over subscription
+    if (role === "admin") {
+      return {
+        name: "Admin",
+        icon: <Shield className="w-5 h-5" />,
+        color: "bg-gradient-to-r from-red-600 to-red-700",
+        badgeColor: "bg-red-100 text-red-800",
+        description: "Full platform access with administrative privileges",
+      }
+    } else if (role === "super_user") {
+      return {
+        name: "Super User",
+        icon: <Crown className="w-5 h-5" />,
+        color: "bg-gradient-to-r from-purple-600 to-pink-600",
+        badgeColor: "bg-purple-100 text-purple-800",
+        description: "Unlimited access to all features (30-day grant)",
+      }
+    }
+
+    // Fall back to subscription tier
     switch (tier) {
-      case "free":
-        return {
-          name: "Free",
-          icon: <Star className="w-5 h-5" />,
-          color: "bg-gray-500",
-          badgeColor: "bg-gray-100 text-gray-800",
-          description: "Basic features with monthly limits",
-        }
       case "pro":
         return {
           name: "Pro",
@@ -138,7 +155,7 @@ export function SubscriptionStatus({ className = "" }: SubscriptionStatusProps) 
     window.location.href = "/pricing"
   }
 
-  const tierInfo = getTierInfo(tier)
+  const tierInfo = getTierInfo(userRole, tier)
 
   if (isLoading) {
     return (
@@ -157,6 +174,58 @@ export function SubscriptionStatus({ className = "" }: SubscriptionStatusProps) 
     )
   }
 
+  // Show special UI for role-based access
+  if (userRole === "admin" || userRole === "super_user") {
+    return (
+      <Card className={className}>
+        <CardHeader>
+          <CardTitle className="text-lg">Access Level</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${tierInfo.color} text-white`}>
+              {tierInfo.icon}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-lg">{tierInfo.name}</h3>
+                <Badge className={tierInfo.badgeColor}>{tierInfo.name}</Badge>
+              </div>
+              <p className="text-sm text-gray-600">{tierInfo.description}</p>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <Crown className="w-5 h-5 text-purple-600 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-purple-900 mb-1">Special Access Granted</h4>
+                <p className="text-sm text-purple-700">
+                  You have been granted special access with unlimited platform privileges.
+                  {userRole === "super_user" && " This access expires in 30 days."}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Show subscription info if they also have a paid plan */}
+          {subscription && (
+            <div className="pt-4 border-t">
+              <h4 className="font-medium text-gray-900 mb-2">Subscription Status</h4>
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="w-4 h-4 text-gray-500" />
+                <span className="text-gray-600">
+                  {subscription.plan_id} - {getStatusInfo(subscription.status).text}
+                </span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Regular subscription display for non-special users
   if (tier === "free") {
     return (
       <Card className={className}>
@@ -171,26 +240,22 @@ export function SubscriptionStatus({ className = "" }: SubscriptionStatusProps) 
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-lg">{tierInfo.name} Plan</h3>
-                <Badge className={tierInfo.badgeColor}>
-                  {tierInfo.name}
-                </Badge>
+                <Badge className={tierInfo.badgeColor}>{tierInfo.name}</Badge>
               </div>
               <p className="text-sm text-gray-600">{tierInfo.description}</p>
             </div>
           </div>
-          
+
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start gap-3">
               <Zap className="w-5 h-5 text-blue-600 mt-0.5" />
               <div>
-                <h4 className="font-medium text-blue-900 mb-1">
-                  Upgrade to Pro
-                </h4>
+                <h4 className="font-medium text-blue-900 mb-1">Upgrade to Pro</h4>
                 <p className="text-sm text-blue-700 mb-3">
                   Get unlimited CV generations, advanced AI analysis, and priority support.
                 </p>
                 <Button
-                  onClick={() => window.location.href = "/pricing"}
+                  onClick={() => (window.location.href = "/pricing")}
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-700"
                 >
@@ -209,7 +274,7 @@ export function SubscriptionStatus({ className = "" }: SubscriptionStatusProps) 
     return null
   }
 
-  const plan = SUBSCRIPTION_PLANS.find(p => p.id === subscription.plan_id)
+  const plan = SUBSCRIPTION_PLANS.find((p) => p.id === subscription.plan_id)
   const statusInfo = getStatusInfo(subscription.status)
   const isActive = subscription.status === "active" || subscription.status === "trialing"
 
@@ -227,9 +292,7 @@ export function SubscriptionStatus({ className = "" }: SubscriptionStatusProps) 
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-lg">{tierInfo.name} Plan</h3>
-              <Badge className={tierInfo.badgeColor}>
-                {tierInfo.name}
-              </Badge>
+              <Badge className={tierInfo.badgeColor}>{tierInfo.name}</Badge>
               <Badge className={`${statusInfo.bgColor} ${statusInfo.color}`}>
                 <div className="flex items-center gap-1">
                   {statusInfo.icon}
@@ -279,22 +342,13 @@ export function SubscriptionStatus({ className = "" }: SubscriptionStatusProps) 
 
         {/* Actions */}
         <div className="flex gap-2 pt-2">
-          <Button
-            onClick={handleManageSubscription}
-            variant="outline"
-            size="sm"
-            className="flex-1"
-          >
+          <Button onClick={handleManageSubscription} variant="outline" size="sm" className="flex-1 bg-transparent">
             <Settings className="w-4 h-4 mr-2" />
             Manage Subscription
           </Button>
-          
+
           {subscription.stripe_subscription_id && (
-            <Button
-              onClick={() => window.location.href = "/pricing"}
-              variant="outline"
-              size="sm"
-            >
+            <Button onClick={() => (window.location.href = "/pricing")} variant="outline" size="sm">
               <CreditCard className="w-4 h-4 mr-2" />
               Billing
             </Button>
@@ -332,4 +386,4 @@ export function SubscriptionStatus({ className = "" }: SubscriptionStatusProps) 
       </CardContent>
     </Card>
   )
-} 
+}

@@ -1,153 +1,139 @@
 "use client"
-import { Menu, X } from "lucide-react"
-import { useState, useEffect } from "react"
+
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { Button } from "@/components/ui/button"
 import { AuthButton } from "./auth-button"
+import { UserRoleBadge } from "./user-role-badge"
+import { NotificationsDropdown } from "./notifications-dropdown"
+import { RolesService } from "@/lib/roles"
 import { supabase, isSupabaseReady } from "@/lib/supabase"
+import { useState, useEffect } from "react"
+import { Shield } from "lucide-react"
 
 export function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const pathname = usePathname()
-
-  // Check if we're on the homepage
-  const isHomePage = pathname === "/"
+  const [user, setUser] = useState<any>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+  const [databaseError, setDatabaseError] = useState(false)
 
   useEffect(() => {
-    let mounted = true
+    checkUser()
 
-    // Check auth status immediately and on mount
-    const checkAuth = async () => {
-      if (!isSupabaseReady) {
+    if (!isSupabaseReady || !supabase) {
+      setLoading(false)
+      setDatabaseError(true)
+      return
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      try {
+        if (session?.user) {
+          setUser(session.user)
+          // Only try to check admin status if we haven't had database errors
+          if (!databaseError) {
+            const adminStatus = await RolesService.isCurrentUserAdmin()
+            setIsAdmin(adminStatus)
+          }
+        } else {
+          setUser(null)
+          setIsAdmin(false)
+        }
+      } catch (err) {
+        console.error("Error in auth state change:", err)
+        setError(true)
+        setDatabaseError(true)
+      } finally {
+        setLoading(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [databaseError])
+
+  const checkUser = async () => {
+    try {
+      if (!isSupabaseReady || !supabase) {
+        setUser(null)
+        setIsAdmin(false)
+        setDatabaseError(true)
         return
       }
 
-      try {
-        const { data } = await supabase.auth.getSession()
-        if (mounted) {
-          setIsAuthenticated(!!data.session)
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      setUser(user)
+
+      if (user && !databaseError) {
+        try {
+          const adminStatus = await RolesService.isCurrentUserAdmin()
+          setIsAdmin(adminStatus)
+        } catch (roleError) {
+          console.error("Error checking admin status:", roleError)
+          setDatabaseError(true)
         }
-      } catch (error) {
-        console.warn("Auth session check failed:", error)
       }
+    } catch (error) {
+      console.error("Error checking user:", error)
+      setError(true)
+      setDatabaseError(true)
+    } finally {
+      setLoading(false)
     }
-
-    checkAuth()
-
-    // Set up auth listener only if Supabase is configured
-    if (isSupabaseReady) {
-      try {
-        const {
-          data: { subscription },
-        } = supabase.auth.onAuthStateChange((event, session) => {
-          if (mounted) {
-            setIsAuthenticated(!!session)
-          }
-        })
-
-        return () => {
-          mounted = false
-          subscription.unsubscribe()
-        }
-      } catch (error) {
-        console.warn("Auth state change listener failed:", error)
-      }
-    }
-
-    return () => {
-      mounted = false
-    }
-  }, [])
+  }
 
   return (
-    <header className="relative z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <header className="border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
-            <Link
-              href="/"
-              className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent"
-            >
-              Jobsy
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">J</span>
+              </div>
+              <span className="font-bold text-xl text-gray-900">Jobsy</span>
             </Link>
           </div>
 
           <nav className="hidden md:flex items-center space-x-8">
-            <Link
-              href={isHomePage ? "#features" : "/#features"}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Features
+            <Link href="/dashboard" className="text-gray-600 hover:text-gray-900 transition-colors">
+              Dashboard
             </Link>
-            <Link
-              href={isHomePage ? "#how-it-works" : "/#how-it-works"}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              How it Works
+            <Link href="#how-it-works" className="text-gray-600 hover:text-gray-900 transition-colors">
+              How it works
+            </Link>
+            <Link href="#features" className="text-gray-600 hover:text-gray-900 transition-colors">
+              Features
             </Link>
             <Link href="/pricing" className="text-gray-600 hover:text-gray-900 transition-colors">
               Pricing
             </Link>
-            <Link href="/generator" className="text-gray-600 hover:text-gray-900 transition-colors">
-              Cover Letter Generator
-            </Link>
+          </nav>
 
-            {isAuthenticated && isSupabaseReady && (
-              <Link href="/dashboard" className="text-blue-600 hover:text-blue-800 font-medium">
-                Dashboard
-              </Link>
+          <div className="flex items-center space-x-4">
+            {user && !error && !databaseError && (
+              <>
+                <UserRoleBadge />
+                <NotificationsDropdown />
+
+                {!loading && isAdmin && (
+                  <Link href="/admin">
+                    <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                      <Shield className="h-4 w-4 mr-2" />
+                      Admin
+                    </Button>
+                  </Link>
+                )}
+              </>
             )}
 
             <AuthButton />
-          </nav>
-
-          <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
-        </div>
-      </div>
-
-      {isMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100">
-          <div className="px-4 py-2 space-y-2">
-            <Link
-              href={isHomePage ? "#features" : "/#features"}
-              className="block py-2 text-gray-600"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Features
-            </Link>
-            <Link
-              href={isHomePage ? "#how-it-works" : "/#how-it-works"}
-              className="block py-2 text-gray-600"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              How it Works
-            </Link>
-            <Link href="/pricing" className="block py-2 text-gray-600" onClick={() => setIsMenuOpen(false)}>
-              Pricing
-            </Link>
-            <Link href="/generator" className="block py-2 text-gray-600" onClick={() => setIsMenuOpen(false)}>
-              Cover Letter Generator
-            </Link>
-
-            {isAuthenticated && isSupabaseReady && (
-              <Link
-                href="/dashboard"
-                className="block py-2 text-blue-600 font-medium"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Dashboard
-              </Link>
-            )}
-
-            <div className="pt-2">
-              <AuthButton />
-            </div>
           </div>
         </div>
-      )}
+      </div>
     </header>
   )
 }

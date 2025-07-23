@@ -12,19 +12,24 @@ export async function POST(request: NextRequest) {
   try {
     console.log("🔍 Cover Letter Generation API called")
 
-    // Check paywall for cover letters
-    const paywallCheck = await PaywallService.checkAndRecordUsage("cover_letters")
-    if (!paywallCheck.allowed) {
-      console.log("🚫 Paywall triggered for cover letters")
+    // Check paywall for cover letters - now includes role-based bypass
+    const paywallResult = await PaywallService.checkAccess("cover_letters")
+    if (!paywallResult.allowed) {
+      const message = PaywallService.getUpgradeMessage("cover_letters", paywallResult.tier, paywallResult.role)
+      console.log("🚫 Access denied:", message)
       return NextResponse.json(
         {
           success: false,
-          error: "Usage limit reached",
-          paywallInfo: paywallCheck.paywallInfo,
+          error: message,
+          upgradeRequired: paywallResult.tier !== "premium",
+          reason: `Current tier: ${paywallResult.tier}, Role: ${paywallResult.role}`,
         },
-        { status: 402 }
+        { status: 402 },
       )
     }
+
+    // Record usage (automatically skipped for Super Users/Admins)
+    await PaywallService.recordUsage("cover_letters")
 
     console.log("API Route - Environment check:")
     console.log("OPENAI_API_KEY exists:", !!process.env.OPENAI_API_KEY)
@@ -43,7 +48,7 @@ export async function POST(request: NextRequest) {
     // Determine AI model based on user tier
     const userTier = await SubscriptionService.getUserTier()
     const aiModel = userTier === "free" ? "gpt-3.5-turbo" : "gpt-4o"
-    
+
     console.log(`🤖 Using ${aiModel} for user tier: ${userTier}`)
 
     const { text } = await generateText({

@@ -446,4 +446,62 @@ export class SubscriptionService {
   static getPlansByBillingCycle(billingCycle: BillingCycle): SubscriptionPlan[] {
     return SUBSCRIPTION_PLANS.filter(p => p.billingCycle === billingCycle)
   }
+
+  /**
+   * Get subscription information for the current user
+   */
+  static async getSubscriptionInfo(): Promise<{
+    isActive: boolean
+    planId: string | null
+    status: string | null
+    currentPeriodEnd: string | null
+  }> {
+    const subscription = await this.getUserSubscription()
+    
+    if (!subscription) {
+      return {
+        isActive: false,
+        planId: null,
+        status: null,
+        currentPeriodEnd: null,
+      }
+    }
+
+    return {
+      isActive: subscription.status === "active",
+      planId: subscription.plan_id,
+      status: subscription.status,
+      currentPeriodEnd: subscription.current_period_end,
+    }
+  }
+
+  /**
+   * Reset usage for a specific feature
+   */
+  static async resetUsage(feature: UsageRecord["feature"]): Promise<void> {
+    if (!isSupabaseReady || !supabase) {
+      console.warn("⚠️ Supabase not configured, cannot reset usage")
+      return
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        return
+      }
+
+      // Delete all usage records for this feature for the current user
+      const { error } = await supabase
+        .from("usage_records")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("feature", feature)
+
+      if (error) {
+        console.error("Error resetting usage:", error)
+      }
+    } catch (error) {
+      console.error("Error in resetUsage:", error)
+    }
+  }
 } 
