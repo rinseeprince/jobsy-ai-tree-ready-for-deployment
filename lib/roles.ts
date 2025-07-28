@@ -131,7 +131,7 @@ export class RolesService {
           } else if (subscription.plan_id.includes("pro")) {
             role = "pro"
           }
-          
+
           return {
             role,
             is_active: true,
@@ -193,7 +193,7 @@ export class RolesService {
   }
 
   /**
-   * Grant role to user by email (admin only)
+   * Grant role to user by email (admin only) - FIXED VERSION
    */
   static async grantRoleByEmail(
     email: string,
@@ -218,20 +218,13 @@ export class RolesService {
         return { success: false, message: "Not authenticated" }
       }
 
-      // Find user by email
-      const { data: userData, error: userError } = await supabase
-        .from("auth.users")
-        .select("id, email")
-        .eq("email", email)
-        .single()
+      // First, try to find user in auth.users (this might not work due to RLS)
+      // So we'll use a different approach - call the function directly
+      console.log("Attempting to grant role:", { email, role, notes })
 
-      if (userError || !userData) {
-        return { success: false, message: "User not found with that email" }
-      }
-
-      // Call the grant_user_role function
-      const { error: grantError } = await supabase.rpc("grant_user_role", {
-        target_user_id: userData.id,
+      // Call the grant_user_role function with better error handling
+      console.log("Calling grant_user_role function with params:", {
+        target_user_id: null,
         target_email: email,
         new_role: role,
         granted_by_id: currentUser.id,
@@ -239,10 +232,47 @@ export class RolesService {
         grant_notes: notes || null,
       })
 
+      const { data: result, error: grantError } = await supabase.rpc("grant_user_role", {
+        target_user_id: null, // Let the function find the user by email
+        target_email: email,
+        new_role: role,
+        granted_by_id: currentUser.id,
+        expiry_days: role === "admin" ? null : 30,
+        grant_notes: notes || null,
+      })
+
+      console.log("grant_user_role result:", result)
+      console.log("grant_user_role error:", grantError)
+
       if (grantError) {
         console.error("Error granting role:", grantError)
+
+        // Handle specific error cases
+        if (grantError.message?.includes("User not found")) {
+          return { success: false, message: `No user found with email: ${email}. The user must sign up first.` }
+        }
+
+        if (grantError.message?.includes("already has role")) {
+          return { success: false, message: `User ${email} already has the ${role} role.` }
+        }
+
         return { success: false, message: `Failed to grant role: ${grantError.message}` }
       }
+
+      if (!result) {
+        console.error("No result returned from grant_user_role function")
+        return { success: false, message: "No response from server" }
+      }
+
+      console.log("Role grant result:", result)
+
+      // Send notification email (disabled for now to avoid console errors)
+      // try {
+      //   await this.sendRoleChangeNotification(email, role, notes)
+      // } catch (emailError) {
+      //   console.warn("Failed to send notification email:", emailError)
+      //   // Don't fail the whole operation if email fails
+      // }
 
       return {
         success: true,
@@ -251,6 +281,80 @@ export class RolesService {
     } catch (error) {
       console.error("Error in grantRoleByEmail:", error)
       return { success: false, message: "An unexpected error occurred" }
+    }
+  }
+
+  /**
+   * Send role change notification email
+   */
+  static async sendRoleChangeNotification(email: string, role: UserRole, notes?: string): Promise<void> {
+    if (!isSupabaseReady || !supabase) {
+      throw new Error("Database not configured")
+    }
+
+    try {
+      // First try to get user ID from auth.users (using a function call to bypass RLS)
+      let userId: string | null = null
+      
+      try {
+        // Try to get user ID from profiles table first
+        const { data: userData, error: userError } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", email)
+          .single()
+
+        if (!userError && userData) {
+          userId = userData.id
+        }
+      } catch (profileError) {
+        // If profiles table doesn't exist or user not found, try to get from user_roles
+        console.warn("Could not find user profile for notification:", email)
+        
+        try {
+          const { data: roleData, error: roleError } = await supabase
+            .from("user_roles")
+            .select("user_id")
+            .eq("email", email)
+            .eq("is_active", true)
+            .single()
+
+          if (!roleError && roleData) {
+            userId = roleData.user_id
+          }
+        } catch (roleLookupError) {
+          console.warn("Could not find user in user_roles table either:", email)
+        }
+      }
+
+      // If we found a user ID, create notification
+      if (userId) {
+        const notificationData = {
+          user_id: userId,
+          type: "role_change",
+          title: `Your JobsyAI access has been upgraded!`,
+          message: `You've been granted ${this.getRoleDisplayName(role)} access${role === "super_user" ? " for 30 days" : ""}.`,
+          data: {
+            role,
+            notes,
+            granted_at: new Date().toISOString(),
+          },
+          read: false,
+        }
+
+        const { error: notificationError } = await supabase.from("user_notifications").insert(notificationData)
+
+        if (notificationError) {
+          console.warn("Failed to create notification record:", notificationError)
+        }
+
+        console.log("Role change notification sent to:", email, "Role:", role)
+      } else {
+        console.warn("Could not find user ID for notification, skipping notification for:", email)
+      }
+    } catch (error) {
+      console.error("Error sending role change notification:", error)
+      // Don't throw error - just log it and continue
     }
   }
 

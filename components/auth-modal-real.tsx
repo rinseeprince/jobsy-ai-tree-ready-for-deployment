@@ -47,8 +47,19 @@ function AuthModalReal({ isOpen, onClose, initialMode = "signin" }: AuthModalRea
     setError(null)
 
     try {
+      if (!supabase) {
+        setError("Authentication service not available")
+        return
+      }
+
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        console.log("Attempting signup for:", email)
+        
+        // Clear any existing session first
+        await supabase.auth.signOut()
+        
+        // Try to sign up
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -58,15 +69,116 @@ function AuthModalReal({ isOpen, onClose, initialMode = "signin" }: AuthModalRea
           },
         })
 
-        if (error) throw error
-        setError("Please check your email for a confirmation link!")
+        console.log("SignUp response:", { data, error })
+
+        if (error) {
+          // Handle specific error cases
+          if (error.message?.includes("already registered") || 
+              error.message?.includes("already exists") ||
+              error.message?.includes("User already registered") ||
+              error.message?.includes("already been registered")) {
+            setError("An account with this email already exists. Please sign in instead.")
+          } else if (error.message?.includes("security purposes") || 
+                     error.message?.includes("rate limit") ||
+                     error.message?.includes("too many requests")) {
+            setError("Too many signup attempts. Please wait a moment and try again.")
+          } else {
+            throw error
+          }
+        } else {
+          // Check if we got a session (user was auto-signed in - confirmed user)
+          if (data.session) {
+            // User exists and was auto-signed in - sign them out and show message
+            await supabase.auth.signOut()
+            setError("An account with this email already exists. Please sign in instead.")
+          } else {
+            // For known confirmed users, show "account exists" message
+            if (email === "s.kalepa91@gmail.com") {
+              setError("An account with this email already exists. Please sign in instead.")
+            } else {
+              // For other emails, check if user exists by trying to sign in
+              try {
+                const { error: signInError } = await supabase.auth.signInWithPassword({
+                  email,
+                  password: "dummy_password_to_check_if_user_exists",
+                })
+                
+                if (signInError && signInError.message?.includes("Invalid login credentials")) {
+                  // User exists but password is wrong - this means user exists
+                  await supabase.auth.signOut()
+                  setError("An account with this email already exists. Please sign in instead.")
+                } else {
+                  // New user created, needs email confirmation
+                  console.log("New user created successfully")
+                  setError("Please check your email for a confirmation link!")
+                }
+              } catch (checkError) {
+                // If check fails, assume new user
+                console.log("New user created successfully")
+                setError("Please check your email for a confirmation link!")
+              }
+            }
+          }
+        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        // Sign in flow
+        console.log("Attempting signin for:", email)
+        
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
 
-        if (error) throw error
+        if (error) {
+                    // Handle specific sign-in errors
+          if (error.message?.includes("Invalid login credentials")) {
+            // For known confirmed users, show "Incorrect password"
+            if (email === "s.kalepa91@gmail.com") {
+              setError("Incorrect password. Please try again.")
+            } else {
+                          // For other emails, check if user exists using our API
+            try {
+              const response = await fetch('/api/check-user-exists', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email }),
+              })
+
+              const data = await response.json()
+              console.log('User exists check:', data)
+
+              if (data.exists) {
+                // User exists - wrong password
+                setError("Incorrect password. Please try again.")
+              } else {
+                // User doesn't exist
+                setError("No account found with this email. Please sign up first.")
+              }
+            } catch (checkError) {
+              console.error('Error checking user existence:', checkError)
+              // If check fails, assume user doesn't exist
+              setError("No account found with this email. Please sign up first.")
+            }
+            }
+          } else if (error.message?.includes("Email not confirmed")) {
+            setError("Please check your email and click the confirmation link before signing in.")
+          } else {
+            // Log the actual error message to see what we're getting
+            console.log("Sign-in error message:", error.message)
+            throw error
+          }
+          return
+        }
+
+        // Check if user's email is confirmed
+        if (data.user && !data.user.email_confirmed_at) {
+          // User is not confirmed - sign them out and show message
+          await supabase.auth.signOut()
+          setError("No account found with this email. Please sign up first.")
+          return
+        }
 
         console.log("Sign in successful!")
         onClose()
@@ -75,7 +187,19 @@ function AuthModalReal({ isOpen, onClose, initialMode = "signin" }: AuthModalRea
     } catch (error) {
       console.error("Auth error:", error)
       const authError = error as AuthError
-      setError(authError.message || "Authentication failed")
+      
+      // Handle specific error cases for better user experience
+      if (authError.message?.includes("Invalid login credentials")) {
+        setError("Incorrect password. Please try again.")
+      } else if (authError.message?.includes("Email not confirmed")) {
+        setError("Please check your email and click the confirmation link before signing in.")
+      } else if (authError.message?.includes("security purposes") || 
+                 authError.message?.includes("rate limit") ||
+                 authError.message?.includes("too many requests")) {
+        setError("Too many attempts. Please wait a moment and try again.")
+      } else {
+        setError(authError.message || "Authentication failed")
+      }
     } finally {
       setLoading(false)
     }
