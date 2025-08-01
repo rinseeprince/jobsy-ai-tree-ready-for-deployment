@@ -1,5 +1,13 @@
 import { supabase, isSupabaseReady } from "./supabase"
 
+// Helper function to ensure supabase client is available
+const getSupabaseClient = () => {
+  if (!isSupabaseReady || !supabase) {
+    throw new Error("Supabase not configured")
+  }
+  return supabase
+}
+
 export interface CV {
   id: string
   user_id: string
@@ -32,9 +40,10 @@ export class CVService {
     }
 
     try {
+      const supabaseClient = getSupabaseClient()
       const {
         data: { user },
-      } = await supabase.auth.getUser()
+      } = await supabaseClient.auth.getUser()
 
       console.log("👤 User check:", { hasUser: !!user, userId: user?.id })
 
@@ -65,7 +74,7 @@ export class CVService {
         parsed_content: `${insertData.parsed_content.substring(0, 100)}...`,
       })
 
-      const { data, error } = await supabase.from("cvs").insert(insertData).select().single()
+      const { data, error } = await supabaseClient.from("cvs").insert(insertData).select().single()
 
       if (error) {
         console.error("❌ Supabase insert error details:", {
@@ -109,9 +118,10 @@ export class CVService {
       return []
     }
 
+    const supabaseClient = getSupabaseClient()
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabaseClient.auth.getUser()
 
     console.log("👤 User for CVs:", { hasUser: !!user, userId: user?.id })
 
@@ -120,7 +130,7 @@ export class CVService {
       return []
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("cvs")
       .select("*")
       .eq("user_id", user.id)
@@ -154,16 +164,17 @@ export class CVService {
       return null
     }
 
+    const supabaseClient = getSupabaseClient()
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabaseClient.auth.getUser()
 
     if (!user) {
       console.log("❌ No user found, returning null")
       return null
     }
 
-    const { data, error } = await supabase.from("cvs").select("*").eq("id", id).eq("user_id", user.id).single()
+    const { data, error } = await supabaseClient.from("cvs").select("*").eq("id", id).eq("user_id", user.id).single()
 
     if (error) {
       console.error("❌ Error fetching CV:", error)
@@ -195,7 +206,8 @@ export class CVService {
     }
 
     try {
-      const { error } = await supabase.from("cvs").delete().eq("id", id)
+      const supabaseClient = getSupabaseClient()
+      const { error } = await supabaseClient.from("cvs").delete().eq("id", id)
 
       if (error) {
         console.error("❌ Supabase delete error:", error)
@@ -222,16 +234,17 @@ export class CVService {
     }
 
     try {
+      const supabaseClient = getSupabaseClient()
       const {
         data: { user },
-      } = await supabase.auth.getUser()
+      } = await supabaseClient.auth.getUser()
 
       if (!user) {
         console.error("❌ Cannot update CV: User not authenticated")
         return null
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from("cvs")
         .update({
           ...updates,
@@ -297,24 +310,32 @@ export class CVService {
       return []
     }
 
+    const supabaseClient = getSupabaseClient()
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabaseClient.auth.getUser()
 
     if (!user) {
       console.log("❌ No user found, returning empty array")
       return []
     }
 
-    const { data, error } = await supabase
+    // Use proper Supabase filter syntax for OR conditions
+    const { data, error } = await supabaseClient
       .from("cvs")
       .select("*")
       .eq("user_id", user.id)
-      .or(`title.ilike.%${query}%, parsed_content.ilike.%${query}%`)
+      .or(`title.ilike.%${query}%,parsed_content.ilike.%${query}%`)
       .order("updated_at", { ascending: false })
 
     if (error) {
       console.error("❌ Error searching CVs:", error)
+      console.error("❌ Error details:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      })
       return []
     }
 
@@ -342,15 +363,16 @@ export class CVService {
       return { total: 0, thisMonth: 0, averageSize: 0 }
     }
 
+    const supabaseClient = getSupabaseClient()
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabaseClient.auth.getUser()
 
     if (!user) {
       return { total: 0, thisMonth: 0, averageSize: 0 }
     }
 
-    const { data, error } = await supabase.from("cvs").select("file_size, created_at").eq("user_id", user.id)
+    const { data, error } = await supabaseClient.from("cvs").select("file_size, created_at").eq("user_id", user.id)
 
     if (error || !data) {
       console.error("❌ Error fetching CV stats:", error)

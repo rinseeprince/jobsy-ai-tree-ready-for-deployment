@@ -164,6 +164,7 @@ export default function ApplicationWizard() {
 
   // Use useCallback to prevent unnecessary re-renders that cause focus loss
   const updateWizardData = useCallback((updates: Partial<WizardData>) => {
+    console.log("🔄 Updating wizard data:", updates)
     setWizardData((prev) => {
       const newData = { ...prev, ...updates }
       
@@ -171,6 +172,14 @@ export default function ApplicationWizard() {
       if (updates.jobDescription && updates.jobDescription !== prev.jobDescription) {
         const jobDetails = ApplicationsService.extractJobDetails(updates.jobDescription)
         newData.companyName = jobDetails.company_name
+      }
+      
+      // Log if optimized CV data is being updated
+      if (updates.optimizedCVData) {
+        console.log("✅ Optimized CV data updated in wizard state")
+      }
+      if (updates.renderedCV) {
+        console.log("✅ Rendered CV updated in wizard state, length:", updates.renderedCV.length)
       }
       
       return newData
@@ -429,11 +438,17 @@ export default function ApplicationWizard() {
 
     setIsLoading(true)
     try {
+      console.log("🚀 Starting CV optimization...")
+      console.log("📋 Job description:", wizardData.jobDescription.substring(0, 100) + "...")
+      console.log("📄 Selected CV:", wizardData.selectedCV.title)
+
       // Generate current CV text for AI analysis
       const currentCVText = generateCVText(wizardData.selectedCV.cv_data)
+      console.log("📝 Generated CV text length:", currentCVText.length)
 
       // Get AI improvements using the same logic as CV Builder
       const improvements = await improveCv(wizardData.jobDescription, currentCVText)
+      console.log("🤖 AI improvements received, length:", improvements.length)
 
       // Parse the improvements to extract structured data
       const parseResponse = await fetch("/api/parse-recommendations", {
@@ -447,6 +462,7 @@ export default function ApplicationWizard() {
       }
 
       const parseData = await parseResponse.json()
+      console.log("📊 Parsed recommendations:", parseData.recommendations.length, "items")
 
       // Implement the recommendations to get optimized CV data
       const implementResponse = await fetch("/api/implement-recommendations", {
@@ -465,24 +481,72 @@ export default function ApplicationWizard() {
 
       const implementData = await implementResponse.json()
       const optimizedCVData = implementData.updatedCV
+      console.log("✅ Optimized CV data received")
 
       // Always use the current selected template from wizardData
       const selectedTemplate = CV_TEMPLATES.find((t) => t.id === wizardData.selectedTemplate) || CV_TEMPLATES[0]
+      console.log("🎨 Using template:", selectedTemplate.name)
 
       // Render the optimized CV with the current selected template
       const renderedCV = renderTemplate(optimizedCVData, selectedTemplate)
+      console.log("📄 Rendered CV length:", renderedCV.length)
 
       updateWizardData({
         optimizedCVData,
         renderedCV,
       })
 
-      toast({
-        title: "CV optimized successfully",
-        description: "Your CV has been enhanced and formatted with the selected template.",
-      })
+      console.log("💾 Updated wizard data with optimized CV")
+
+      // Also save the optimized CV to the saved_cvs table
+      try {
+        console.log("💾 Starting to save optimized CV to saved_cvs table...")
+        const optimizedCVTitle = `${wizardData.selectedCV?.title || "CV"} (Optimized)`
+        console.log("📝 Optimized CV title:", optimizedCVTitle)
+        console.log("📄 Optimized CV data:", optimizedCVData)
+        console.log("🎨 Template ID:", wizardData.selectedTemplate)
+        
+        const savedOptimizedCV = await ApplicationsService.saveCVData({
+          title: optimizedCVTitle,
+          cv_data: optimizedCVData,
+          template_id: wizardData.selectedTemplate,
+          status: "ready",
+        })
+
+        console.log("✅ Saved optimized CV to saved_cvs table:", savedOptimizedCV.id)
+        console.log("📋 Saved CV details:", {
+          id: savedOptimizedCV.id,
+          title: savedOptimizedCV.title,
+          status: savedOptimizedCV.status,
+          template_id: savedOptimizedCV.template_id,
+        })
+        
+        // Update the savedCVs list to include the new optimized CV
+        setSavedCVs((prevCVs) => {
+          console.log("🔄 Updating savedCVs list, previous count:", prevCVs.length)
+          const newList = [savedOptimizedCV, ...prevCVs]
+          console.log("🔄 New savedCVs list count:", newList.length)
+          return newList
+        })
+
+        toast({
+          title: "CV optimized and saved successfully",
+          description: "Your optimized CV has been saved and is ready for future applications.",
+        })
+      } catch (saveError) {
+        console.error("❌ Error saving optimized CV:", saveError)
+        console.error("❌ Save error details:", {
+          message: saveError instanceof Error ? saveError.message : String(saveError),
+          stack: saveError instanceof Error ? saveError.stack : undefined,
+        })
+        // Don't fail the optimization if saving to CVs fails
+        toast({
+          title: "CV optimized successfully",
+          description: "Your CV has been enhanced and formatted with the selected template.",
+        })
+      }
     } catch (error) {
-      console.error("Error optimizing CV:", error)
+      console.error("❌ Error optimizing CV:", error)
       toast({
         title: "Optimization failed",
         description: "Please try again.",
@@ -576,7 +640,19 @@ export default function ApplicationWizard() {
   }, [])
 
   const saveApplication = useCallback(async () => {
+    console.log("💾 Starting to save application...")
+    console.log("📋 Wizard data check:", {
+      hasSelectedCV: !!wizardData.selectedCV,
+      hasJobDescription: !!wizardData.jobDescription,
+      hasCoverLetter: !!wizardData.coverLetter,
+      hasRenderedCV: !!wizardData.renderedCV,
+      hasCompanyName: !!wizardData.companyName?.trim(),
+      renderedCVLength: wizardData.renderedCV?.length || 0,
+      optimizedCVDataExists: !!wizardData.optimizedCVData,
+    })
+
     if (!wizardData.selectedCV || !wizardData.jobDescription || !wizardData.coverLetter || !wizardData.renderedCV || !wizardData.companyName.trim()) {
+      console.log("❌ Missing required data for saving application")
       toast({
         title: "Missing information",
         description: "Please complete all steps before saving.",
@@ -588,6 +664,14 @@ export default function ApplicationWizard() {
     setIsLoading(true)
     try {
       const jobDetails = ApplicationsService.extractJobDetails(wizardData.jobDescription)
+
+      console.log("📝 Saving application with data:", {
+        job_title: wizardData.applicationName,
+        company_name: wizardData.companyName || jobDetails.company_name,
+        cv_content_length: wizardData.renderedCV.length,
+        cover_letter_length: wizardData.coverLetter.length,
+        has_optimized_cv_data: !!wizardData.optimizedCVData,
+      })
 
       await ApplicationsService.saveApplication({
         job_title: wizardData.applicationName,
@@ -601,6 +685,8 @@ export default function ApplicationWizard() {
         job_url: wizardData.jobUrl,
       })
 
+      console.log("✅ Application saved successfully")
+
       // Clear draft
       localStorage.removeItem("wizard-draft")
 
@@ -611,7 +697,7 @@ export default function ApplicationWizard() {
 
       router.push("/dashboard")
     } catch (error) {
-      console.error("Error saving application:", error)
+      console.error("❌ Error saving application:", error)
       toast({
         title: "Save failed",
         description: "Please try again.",

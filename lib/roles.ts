@@ -1,5 +1,13 @@
 import { supabase, isSupabaseReady } from "./supabase"
 
+// Helper function to ensure supabase client is available
+const getSupabaseClient = () => {
+  if (!isSupabaseReady || !supabase) {
+    throw new Error("Supabase not configured")
+  }
+  return supabase
+}
+
 export type UserRole = "free" | "pro" | "premium" | "super_user" | "admin"
 
 // New interface for user role data returned by getCurrentUserRole
@@ -68,7 +76,8 @@ export class RolesService {
 
       // First check for manual role assignment
       try {
-        const { data: roleData, error } = await supabase
+        const supabaseClient = getSupabaseClient()
+        const { data: roleData, error } = await supabaseClient
           .from("user_roles")
           .select("role, expires_at, is_active")
           .eq("user_id", user.id)
@@ -105,7 +114,8 @@ export class RolesService {
 
       // Fall back to subscription-based role
       try {
-        const { data: subscription, error: subscriptionError } = await supabase
+        const supabaseClient2 = getSupabaseClient()
+        const { data: subscription, error: subscriptionError } = await supabaseClient2
           .from("user_subscriptions")
           .select("plan_id, status")
           .eq("user_id", user.id)
@@ -178,10 +188,17 @@ export class RolesService {
     }
 
     try {
-      const { data, error } = await supabase.from("user_roles").select("*").eq("user_id", userId).single()
+      const supabaseClient = getSupabaseClient()
+      const { data, error } = await supabaseClient.from("user_roles").select("*").eq("user_id", userId).single()
 
       if (error && error.code !== "PGRST116") {
         console.error("Error fetching user role info:", error)
+        console.error("Error details:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        })
         return null
       }
 
@@ -414,7 +431,8 @@ export class RolesService {
         return []
       }
 
-      const { data, error } = await supabase
+      const supabaseClient = getSupabaseClient()
+      const { data, error } = await supabaseClient
         .from("user_roles")
         .select("*")
         .in("role", ["admin", "super_user"])
@@ -447,7 +465,8 @@ export class RolesService {
         return []
       }
 
-      const { data, error } = await supabase
+      const supabaseClient = getSupabaseClient()
+      const { data, error } = await supabaseClient
         .from("role_grants_log")
         .select("*")
         .order("created_at", { ascending: false })
@@ -474,14 +493,15 @@ export class RolesService {
     }
 
     try {
+      const supabaseClient = getSupabaseClient()
       const {
         data: { user },
-      } = await supabase.auth.getUser()
+      } = await supabaseClient.auth.getUser()
       if (!user) {
         return []
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from("user_notifications")
         .select("*")
         .eq("user_id", user.id)

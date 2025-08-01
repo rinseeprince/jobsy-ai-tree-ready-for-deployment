@@ -94,7 +94,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       )
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+    // Ensure URL is properly formatted and doesn't have trailing slashes
+    const cleanUrl = supabaseUrl.replace(/\/$/, '')
+    const supabase = createClient(cleanUrl, supabaseAnonKey)
 
     // Get authorization header from request
     const authHeader = request.headers.get("authorization")
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log("Token starts with:", token.substring(0, 20) + "...")
 
     // Create a new Supabase client with the auth token
-    const supabaseWithAuth = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabaseWithAuth = createClient(cleanUrl, supabaseAnonKey, {
       global: {
         headers: {
           Authorization: `Bearer ${token}`,

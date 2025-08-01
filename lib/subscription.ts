@@ -1,5 +1,13 @@
 import { supabase, isSupabaseReady } from "./supabase"
 
+// Helper function to ensure supabase client is available
+const getSupabaseClient = () => {
+  if (!isSupabaseReady || !supabase) {
+    throw new Error("Supabase not configured")
+  }
+  return supabase
+}
+
 export type SubscriptionTier = "free" | "pro" | "premium"
 export type BillingCycle = "monthly" | "quarterly"
 
@@ -185,7 +193,8 @@ export class SubscriptionService {
         return null
       }
 
-      const { data, error } = await supabase
+      const supabaseClient = getSupabaseClient()
+      const { data, error } = await supabaseClient
         .from("user_subscriptions")
         .select("*")
         .eq("user_id", user.id)
@@ -227,7 +236,8 @@ export class SubscriptionService {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const supabaseClient = getSupabaseClient()
+      const { data: { user } } = await supabaseClient.auth.getUser()
       if (!user) {
         return {
           cvGenerations: 0,
@@ -243,7 +253,7 @@ export class SubscriptionService {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString()
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from("usage_records")
         .select("feature")
         .eq("user_id", user.id)

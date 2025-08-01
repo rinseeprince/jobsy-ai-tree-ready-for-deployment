@@ -79,15 +79,12 @@ export const CVBuilderPage = () => {
     copySuccess,
     isCopied,
     errorMessage,
-    generateCoverLetter,
-    setGenerateCoverLetter,
     showComparisonModal,
     setShowComparisonModal,
     isImplementing,
     originalCVData,
     modifiedCVData,
     parsedRecommendations,
-    coverLetter,
     handleImproveCV,
     handleCopyRecommendations,
     handleExportJobReport,
@@ -463,12 +460,11 @@ export const CVBuilderPage = () => {
               isImproving={isImproving}
               improvementSuggestions={improvementSuggestions}
               isCopied={isCopied}
-              generateCoverLetter={generateCoverLetter}
+              isImplementing={isImplementing}
               onJobDescriptionChange={setJobDescription}
               onImproveCV={handleImproveCVWrapper}
               onCopyRecommendations={handleCopyRecommendations}
               onExportJobReport={handleExportJobReportWrapper}
-              onGenerateCoverLetterChange={setGenerateCoverLetter}
               onImplementRecommendations={handleImplementRecommendationsWrapper}
             />
           )}
@@ -491,7 +487,6 @@ export const CVBuilderPage = () => {
           originalCVData={originalCVData || cvData}
           modifiedCVData={modifiedCVData || cvData}
           recommendations={parsedRecommendations}
-          coverLetter={coverLetter}
           selectedTemplate={selectedTemplate}
           isImplementing={isImplementing}
           onClose={() => setShowComparisonModal(false)}

@@ -19,14 +19,11 @@ export const useCVAnalysis = () => {
   const [errorMessage, setErrorMessage] = useState("")
 
   // New state for streamlined UX
-  const [generateCoverLetter, setGenerateCoverLetter] = useState(false)
   const [showComparisonModal, setShowComparisonModal] = useState(false)
   const [isImplementing, setIsImplementing] = useState(false)
   const [originalCVData, setOriginalCVData] = useState<CVData | null>(null)
   const [modifiedCVData, setModifiedCVData] = useState<CVData | null>(null)
   const [parsedRecommendations, setParsedRecommendations] = useState<Recommendation[]>([])
-  const [coverLetter, setCoverLetter] = useState("")
-  const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false)
 
   // Improve CV with AI
   const handleImproveCV = async (
@@ -208,31 +205,7 @@ Target Position: ${jobDescription.split("\n")[0] || "Position details in job des
       const parseData = await parseResponse.json()
       setParsedRecommendations(parseData.recommendations)
 
-      // Generate cover letter if requested
-      if (generateCoverLetter) {
-        setIsGeneratingCoverLetter(true)
-        try {
-          const cvText = generateCVText()
-          const coverLetterResponse = await fetch("/api/generate-cover-letter", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              jobPosting: jobDescription,
-              cvContent: cvText,
-            }),
-          })
 
-          if (coverLetterResponse.ok) {
-            const coverLetterData = await coverLetterResponse.json()
-            setCoverLetter(coverLetterData.coverLetter)
-          }
-        } catch (coverLetterError) {
-          console.error("Error generating cover letter:", coverLetterError)
-          // Don't fail the whole process if cover letter generation fails
-        } finally {
-          setIsGeneratingCoverLetter(false)
-        }
-      }
 
       // Implement all recommendations
       const implementResponse = await fetch("/api/implement-recommendations", {
@@ -293,16 +266,12 @@ Target Position: ${jobDescription.split("\n")[0] || "Position details in job des
     copySuccess,
     isCopied,
     errorMessage,
-    generateCoverLetter,
-    setGenerateCoverLetter,
     showComparisonModal,
     setShowComparisonModal,
     isImplementing,
     originalCVData,
     modifiedCVData,
     parsedRecommendations,
-    coverLetter,
-    isGeneratingCoverLetter,
     handleImproveCV,
     handleCopyRecommendations,
     handleExportJobReport,

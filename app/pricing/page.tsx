@@ -170,11 +170,7 @@ export default function PricingPage() {
                     : "border-gray-200 hover:border-blue-300"
                 }`}
               >
-                {plan.popular && (
-                  <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-teal-600 text-white px-4 py-1">
-                    Most Popular
-                  </Badge>
-                )}
+
                 {plan.savings && (
                   <Badge className="absolute -top-3 -right-3 bg-green-500 text-white px-2 py-1 text-xs">
                     {plan.savings}
@@ -185,6 +181,11 @@ export default function PricingPage() {
                   <div className={`w-12 h-12 rounded-lg mx-auto mb-4 flex items-center justify-center ${getTierColor(plan.tier)} ${plan.tier !== "free" ? "text-white" : "text-gray-600"}`}>
                     {getTierIcon(plan.tier)}
                   </div>
+                  {plan.popular && (
+                    <Badge className="mx-auto mb-2 bg-gradient-to-r from-blue-600 to-teal-600 text-white px-4 py-1">
+                      Most Popular
+                    </Badge>
+                  )}
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                   <p className="text-gray-600 mb-4">
                     {plan.tier === "free" 

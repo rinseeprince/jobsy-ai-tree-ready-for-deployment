@@ -80,6 +80,20 @@ const isSupabaseConfigured = (): boolean => {
   console.log("- Key length > 10:", (supabaseAnonKey?.length || 0) > 10)
   console.log("- Key is not placeholder:", supabaseAnonKey !== "your_supabase_anon_key")
 
+  // Additional validation for URL format
+  if (supabaseUrl && typeof supabaseUrl === "string") {
+    try {
+      const url = new URL(supabaseUrl)
+      console.log("- URL is valid:", true)
+      console.log("- URL protocol:", url.protocol)
+      console.log("- URL hostname:", url.hostname)
+      console.log("- URL pathname:", url.pathname)
+    } catch (error) {
+      console.log("- URL is valid:", false)
+      console.log("- URL validation error:", error)
+    }
+  }
+
   const isConfigured = Boolean(
     supabaseUrl &&
       supabaseAnonKey &&
@@ -104,7 +118,9 @@ const createSupabaseClient = () => {
 
   try {
     console.log("✅ Creating Supabase client with valid configuration")
-    return createClient(supabaseUrl!, supabaseAnonKey!)
+    // Ensure URL is properly formatted and doesn't have trailing slashes
+    const cleanUrl = supabaseUrl!.replace(/\/$/, '')
+    return createClient(cleanUrl, supabaseAnonKey!)
   } catch (error) {
     console.error("❌ Failed to create Supabase client:", error)
     return null
@@ -112,6 +128,14 @@ const createSupabaseClient = () => {
 }
 
 export const supabase = createSupabaseClient()
+
+// Helper function to ensure supabase client is available
+const getSupabaseClient = () => {
+  if (!isSupabaseReady || !supabase) {
+    throw new Error("Supabase not configured")
+  }
+  return supabase
+}
 
 // Log the configuration status
 console.log("🔧 Supabase Configuration Status:", {
@@ -152,9 +176,10 @@ export class ApplicationsService {
     }
 
     try {
+      const supabaseClient = getSupabaseClient()
       const {
         data: { user },
-      } = await supabase.auth.getUser()
+      } = await supabaseClient.auth.getUser()
 
       console.log("👤 User check:", { hasUser: !!user, userId: user?.id })
 
@@ -201,7 +226,7 @@ export class ApplicationsService {
         throw new Error("Applied date is required but is null")
       }
 
-      const { data, error } = await supabase.from("applications").insert(insertData).select().single()
+      const { data, error } = await supabaseClient.from("applications").insert(insertData).select().single()
 
       if (error) {
         console.error("❌ Supabase insert error details:", {
@@ -234,9 +259,10 @@ export class ApplicationsService {
       return []
     }
 
+    const supabaseClient = getSupabaseClient()
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabaseClient.auth.getUser()
 
     console.log("👤 User for applications:", { hasUser: !!user, userId: user?.id })
 
@@ -245,7 +271,7 @@ export class ApplicationsService {
       return []
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("applications")
       .select("*")
       .eq("user_id", user.id)
@@ -275,9 +301,10 @@ export class ApplicationsService {
       }
     }
 
+    const supabaseClient = getSupabaseClient()
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabaseClient.auth.getUser()
     if (!user) {
       return {
         total: 0,
@@ -287,10 +314,18 @@ export class ApplicationsService {
       }
     }
 
-    const result = await supabase.from("applications").select("status, created_at").eq("user_id", user.id)
-    const { data, error } = result
+    const { data, error } = await supabaseClient.from("applications").select("status, created_at").eq("user_id", user.id)
 
     if (error || !data) {
+      console.error("❌ Error fetching application stats:", error)
+      if (error) {
+        console.error("❌ Error details:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        })
+      }
       return {
         total: 0,
         thisMonth: 0,
@@ -451,7 +486,8 @@ export class ApplicationsService {
         updateData.notes = notes
       }
 
-      const { error } = await supabase.from("applications").update(updateData).eq("id", applicationId)
+      const supabaseClient = getSupabaseClient()
+      const { error } = await supabaseClient.from("applications").update(updateData).eq("id", applicationId)
 
       if (error) {
         console.error("❌ Supabase status update error:", error)
@@ -474,7 +510,8 @@ export class ApplicationsService {
     }
 
     try {
-      const { error } = await supabase.from("applications").delete().eq("id", applicationId)
+      const supabaseClient = getSupabaseClient()
+      const { error } = await supabaseClient.from("applications").delete().eq("id", applicationId)
 
       if (error) {
         console.error("❌ Supabase delete error:", error)
@@ -494,9 +531,10 @@ export class ApplicationsService {
     }
 
     try {
+      const supabaseClient = getSupabaseClient()
       const {
         data: { user },
-      } = await supabase.auth.getUser()
+      } = await supabaseClient.auth.getUser()
 
       if (!user) {
         return null
@@ -533,9 +571,10 @@ export class ApplicationsService {
     }
 
     try {
+      const supabaseClient = getSupabaseClient()
       const {
         data: { user },
-      } = await supabase.auth.getUser()
+      } = await supabaseClient.auth.getUser()
 
       if (!user) {
         console.error("❌ Cannot save CV: User not authenticated")
@@ -562,7 +601,7 @@ export class ApplicationsService {
         word_count: insertData.word_count,
       })
 
-      const { data, error } = await supabase.from("saved_cvs").insert(insertData).select().single()
+      const { data, error } = await supabaseClient.from("saved_cvs").insert(insertData).select().single()
 
       if (error) {
         console.error("❌ Supabase insert error:", error)
@@ -603,7 +642,8 @@ export class ApplicationsService {
         updateData.word_count = this.calculateWordCount(cvData.cv_data)
       }
 
-      const { data, error } = await supabase.from("saved_cvs").update(updateData).eq("id", cvId).select().single()
+      const supabaseClient = getSupabaseClient()
+      const { data, error } = await supabaseClient.from("saved_cvs").update(updateData).eq("id", cvId).select().single()
 
       if (error) {
         console.error("❌ Supabase update error:", error)
@@ -626,16 +666,17 @@ export class ApplicationsService {
       return []
     }
 
+    const supabaseClient = getSupabaseClient()
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabaseClient.auth.getUser()
 
     if (!user) {
       console.log("❌ No user found, returning empty array")
       return []
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("saved_cvs")
       .select("*")
       .eq("user_id", user.id)
@@ -657,15 +698,16 @@ export class ApplicationsService {
       return null
     }
 
+    const supabaseClient = getSupabaseClient()
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabaseClient.auth.getUser()
 
     if (!user) {
       return null
     }
 
-    const { data, error } = await supabase.from("saved_cvs").select("*").eq("id", cvId).eq("user_id", user.id).single()
+    const { data, error } = await supabaseClient.from("saved_cvs").select("*").eq("id", cvId).eq("user_id", user.id).single()
 
     if (error) {
       console.error("❌ Error fetching saved CV:", error)
@@ -683,7 +725,8 @@ export class ApplicationsService {
     }
 
     try {
-      const { error } = await supabase.from("saved_cvs").delete().eq("id", cvId)
+      const supabaseClient = getSupabaseClient()
+      const { error } = await supabaseClient.from("saved_cvs").delete().eq("id", cvId)
 
       if (error) {
         console.error("❌ Supabase delete error:", error)
@@ -734,9 +777,10 @@ export class ApplicationsService {
     }
 
     try {
+      const supabaseClient = getSupabaseClient()
       const {
         data: { user },
-      } = await supabase.auth.getUser()
+      } = await supabaseClient.auth.getUser()
 
       if (!user) {
         console.error("❌ Cannot update CV: User not authenticated")
@@ -753,7 +797,7 @@ export class ApplicationsService {
         updateData.word_count = this.calculateWordCount(cvData.cv_data)
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from("saved_cvs")
         .update(updateData)
         .eq("id", cvId)
@@ -794,9 +838,10 @@ export class ApplicationsService {
     }
 
     try {
+      const supabaseClient2 = getSupabaseClient()
       const {
         data: { user },
-      } = await supabase.auth.getUser()
+      } = await supabaseClient2.auth.getUser()
 
       if (!user) {
         console.error("❌ Cannot save cover letter: User not authenticated")
@@ -826,7 +871,7 @@ export class ApplicationsService {
         word_count: insertData.word_count,
       })
 
-      const { data, error } = await supabase.from("saved_cover_letters").insert(insertData).select().single()
+      const { data, error } = await supabaseClient2.from("saved_cover_letters").insert(insertData).select().single()
 
       if (error) {
         console.error("❌ Supabase insert error:", error)
@@ -849,16 +894,17 @@ export class ApplicationsService {
       return []
     }
 
+    const supabaseClient = getSupabaseClient()
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabaseClient.auth.getUser()
 
     if (!user) {
       console.log("❌ No user found, returning empty array")
       return []
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("saved_cover_letters")
       .select("*")
       .eq("user_id", user.id)
@@ -892,9 +938,10 @@ export class ApplicationsService {
     }
 
     try {
+      const supabaseClient = getSupabaseClient()
       const {
         data: { user },
-      } = await supabase.auth.getUser()
+      } = await supabaseClient.auth.getUser()
 
       if (!user) {
         console.error("❌ Cannot update cover letter: User not authenticated")
@@ -911,7 +958,7 @@ export class ApplicationsService {
         updateData.word_count = this.countWords(coverLetterData.content)
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from("saved_cover_letters")
         .update(updateData)
         .eq("id", coverLetterId)
@@ -940,7 +987,8 @@ export class ApplicationsService {
     }
 
     try {
-      const { error } = await supabase.from("saved_cover_letters").delete().eq("id", coverLetterId)
+      const supabaseClient3 = getSupabaseClient()
+      const { error } = await supabaseClient3.from("saved_cover_letters").delete().eq("id", coverLetterId)
 
       if (error) {
         console.error("❌ Supabase delete error:", error)
@@ -1007,3 +1055,4 @@ export class ApplicationsService {
       .filter((word) => word.length > 0).length
   }
 }
+

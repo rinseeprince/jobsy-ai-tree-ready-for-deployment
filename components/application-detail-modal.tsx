@@ -116,6 +116,18 @@ export function ApplicationDetailModal({ isOpen, onClose, application }: Applica
           <div className="space-y-4">
             <div>
               <h3 className="font-semibold mb-2 flex items-center">
+                <FileText className="w-4 h-4 mr-2" /> CV Content
+              </h3>
+              <div className="bg-white border border-gray-200 p-4 rounded-md max-h-96 overflow-y-auto">
+                <div 
+                  className="text-sm"
+                  dangerouslySetInnerHTML={{ __html: application.cv_content }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2 flex items-center">
                 <FileText className="w-4 h-4 mr-2" /> Cover Letter
               </h3>
               <div className="bg-gray-50 p-4 rounded-md max-h-64 overflow-y-auto">

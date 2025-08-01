@@ -25,12 +25,11 @@ interface CVOptimizeTabProps {
   isImproving: boolean
   improvementSuggestions: string
   isCopied: boolean
-  generateCoverLetter: boolean
+  isImplementing: boolean
   onJobDescriptionChange: (description: string) => void
   onImproveCV: () => void
   onCopyRecommendations: () => void
   onExportJobReport: () => void
-  onGenerateCoverLetterChange: (generate: boolean) => void
   onImplementRecommendations: () => void
 }
 
@@ -39,12 +38,11 @@ export const CVOptimizeTab = ({
   isImproving,
   improvementSuggestions,
   isCopied,
-  generateCoverLetter,
+  isImplementing,
   onJobDescriptionChange,
   onImproveCV,
   onCopyRecommendations,
   onExportJobReport,
-  onGenerateCoverLetterChange,
   onImplementRecommendations,
 }: CVOptimizeTabProps) => {
   return (
@@ -104,31 +102,7 @@ export const CVOptimizeTab = ({
               />
             </div>
 
-            {/* Cover Letter Toggle */}
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="generate-cover-letter"
-                    checked={generateCoverLetter}
-                    onChange={(e) => onGenerateCoverLetterChange(e.target.checked)}
-                    className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
-                  />
-                  <Label htmlFor="generate-cover-letter" className="text-sm font-medium text-purple-900">
-                    Generate tailored cover letter for this role
-                  </Label>
-                </div>
-                <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
-                  <Crown className="w-3 h-3 mr-1" />
-                  Pro
-                </Badge>
-              </div>
-              <p className="text-sm text-purple-700 mt-2 ml-6">
-                <FileText className="w-4 h-4 inline mr-1" />
-                AI will create a personalized cover letter based on your CV and this job description
-              </p>
-            </div>
+
 
             <Button
               onClick={onImproveCV}
@@ -235,10 +209,20 @@ export const CVOptimizeTab = ({
                 </p>
                 <Button
                   onClick={onImplementRecommendations}
+                  disabled={isImplementing}
                   className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-3"
                 >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Implement Recommendations
+                  {isImplementing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Implementing... (this could take up to 2 minutes)
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Implement Recommendations
+                    </>
+                  )}
                 </Button>
               </div>
 

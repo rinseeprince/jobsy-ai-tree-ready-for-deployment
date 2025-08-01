@@ -57,14 +57,14 @@ export function PricingCards() {
 
           {/* Pro Plan */}
           <Card className="relative border-2 border-blue-500 shadow-lg scale-105 transition-all duration-300 hover:shadow-xl">
-            <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-teal-600 text-white px-4 py-1">
-              Most Popular
-            </Badge>
-
             <CardHeader className="text-center pb-8">
               <div className="w-12 h-12 rounded-lg mx-auto mb-4 flex items-center justify-center bg-gradient-to-r from-blue-600 to-teal-600">
                 <Zap className="w-6 h-6 text-white" />
               </div>
+
+              <Badge className="mx-auto mb-2 bg-gradient-to-r from-blue-600 to-teal-600 text-white px-4 py-1">
+                Most Popular
+              </Badge>
 
               <h3 className="text-2xl font-bold text-gray-900 mb-2">Pro</h3>
               <p className="text-gray-600 mb-4">For active job seekers who want the best results</p>

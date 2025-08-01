@@ -1,25 +1,25 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabase, isSupabaseReady } from "@/lib/supabase"
 
+// Helper function to ensure supabase client is available
+const getSupabaseClient = () => {
+  if (!isSupabaseReady || !supabase) {
+    throw new Error("Supabase not configured")
+  }
+  return supabase
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     console.log("🔍 Testing user_roles table access...")
 
-    if (!isSupabaseReady || !supabase) {
-      return NextResponse.json({
-        success: false,
-        error: "Supabase not configured",
-        isSupabaseReady,
-        hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-        hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      })
-    }
-
+    const supabaseClient = getSupabaseClient()
+    
     // Get user from Supabase auth
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser()
+    } = await supabaseClient.auth.getUser()
 
     console.log("User:", user ? user.id : "None", "Auth error:", authError?.message)
 
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let basicAccess = false
     let basicError = null
     try {
-      const { data: basicData, error: basicErr } = await supabase
+      const { data: basicData, error: basicErr } = await supabaseClient
         .from("user_roles")
         .select("id")
         .limit(1)
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let userFilterError = null
     if (user) {
       try {
-        const { data: userData, error: userErr } = await supabase
+        const { data: userData, error: userErr } = await supabaseClient
           .from("user_roles")
           .select("role, expires_at, is_active")
           .eq("user_id", user.id)
@@ -65,9 +65,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let tableExists = false
     let tableError = null
     try {
-      const { data: tableData, error: tableErr } = await supabase
-        .from("user_roles")
-        .select("count", { count: "exact", head: true })
+              const { data: tableData, error: tableErr } = await supabaseClient
+          .from("user_roles")
+          .select("count", { count: "exact", head: true })
 
       tableExists = !tableErr
       tableError = tableErr?.message || tableErr?.code
@@ -82,9 +82,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let rlsError = null
     try {
       // Try to get all roles (this should be blocked by RLS if working correctly)
-      const { data: rlsData, error: rlsErr } = await supabase
-        .from("user_roles")
-        .select("*")
+              const { data: rlsData, error: rlsErr } = await supabaseClient
+          .from("user_roles")
+          .select("*")
 
       rlsTest = !rlsErr
       rlsError = rlsErr?.message || rlsErr?.code

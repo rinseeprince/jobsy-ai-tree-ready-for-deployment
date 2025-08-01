@@ -171,11 +171,7 @@ export function PaywallModal({ isOpen, onClose, paywallInfo }: PaywallModalProps
                     isPopular ? "border-blue-500 shadow-md scale-105" : "border-gray-200 hover:border-blue-300"
                   }`}
                 >
-                  {isPopular && (
-                    <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-teal-600 text-white px-4 py-1">
-                      Most Popular
-                    </Badge>
-                  )}
+
                   {plan.savings && (
                     <Badge className="absolute -top-3 -right-3 bg-green-500 text-white px-2 py-1 text-xs">
                       {plan.savings}
@@ -188,6 +184,11 @@ export function PaywallModal({ isOpen, onClose, paywallInfo }: PaywallModalProps
                     >
                       {getPlanIcon(plan.tier)}
                     </div>
+                    {isPopular && (
+                      <Badge className="mx-auto mb-2 bg-gradient-to-r from-blue-600 to-teal-600 text-white px-4 py-1">
+                        Most Popular
+                      </Badge>
+                    )}
                     <h3 className="text-xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                     <div className="mb-4">
                       <span className="text-3xl font-bold text-gray-900">${plan.price}</span>
