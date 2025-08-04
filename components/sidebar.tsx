@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react"
+import { Logo } from "./logo"
 
 interface SubNavigationItem {
   name: string
@@ -105,12 +106,7 @@ export function Sidebar() {
       <div className="flex min-h-0 flex-1 flex-col bg-white border-r border-gray-200">
         <div className="flex flex-1 flex-col pt-5 pb-4 overflow-y-auto">
           <div className="flex items-center flex-shrink-0 px-4">
-            <Link
-              href="/"
-              className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent"
-            >
-              Jobsy
-            </Link>
+            <Logo size="xl" logoIncludesText={true} />
           </div>
           <nav className="mt-8 flex-1 px-2 space-y-8">
             {navigation.map((section) => (

@@ -1,4 +1,5 @@
 import { supabase, isSupabaseReady } from "./supabase"
+import { EmailService } from "./email-service"
 
 // Helper function to ensure supabase client is available
 const getSupabaseClient = () => {
@@ -283,13 +284,13 @@ export class RolesService {
 
       console.log("Role grant result:", result)
 
-      // Send notification email (disabled for now to avoid console errors)
-      // try {
-      //   await this.sendRoleChangeNotification(email, role, notes)
-      // } catch (emailError) {
-      //   console.warn("Failed to send notification email:", emailError)
-      //   // Don't fail the whole operation if email fails
-      // }
+      // Send notification email
+      try {
+        await this.sendRoleChangeNotification(email, role, notes)
+      } catch (emailError) {
+        console.warn("Failed to send notification email:", emailError)
+        // Don't fail the whole operation if email fails
+      }
 
       return {
         success: true,
@@ -310,64 +311,98 @@ export class RolesService {
     }
 
     try {
-      // First try to get user ID from auth.users (using a function call to bypass RLS)
-      let userId: string | null = null
-      
-      try {
-        // Try to get user ID from profiles table first
-        const { data: userData, error: userError } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("email", email)
-          .single()
+      // Get current user info for the "granted by" field
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      const grantedBy = currentUser?.email || "Admin"
 
-        if (!userError && userData) {
-          userId = userData.id
-        }
-      } catch (profileError) {
-        // If profiles table doesn't exist or user not found, try to get from user_roles
-        console.warn("Could not find user profile for notification:", email)
-        
-        try {
-          const { data: roleData, error: roleError } = await supabase
-            .from("user_roles")
-            .select("user_id")
-            .eq("email", email)
-            .eq("is_active", true)
-            .single()
-
-          if (!roleError && roleData) {
-            userId = roleData.user_id
-          }
-        } catch (roleLookupError) {
-          console.warn("Could not find user in user_roles table either:", email)
-        }
+      // Get role info to determine expiration
+      let expiresAt: string | undefined
+      if (role === "super_user") {
+        const thirtyDaysFromNow = new Date()
+        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
+        expiresAt = thirtyDaysFromNow.toISOString()
       }
 
-      // If we found a user ID, create notification
-      if (userId) {
-        const notificationData = {
-          user_id: userId,
-          type: "role_change",
-          title: `Your JobsyAI access has been upgraded!`,
-          message: `You've been granted ${this.getRoleDisplayName(role)} access${role === "super_user" ? " for 30 days" : ""}.`,
-          data: {
-            role,
-            notes,
-            granted_at: new Date().toISOString(),
-          },
-          read: false,
-        }
+      // Send email notification
+      const roleName = this.getRoleDisplayName(role)
+      const success = await EmailService.sendRoleUpgradeConfirmation(
+        email,
+        roleName,
+        grantedBy,
+        new Date().toISOString(),
+        expiresAt,
+        notes
+      )
 
-        const { error: notificationError } = await supabase.from("user_notifications").insert(notificationData)
-
-        if (notificationError) {
-          console.warn("Failed to create notification record:", notificationError)
-        }
-
-        console.log("Role change notification sent to:", email, "Role:", role)
+      if (success) {
+        console.log("✅ Role upgrade email sent successfully to:", email)
       } else {
-        console.warn("Could not find user ID for notification, skipping notification for:", email)
+        console.warn("⚠️ Failed to send role upgrade email to:", email)
+      }
+
+      // Also create in-app notification
+      try {
+        // First try to get user ID from auth.users (using a function call to bypass RLS)
+        let userId: string | null = null
+        
+        try {
+          // Try to get user ID from profiles table first
+          const { data: userData, error: userError } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("email", email)
+            .single()
+
+          if (!userError && userData) {
+            userId = userData.id
+          }
+        } catch (profileError) {
+          // If profiles table doesn't exist or user not found, try to get from user_roles
+          console.warn("Could not find user profile for notification:", email)
+          
+          try {
+            const { data: roleData, error: roleError } = await supabase
+              .from("user_roles")
+              .select("user_id")
+              .eq("email", email)
+              .eq("is_active", true)
+              .single()
+
+            if (!roleError && roleData) {
+              userId = roleData.user_id
+            }
+          } catch (roleLookupError) {
+            console.warn("Could not find user in user_roles table either:", email)
+          }
+        }
+
+        // If we found a user ID, create notification
+        if (userId) {
+          const notificationData = {
+            user_id: userId,
+            type: "role_change",
+            title: `Your JobsyAI access has been upgraded!`,
+            message: `You've been granted ${roleName} access${role === "super_user" ? " for 30 days" : ""}.`,
+            data: {
+              role,
+              notes,
+              granted_at: new Date().toISOString(),
+            },
+            read: false,
+          }
+
+          const { error: notificationError } = await supabase.from("user_notifications").insert(notificationData)
+
+          if (notificationError) {
+            console.warn("Failed to create notification record:", notificationError)
+          }
+
+          console.log("Role change notification sent to:", email, "Role:", role)
+        } else {
+          console.warn("Could not find user ID for notification, skipping notification for:", email)
+        }
+      } catch (notificationError) {
+        console.warn("Failed to create in-app notification:", notificationError)
       }
     } catch (error) {
       console.error("Error sending role change notification:", error)

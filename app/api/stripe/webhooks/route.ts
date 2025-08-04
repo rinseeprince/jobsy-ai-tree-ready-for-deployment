@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabase, isSupabaseReady } from "@/lib/supabase"
 import { SubscriptionService } from "@/lib/subscription"
+import { EmailService } from "@/lib/email-service"
 
 // Initialize Stripe with graceful fallback
 let stripe: any = null
@@ -124,6 +125,63 @@ async function handleCheckoutSessionCompleted(session: any) {
 
   if (subscription) {
     console.log("✅ Subscription created in database:", subscription.id)
+    
+    // Send confirmation email
+    try {
+      const planName = planId.includes("premium") ? "Premium" : "Pro"
+      const planFeatures = planId.includes("premium") 
+        ? [
+            "Unlimited AI-powered CV analysis",
+            "Advanced ATS optimization",
+            "Priority support",
+            "Custom templates",
+            "Export to multiple formats"
+          ]
+        : [
+            "AI-powered CV analysis",
+            "ATS optimization",
+            "Standard support",
+            "Professional templates",
+            "PDF export"
+          ]
+      
+      const nextBillingDate = session.subscription 
+        ? new Date(session.subscription.current_period_end * 1000).toISOString()
+        : undefined
+
+      // Get user email from session or subscription
+      let userEmail = session.customer_details?.email
+      if (!userEmail && session.subscription) {
+        // Try to get email from customer
+        try {
+          const customer = await stripe.customers.retrieve(session.subscription.customer)
+          userEmail = customer.email
+        } catch (error) {
+          console.warn("Could not retrieve customer email:", error)
+        }
+      }
+
+      if (userEmail) {
+        const emailSuccess = await EmailService.sendSubscriptionConfirmation(
+          userEmail,
+          planName,
+          planFeatures,
+          new Date().toISOString(),
+          nextBillingDate
+        )
+
+        if (emailSuccess) {
+          console.log("✅ Subscription confirmation email sent to:", userEmail)
+        } else {
+          console.warn("⚠️ Failed to send subscription confirmation email to:", userEmail)
+        }
+      } else {
+        console.warn("⚠️ Could not determine user email for subscription confirmation")
+      }
+    } catch (emailError) {
+      console.warn("⚠️ Error sending subscription confirmation email:", emailError)
+      // Don't fail the whole operation if email fails
+    }
   } else {
     console.error("❌ Failed to create subscription in database")
   }

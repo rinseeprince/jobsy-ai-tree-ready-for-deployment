@@ -16,7 +16,7 @@ export function PricingCards() {
               </div>
 
               <h3 className="text-2xl font-bold text-gray-900 mb-2">Free</h3>
-              <p className="text-gray-600 mb-4">Perfect for trying out our AI-powered applications</p>
+              <p className="text-gray-600 mb-4">Perfect for trying out our AI-powered ATS-optimized applications</p>
 
               <div className="mb-6">
                 <span className="text-4xl font-bold text-gray-900">$0</span>
@@ -35,11 +35,11 @@ export function PricingCards() {
                   <ul className="space-y-2">
                     <li className="flex items-start">
                       <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                      <span className="text-gray-700">3 cover letters per month</span>
+                      <span className="text-gray-700">3 AI-generated cover letters per month</span>
                     </li>
                     <li className="flex items-start">
                       <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                      <span className="text-gray-700">Basic CV analysis</span>
+                      <span className="text-gray-700">Basic AI CV analysis</span>
                     </li>
                     <li className="flex items-start">
                       <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
@@ -67,7 +67,7 @@ export function PricingCards() {
               </Badge>
 
               <h3 className="text-2xl font-bold text-gray-900 mb-2">Pro</h3>
-              <p className="text-gray-600 mb-4">For active job seekers who want the best results</p>
+              <p className="text-gray-600 mb-4">For active job seekers who want AI-powered ATS optimization</p>
 
               <div className="mb-6">
                 <span className="text-4xl font-bold text-gray-900">$19</span>
@@ -89,11 +89,11 @@ export function PricingCards() {
                   <ul className="space-y-2">
                     <li className="flex items-start">
                       <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                      <span className="text-gray-700">Unlimited cover letters</span>
+                      <span className="text-gray-700">Unlimited AI-generated cover letters</span>
                     </li>
                     <li className="flex items-start">
                       <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                      <span className="text-gray-700">Advanced CV optimization</span>
+                      <span className="text-gray-700">Advanced AI CV optimization</span>
                     </li>
                     <li className="flex items-start">
                       <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
@@ -121,7 +121,7 @@ export function PricingCards() {
               </div>
 
               <h3 className="text-2xl font-bold text-gray-900 mb-2">Enterprise</h3>
-              <p className="text-gray-600 mb-4">For teams and career coaches helping multiple clients</p>
+              <p className="text-gray-600 mb-4">For teams and career coaches helping multiple clients with AI-powered applications</p>
 
               <div className="mb-6">
                 <span className="text-4xl font-bold text-gray-900">$99</span>

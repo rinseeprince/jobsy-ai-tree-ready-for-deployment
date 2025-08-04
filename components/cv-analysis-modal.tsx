@@ -306,9 +306,9 @@ function CVAnalysisModal({ isOpen, onClose, results, onReanalyze, cvData, onUpda
             <div>
               <h2 className="text-2xl font-bold flex items-center">
                 <Brain className="w-7 h-7 mr-3" />
-                CV Analysis Results
+                AI-Powered CV Analysis Results
               </h2>
-              <p className="text-purple-100 mt-2">AI-powered insights to improve your CV</p>
+              <p className="text-purple-100 mt-2">Advanced AI insights to optimize your CV for ATS systems</p>
             </div>
             <Button variant="ghost" size="sm" onClick={onClose} className="text-white hover:bg-white/20 rounded-full">
               <X className="w-6 h-6" />
@@ -1180,7 +1180,7 @@ function CVAnalysisModal({ isOpen, onClose, results, onReanalyze, cvData, onUpda
 
         {/* Footer */}
         <div className="border-t bg-gray-50 px-6 py-4 flex justify-between items-center">
-          <div className="text-sm text-gray-600">Analysis completed • Powered by AI</div>
+          <div className="text-sm text-gray-600">AI analysis completed • ATS optimization ready</div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={onClose}>
               Close

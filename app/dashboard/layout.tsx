@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { FloatingActionButton } from "@/components/floating-action-button"
+import { Logo } from "@/components/logo"
 
 export default function DashboardLayout({
   children,
@@ -28,17 +29,12 @@ export default function DashboardLayout({
     <div className="min-h-screen bg-gray-50">
       {/* Desktop Sidebar - hardcoded for now to test */}
       <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
-        <div className="flex min-h-0 flex-1 flex-col bg-white border-r border-gray-200">
-          <div className="flex flex-1 flex-col pt-5 pb-4 overflow-y-auto">
-            <div className="flex items-center flex-shrink-0 px-4">
-              <Link
-                href="/"
-                className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent"
-              >
-                Jobsy
-              </Link>
+        <div className="flex min-h-0 flex-1 flex-col border-r border-gray-200">
+          <div className="flex flex-1 flex-col pt-1 pb-4 overflow-y-auto">
+            <div className="flex items-center justify-start flex-shrink-0 px-4 py-1 bg-transparent" style={{ height: '60px' }}>
+              <Logo size="xl" logoIncludesText={true} />
             </div>
-            <nav className="mt-8 flex-1 px-2 space-y-8">
+                          <nav className="mt-4 flex-1 px-2 space-y-8">
               {/* Tools Section */}
               <div>
                 <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tools</h3>

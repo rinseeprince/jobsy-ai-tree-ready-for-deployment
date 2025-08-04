@@ -9,6 +9,7 @@ import { RolesService } from "@/lib/roles"
 import { supabase, isSupabaseReady } from "@/lib/supabase"
 import { useState, useEffect } from "react"
 import { Shield } from "lucide-react"
+import { Logo } from "./logo"
 
 export function Header() {
   const [user, setUser] = useState<any>(null)
@@ -90,12 +91,7 @@ export function Header() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">J</span>
-              </div>
-              <span className="font-bold text-xl text-gray-900">Jobsy</span>
-            </Link>
+            <Logo size="xl" logoIncludesText={true} />
           </div>
 
           <nav className="hidden md:flex items-center space-x-8">

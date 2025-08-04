@@ -354,11 +354,15 @@ export function AdminPanel({ currentUserId }: AdminPanelProps) {
                                 Revoke
                               </Button>
                               <Dialog open={revokeDialogOpen === user.user_id} onOpenChange={(open) => !open && setRevokeDialogOpen(null)}>
-                                <DialogContent>
+                                <DialogContent className="max-w-md w-full mx-4">
                                   <DialogHeader>
                                     <DialogTitle>Revoke Special Access</DialogTitle>
-                                    <DialogDescription>
-                                      Are you sure you want to revoke special access for <strong>{user.email}</strong>?
+                                    <DialogDescription className="text-sm leading-relaxed">
+                                      Are you sure you want to revoke special access for:
+                                      <br />
+                                      <strong className="text-red-600 break-all">{user.email}</strong>
+                                      <br />
+                                      <br />
                                       This action cannot be undone.
                                     </DialogDescription>
                                   </DialogHeader>

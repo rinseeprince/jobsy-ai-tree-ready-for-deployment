@@ -1073,9 +1073,9 @@ Analysis Date: ${new Date().toISOString()}
               <div>
                 <h2 className="text-2xl font-bold flex items-center">
                   <Brain className="w-7 h-7 mr-3" />
-                  CV Analysis Results
+                  AI-Powered CV Analysis Results
                 </h2>
-                <p className="text-purple-100 mt-2">AI-powered insights to improve your CV</p>
+                <p className="text-purple-100 mt-2">Advanced AI insights to optimize your CV for ATS systems</p>
               </div>
               <Button
                 variant="ghost"

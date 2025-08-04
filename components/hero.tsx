@@ -15,14 +15,13 @@ export function Hero() {
           <div className="space-y-8">
             <div className="space-y-4">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
-                Transform any job posting into{" "}
+                AI-Powered CV Generation{" "}
                 <span className="bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
-                  your perfect application
+                  Optimized for ATS Systems
                 </span>
               </h1>
               <p className="text-xl text-gray-600 leading-relaxed">
-                Upload a job description and your CV. Get a tailored cover letter and CV optimization instantly. No more
-                generic applications - every document is crafted specifically for the role you want.
+                Don't let your dream job slip away because of a generic CV or a rejected application. Our AI-driven platform transforms your CV and cover letter to speak the language recruiters love. Just upload your CV and a job description, and our smart engine does the rest. Every word is optimized to get you noticed, every application tailored to open doors.
               </p>
             </div>
 
@@ -73,7 +72,7 @@ export function Hero() {
                   <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
                     <div className="w-2 h-2 bg-white rounded-full"></div>
                   </div>
-                  <span className="text-sm font-medium text-gray-900">Job-specific applications in seconds</span>
+                  <span className="text-sm font-medium text-gray-900">AI-powered ATS optimization in seconds</span>
                 </div>
                 <div className="text-sm text-gray-500">•</div>
                 <div className="text-sm text-gray-600">3x higher interview rate</div>
