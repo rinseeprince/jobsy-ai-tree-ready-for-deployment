@@ -1,10 +1,11 @@
-import { createServerClient } from "@supabase/ssr"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  // TEMPORARILY DISABLED: All middleware protection
-  // TODO: Re-enable after fixing the session issue
+  // Simple middleware that allows all requests
+  console.log(`[Middleware] ${request.method} ${request.nextUrl.pathname}`)
+
+  // For now, allow all requests to pass through
   return NextResponse.next()
 }
 
@@ -16,8 +17,7 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
-     * - api routes (except auth-related ones)
      */
-    "/((?!_next/static|_next/image|favicon.ico|public|api/(?!auth)).*)",
+    "/((?!_next/static|_next/image|favicon.ico|public).*)",
   ],
-} 
+}
